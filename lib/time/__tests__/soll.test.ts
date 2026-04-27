@@ -26,8 +26,9 @@ describe("baseDailySollMinutes", () => {
 });
 
 describe("dailySollMinutes", () => {
-  it("returns 0 for HOLIDAY, weekend-off, and UNPAID", () => {
+  it("returns 0 for holiday/day-off and UNPAID kinds", () => {
     expect(dailySollMinutes("HOLIDAY", 2520)).toBe(0);
+    expect(dailySollMinutes("HOLIDAY_WORK", 2520)).toBe(0);
     expect(dailySollMinutes("WEEKEND_OFF", 2520)).toBe(0);
     expect(dailySollMinutes("UNPAID", 2520)).toBe(0);
   });
@@ -56,6 +57,7 @@ describe("anrechenbarIstMinutes", () => {
   it("returns plannedMinutes for normal work and weekend work", () => {
     expect(anrechenbarIstMinutes("WORK", 480, weekly)).toBe(480);
     expect(anrechenbarIstMinutes("WORK_ON_WEEKEND", 360, weekly)).toBe(360);
+    expect(anrechenbarIstMinutes("HOLIDAY_WORK", 240, weekly)).toBe(240);
   });
 
   it("credits Tagessoll back as Ist for VACATION/SICK/ACCIDENT/TZT", () => {

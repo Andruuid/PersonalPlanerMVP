@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { actualWorkMinutes, weeklyUezContribution } from "../overtime";
 
 describe("actualWorkMinutes", () => {
-  it("only counts WORK and WORK_ON_WEEKEND days", () => {
+  it("counts all work kinds including holiday work", () => {
     expect(
       actualWorkMinutes([
         { kind: "WORK", plannedMinutes: 480 },
@@ -10,9 +10,10 @@ describe("actualWorkMinutes", () => {
         { kind: "VACATION", plannedMinutes: 0 },
         { kind: "SICK", plannedMinutes: 0 },
         { kind: "WORK_ON_WEEKEND", plannedMinutes: 360 },
+        { kind: "HOLIDAY_WORK", plannedMinutes: 120 },
         { kind: "HOLIDAY", plannedMinutes: 0 },
       ]),
-    ).toBe(480 + 510 + 360);
+    ).toBe(480 + 510 + 360 + 120);
   });
 });
 

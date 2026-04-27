@@ -3,6 +3,7 @@ import { resolveDay, type PlanEntryInput, type DayKind } from "./priority";
 import {
   STANDARD_WORK_DAYS,
   anrechenbarIstMinutes,
+  baseDailySollMinutes,
   dailySollMinutes,
   type TztModel,
 } from "./soll";
@@ -19,6 +20,8 @@ export interface DayComputation {
   sollMinutes: number;
   istMinutes: number;
   plannedMinutes: number;
+  /** Spec visibility: holiday on a workday yields a day-credit equal to base Soll. */
+  holidayCreditMinutes: number;
   contributionMinutes: number;
 }
 
@@ -28,6 +31,10 @@ export interface WeeklyComputation {
   days: DayComputation[];
   totalSollMinutes: number;
   totalIstMinutes: number;
+  totalHolidayCreditMinutes: number;
+  holidayWorkMinutes: number;
+  holidayCompensationMinutes: number;
+  holidayErtOpen: boolean;
   weeklyZeitsaldoDeltaMinutes: number;
   weeklyWorkMinutes: number;
   weeklyUezDeltaMinutes: number;
@@ -99,6 +106,10 @@ export function computeWeeklyBalance(
       sollMinutes,
       istMinutes,
       plannedMinutes: resolved.plannedMinutes,
+      holidayCreditMinutes:
+        resolved.kind === "HOLIDAY" && !isWeekend
+          ? baseDailySollMinutes(config.weeklyTargetMinutes, standardWorkDays)
+          : 0,
       contributionMinutes: istMinutes - sollMinutes,
     };
     return dayCalc;
@@ -106,6 +117,16 @@ export function computeWeeklyBalance(
 
   const totalSoll = days.reduce((acc, d) => acc + d.sollMinutes, 0);
   const totalIst = days.reduce((acc, d) => acc + d.istMinutes, 0);
+  const totalHolidayCredit = days.reduce(
+    (acc, d) => acc + d.holidayCreditMinutes,
+    0,
+  );
+  const holidayWorkMinutes = days
+    .filter((d) => d.kind === "HOLIDAY_WORK")
+    .reduce((acc, d) => acc + d.plannedMinutes, 0);
+  const holidayCompensationMinutes =
+    holidayWorkMinutes > 0 && holidayWorkMinutes <= 300 ? holidayWorkMinutes : 0;
+  const holidayErtOpen = holidayWorkMinutes > 300;
   const weeklyWork = actualWorkMinutes(days);
   const nonWorkAnrechenbarIst = totalIst - weeklyWork;
   const cappedWorkForZeitsaldo = Math.min(weeklyWork, config.hazMinutesPerWeek);
@@ -120,6 +141,10 @@ export function computeWeeklyBalance(
     days,
     totalSollMinutes: totalSoll,
     totalIstMinutes: totalIst,
+    totalHolidayCreditMinutes: totalHolidayCredit,
+    holidayWorkMinutes,
+    holidayCompensationMinutes,
+    holidayErtOpen,
     weeklyZeitsaldoDeltaMinutes: weeklyZeitsaldoDelta,
     weeklyWorkMinutes: weeklyWork,
     weeklyUezDeltaMinutes: weeklyUez,

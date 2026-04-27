@@ -9,7 +9,11 @@ export function actualWorkMinutes(
 ): number {
   let total = 0;
   for (const d of days) {
-    if (d.kind === "WORK" || d.kind === "WORK_ON_WEEKEND") {
+    if (
+      d.kind === "WORK" ||
+      d.kind === "WORK_ON_WEEKEND" ||
+      d.kind === "HOLIDAY_WORK"
+    ) {
       total += d.plannedMinutes;
     }
   }

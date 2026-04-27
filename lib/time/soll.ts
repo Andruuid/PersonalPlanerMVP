@@ -29,6 +29,7 @@ export function dailySollMinutes(
 ): number {
   if (
     kind === "HOLIDAY" ||
+    kind === "HOLIDAY_WORK" ||
     kind === "WEEKEND_OFF" ||
     kind === "UNPAID" ||
     (kind === "TZT_ABSENCE" && tztModel === "TARGET_REDUCTION")
@@ -53,6 +54,7 @@ export function anrechenbarIstMinutes(
   switch (kind) {
     case "WORK":
     case "WORK_ON_WEEKEND":
+    case "HOLIDAY_WORK":
       return plannedMinutes;
     case "SICK":
     case "ACCIDENT":

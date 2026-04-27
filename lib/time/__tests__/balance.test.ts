@@ -42,6 +42,7 @@ describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
 
     expect(result.totalSollMinutes).toBe(2520);
     expect(result.totalIstMinutes).toBe(2520);
+    expect(result.totalHolidayCreditMinutes).toBe(0);
     expect(result.weeklyZeitsaldoDeltaMinutes).toBe(0);
     expect(result.weeklyWorkMinutes).toBe(2520);
     expect(result.weeklyUezDeltaMinutes).toBe(0);
@@ -71,6 +72,7 @@ describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
     // Ist = 5 × 600 + 360 = 3360.
     expect(result.totalSollMinutes).toBe(3024);
     expect(result.totalIstMinutes).toBe(3360);
+    expect(result.totalHolidayCreditMinutes).toBe(0);
     // Zeitsaldo sees only work up to HAZ: 2700 - 3024 = -324
     expect(result.weeklyZeitsaldoDeltaMinutes).toBe(-324);
     expect(result.weeklyWorkMinutes).toBe(3360);
@@ -94,6 +96,7 @@ describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
       FULL_PENSUM,
     );
     expect(result.weeklyZeitsaldoDeltaMinutes).toBe(0);
+    expect(result.totalHolidayCreditMinutes).toBe(0);
     expect(result.vacationDaysDebit).toBe(5);
   });
 
@@ -114,6 +117,7 @@ describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
       FULL_PENSUM,
     );
     expect(result.weeklyZeitsaldoDeltaMinutes).toBe(-504);
+    expect(result.totalHolidayCreditMinutes).toBe(0);
     expect(result.vacationDaysDebit).toBe(0);
   });
 
@@ -134,6 +138,7 @@ describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
       FULL_PENSUM,
     );
     expect(result.weeklyZeitsaldoDeltaMinutes).toBe(0);
+    expect(result.totalHolidayCreditMinutes).toBe(0);
     expect(result.vacationDaysDebit).toBe(0);
   });
 
@@ -153,6 +158,7 @@ describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
     expect(result.weeklyZeitsaldoDeltaMinutes).toBe(0);
     expect(result.totalSollMinutes).toBe(2016);
     expect(result.totalIstMinutes).toBe(2016);
+    expect(result.totalHolidayCreditMinutes).toBe(0);
   });
 
   it("unpaid leave reduces Soll to 0 — no contribution either way", () => {
@@ -174,6 +180,7 @@ describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
     // Soll: Mon=0, Tue-Fri=4×504, weekend=0 → 2016. Ist: 4×504. Delta = 0.
     expect(result.totalSollMinutes).toBe(2016);
     expect(result.totalIstMinutes).toBe(2016);
+    expect(result.totalHolidayCreditMinutes).toBe(0);
     expect(result.weeklyZeitsaldoDeltaMinutes).toBe(0);
   });
 
@@ -196,12 +203,63 @@ describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
       holidays,
       FULL_PENSUM,
     );
-    // Mon collapsed to HOLIDAY → Soll 0, Ist 0. Vacation count must be 0 — the
+    // Mon collapsed to HOLIDAY → Soll 0, Ist 0, but holiday credit is surfaced
+    // separately for UI/details. Vacation count must be 0 — the
     // employee shouldn't lose a vacation day because it fell on a public
     // holiday.
     expect(result.days[0].kind).toBe("HOLIDAY");
+    expect(result.days[0].holidayCreditMinutes).toBe(504);
+    expect(result.totalHolidayCreditMinutes).toBe(504);
     expect(result.vacationDaysDebit).toBe(0);
     expect(result.weeklyZeitsaldoDeltaMinutes).toBe(0);
+  });
+
+  it("handles holiday work <= 5h with equal compensation minutes", () => {
+    const days = isoWeekDays(YEAR, WEEK);
+    const holidays = buildHolidayLookup([
+      { date: new Date(`${days[0].iso}T00:00:00Z`), name: "Test Holiday" },
+    ]);
+    const entries = asEntries({
+      [days[0].iso]: { kind: "SHIFT", plannedMinutes: 300 },
+      [days[1].iso]: { kind: "SHIFT", plannedMinutes: 504 },
+      [days[2].iso]: { kind: "SHIFT", plannedMinutes: 504 },
+      [days[3].iso]: { kind: "SHIFT", plannedMinutes: 504 },
+      [days[4].iso]: { kind: "SHIFT", plannedMinutes: 504 },
+    });
+    const result = computeWeeklyBalance(
+      YEAR,
+      WEEK,
+      entries,
+      holidays,
+      FULL_PENSUM,
+    );
+
+    expect(result.days[0].kind).toBe("HOLIDAY_WORK");
+    expect(result.holidayWorkMinutes).toBe(300);
+    expect(result.holidayCompensationMinutes).toBe(300);
+    expect(result.holidayErtOpen).toBe(false);
+  });
+
+  it("opens ERT for holiday work > 5h without compensation minutes", () => {
+    const days = isoWeekDays(YEAR, WEEK);
+    const holidays = buildHolidayLookup([
+      { date: new Date(`${days[0].iso}T00:00:00Z`), name: "Test Holiday" },
+    ]);
+    const entries = asEntries({
+      [days[0].iso]: { kind: "SHIFT", plannedMinutes: 360 },
+    });
+    const result = computeWeeklyBalance(
+      YEAR,
+      WEEK,
+      entries,
+      holidays,
+      FULL_PENSUM,
+    );
+
+    expect(result.days[0].kind).toBe("HOLIDAY_WORK");
+    expect(result.holidayWorkMinutes).toBe(360);
+    expect(result.holidayCompensationMinutes).toBe(0);
+    expect(result.holidayErtOpen).toBe(true);
   });
 
   it("missing weekday entries leave a negative delta (employee was scheduled but did nothing)", () => {
@@ -218,6 +276,7 @@ describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
       noHolidays,
       FULL_PENSUM,
     );
+    expect(result.totalHolidayCreditMinutes).toBe(0);
     expect(result.weeklyZeitsaldoDeltaMinutes).toBe(2 * 504 - 2520);
   });
 });
@@ -239,6 +298,7 @@ describe("computeWeeklyBalance — partial pensum", () => {
     );
     expect(result.totalSollMinutes).toBe(1512);
     expect(result.totalIstMinutes).toBe(1512);
+    expect(result.totalHolidayCreditMinutes).toBe(0);
     expect(result.weeklyZeitsaldoDeltaMinutes).toBe(0);
   });
 });

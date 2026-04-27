@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { resolveDay } from "../priority";
 
 describe("resolveDay", () => {
-  it("treats holidays as HOLIDAY regardless of plan entry", () => {
+  it("treats holidays as HOLIDAY when there is no holiday shift", () => {
     expect(resolveDay(null, true, false).kind).toBe("HOLIDAY");
     expect(
       resolveDay(
@@ -17,7 +17,7 @@ describe("resolveDay", () => {
         true,
         false,
       ).kind,
-    ).toBe("HOLIDAY");
+    ).toBe("HOLIDAY_WORK");
   });
 
   it("returns WEEKEND_OFF on weekends with no shift", () => {
