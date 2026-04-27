@@ -68,7 +68,13 @@ export async function approveRequestAction(
       const year = getISOWeekYear(day);
       const weekNumber = getISOWeek(day);
       const weekRow = await tx.week.findUnique({
-        where: { year_weekNumber: { year, weekNumber } },
+        where: {
+          tenantId_year_weekNumber: {
+            tenantId: admin.tenantId,
+            year,
+            weekNumber,
+          },
+        },
       });
       const week = weekRow
         ? weekRow.deletedAt
@@ -78,7 +84,7 @@ export async function approveRequestAction(
             })
           : weekRow
         : await tx.week.create({
-            data: { year, weekNumber, status: "DRAFT" },
+            data: { tenantId: admin.tenantId, year, weekNumber, status: "DRAFT" },
           });
 
       if (week.status === "CLOSED") {

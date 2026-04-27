@@ -33,8 +33,7 @@ async function ensureAuditLogAppendOnly(prisma: PrismaClient): Promise<void> {
 // ---------------------------------------------------------------------------
 
 export interface AuditPayload {
-  /** Single-tenant default until multi-tenant is introduced. */
-  tenantId?: string;
+  tenantId: string;
   userId: string;
   action: string;
   entity: string;
@@ -53,7 +52,7 @@ export async function writeAuditCore(
   await ensureAuditLogAppendOnly(prisma);
   await prisma.auditLog.create({
     data: {
-      tenantId: payload.tenantId ?? "default",
+      tenantId: payload.tenantId,
       userId: payload.userId,
       action: payload.action,
       entity: payload.entity,
@@ -205,25 +204,33 @@ export interface AuditFacets {
 
 export async function loadAuditFacets(
   prisma: PrismaClient,
+  tenantId?: string,
 ): Promise<AuditFacets> {
+  const auditWhere = tenantId ? { tenantId } : undefined;
+  const userWhere = tenantId
+    ? { tenantId, auditLogs: { some: { tenantId } } }
+    : { auditLogs: { some: {} } };
   const [tenantRows, entityRows, actionRows, userRows] = await Promise.all([
     prisma.auditLog.findMany({
+      where: auditWhere,
       distinct: ["tenantId"],
       select: { tenantId: true },
       orderBy: { tenantId: "asc" },
     }),
     prisma.auditLog.findMany({
+      where: auditWhere,
       distinct: ["entity"],
       select: { entity: true },
       orderBy: { entity: "asc" },
     }),
     prisma.auditLog.findMany({
+      where: auditWhere,
       distinct: ["action"],
       select: { action: true },
       orderBy: { action: "asc" },
     }),
     prisma.user.findMany({
-      where: { auditLogs: { some: {} } },
+      where: userWhere,
       select: { id: true, email: true },
       orderBy: { email: "asc" },
     }),

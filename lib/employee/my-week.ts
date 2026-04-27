@@ -9,6 +9,7 @@ import {
 } from "@/lib/shift-style";
 import type { WeekSnapshot } from "@/server/weeks";
 import type { MyDayView, MyWeekHeader } from "@/components/employee/types";
+import type { SessionUser } from "@/server/_shared";
 
 const ABSENCE_LABEL: Record<string, string> = {
   VACATION: "Ferien",
@@ -57,6 +58,7 @@ interface ResolveOptions {
  * The page reads only PublishedSnapshot so reset-to-draft preserves the view.
  */
 export async function loadMyWeek(
+  user: Pick<SessionUser, "tenantId">,
   employeeId: string,
   locationId: string,
   current: { year: number; weekNumber: number },
@@ -66,7 +68,7 @@ export async function loadMyWeek(
   const weekNumber = options.weekNumber ?? current.weekNumber;
 
   const week = await prisma.week.findUnique({
-    where: { year_weekNumber: { year, weekNumber } },
+    where: { tenantId_year_weekNumber: { tenantId: user.tenantId, year, weekNumber } },
     include: {
       snapshots: {
         orderBy: { publishedAt: "desc" },
@@ -85,6 +87,7 @@ export async function loadMyWeek(
 
   const holidayRows = await prisma.holiday.findMany({
     where: {
+      tenantId: user.tenantId,
       locationId,
       date: { gte: startDate, lte: endDate },
     },

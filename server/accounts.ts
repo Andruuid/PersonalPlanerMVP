@@ -9,6 +9,7 @@ import type {
   BookingType,
 } from "@/lib/generated/prisma/enums";
 import { isoDateString } from "@/lib/time/week";
+import type { SessionUser } from "./_shared";
 
 export interface AccountSummary {
   accountType: AccountType;
@@ -44,11 +45,12 @@ const DEFAULT_UNITS: Record<AccountType, AccountUnit> = {
  * accounts. Pure read — does not mutate.
  */
 export async function loadAccountsForEmployee(
+  user: Pick<SessionUser, "tenantId">,
   employeeId: string,
   year: number,
 ): Promise<Record<AccountType, AccountSummary>> {
   const balances = await prisma.accountBalance.findMany({
-    where: { employeeId, year },
+    where: { tenantId: user.tenantId, employeeId, year },
   });
   const map: Record<AccountType, AccountSummary> = {
     ZEITSALDO: emptySummary("ZEITSALDO"),
@@ -98,16 +100,17 @@ export interface AdminAccountsRow {
 
 /** Loads the per-employee account table the admin Zeitkonten page renders. */
 export async function loadAdminAccountsTable(
+  user: Pick<SessionUser, "tenantId">,
   year: number,
 ): Promise<AdminAccountsRow[]> {
   const employees = await prisma.employee.findMany({
-    where: { deletedAt: null },
+    where: { tenantId: user.tenantId, deletedAt: null },
     orderBy: [{ isActive: "desc" }, { lastName: "asc" }, { firstName: "asc" }],
   });
   if (employees.length === 0) return [];
 
   const balances = await prisma.accountBalance.findMany({
-    where: { year, employeeId: { in: employees.map((e) => e.id) } },
+    where: { tenantId: user.tenantId, year, employeeId: { in: employees.map((e) => e.id) } },
   });
 
   const byEmployee = new Map<string, typeof balances>();
@@ -118,7 +121,7 @@ export async function loadAdminAccountsTable(
   }
 
   const closedWeeks = await prisma.week.findMany({
-    where: { year, status: "CLOSED", deletedAt: null },
+    where: { tenantId: user.tenantId, year, status: "CLOSED", deletedAt: null },
     select: { id: true, year: true, weekNumber: true },
   });
   const planEntries = await prisma.planEntry.findMany({
@@ -134,6 +137,7 @@ export async function loadAdminAccountsTable(
   });
   const holidays = await prisma.holiday.findMany({
     where: {
+      tenantId: user.tenantId,
       locationId: { in: employees.map((e) => e.locationId) },
       date: { gte: new Date(year - 1, 11, 1), lt: new Date(year + 1, 1, 1) },
     },
@@ -221,10 +225,12 @@ export async function loadAdminAccountsTable(
 
 /** Booking history for an employee, optionally filtered to a single year. */
 export async function loadBookingHistory(
+  user: Pick<SessionUser, "tenantId">,
   employeeId: string,
   options: { year?: number; limit?: number } = {},
 ): Promise<BookingHistoryRow[]> {
-  const where: { employeeId: string; date?: { gte: Date; lt: Date } } = {
+  const where: { tenantId: string; employeeId: string; date?: { gte: Date; lt: Date } } = {
+    tenantId: user.tenantId,
     employeeId,
   };
   if (options.year !== undefined) {

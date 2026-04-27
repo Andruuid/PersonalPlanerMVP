@@ -25,6 +25,7 @@ import {
 import { computeWeeklyBalance } from "@/lib/time/balance";
 import { buildHolidayLookup } from "@/lib/time/holidays";
 import type { PlanEntryByDate } from "@/lib/time/balance";
+import { requireAdmin } from "@/server/_shared";
 
 export const metadata = { title: "Wochenplanung · PersonalPlaner" };
 
@@ -155,10 +156,11 @@ function rangeLabel(startDate: Date, endDate: Date): string {
 }
 
 export default async function PlanningPage({ searchParams }: PageProps) {
+  const admin = await requireAdmin();
   const raw = await searchParams;
   const { year, weekNumber } = pickWeek(raw);
 
-  const week = await getOrCreateWeek(year, weekNumber);
+  const week = await getOrCreateWeek(admin.tenantId, year, weekNumber);
   const days = isoWeekDays(year, weekNumber);
   const startDate = startOfIsoWeek(year, weekNumber);
   const endDate = days[6].date;
@@ -166,18 +168,18 @@ export default async function PlanningPage({ searchParams }: PageProps) {
   const [employees, services, planEntries, openRequests, locations] =
     await Promise.all([
       prisma.employee.findMany({
-        where: { isActive: true },
+        where: { tenantId: admin.tenantId, isActive: true },
         orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
         include: {
           location: { select: { name: true } },
         },
       }),
       prisma.serviceTemplate.findMany({
-        where: { isActive: true },
+        where: { tenantId: admin.tenantId, isActive: true },
         orderBy: { name: "asc" },
       }),
       prisma.planEntry.findMany({
-        where: { weekId: week.id },
+        where: { weekId: week.id, employee: { tenantId: admin.tenantId } },
         include: {
           serviceTemplate: {
             select: {
@@ -194,6 +196,7 @@ export default async function PlanningPage({ searchParams }: PageProps) {
       }),
       prisma.absenceRequest.findMany({
         where: {
+          tenantId: admin.tenantId,
           OR: [
             { status: "OPEN" },
             {
@@ -211,7 +214,7 @@ export default async function PlanningPage({ searchParams }: PageProps) {
           employee: { select: { firstName: true, lastName: true } },
         },
       }),
-      prisma.location.findMany({ orderBy: { name: "asc" }, take: 1 }),
+      prisma.location.findMany({ where: { tenantId: admin.tenantId }, orderBy: { name: "asc" }, take: 1 }),
     ]);
 
   const entries: EntryMap = {};
@@ -236,6 +239,7 @@ export default async function PlanningPage({ searchParams }: PageProps) {
   const locationIds = Array.from(new Set(employees.map((e) => e.locationId)));
   const holidays = await prisma.holiday.findMany({
     where: {
+      tenantId: admin.tenantId,
       locationId: { in: locationIds },
       date: {
         gte: new Date(week.year - 1, 11, 1),

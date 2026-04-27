@@ -10,8 +10,8 @@ export async function GET() {
   }
 
   const employeeId = session.user.employeeId;
-  const employee = await prisma.employee.findUnique({
-    where: { id: employeeId },
+  const employee = await prisma.employee.findFirst({
+    where: { id: employeeId, tenantId: session.user.tenantId },
     include: {
       user: { select: { id: true, email: true, role: true, isActive: true } },
       accountBalances: true,

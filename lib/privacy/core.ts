@@ -3,6 +3,7 @@ import type { PrismaClient } from "@/lib/generated/prisma/client";
 export async function createPrivacyRequest(
   prisma: PrismaClient,
   input: {
+    tenantId: string;
     employeeId: string;
     type: "EXPORT" | "ERASURE";
     note?: string | null;
@@ -10,6 +11,7 @@ export async function createPrivacyRequest(
 ) {
   return prisma.privacyRequest.create({
     data: {
+      tenantId: input.tenantId,
       employeeId: input.employeeId,
       type: input.type,
       status: "OPEN",
@@ -21,14 +23,15 @@ export async function createPrivacyRequest(
 export async function decidePrivacyRequest(
   prisma: PrismaClient,
   input: {
+    tenantId: string;
     requestId: string;
     status: "APPROVED" | "REJECTED" | "COMPLETED";
     decidedById: string;
     note?: string | null;
   },
 ) {
-  const existing = await prisma.privacyRequest.findUnique({
-    where: { id: input.requestId },
+  const existing = await prisma.privacyRequest.findFirst({
+    where: { id: input.requestId, tenantId: input.tenantId },
   });
   if (!existing) return null;
 

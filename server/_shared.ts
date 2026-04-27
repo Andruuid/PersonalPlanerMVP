@@ -7,6 +7,7 @@ export interface SessionUser {
   id: string;
   email: string;
   role: Role;
+  tenantId: string;
   employeeId?: string | null;
 }
 
@@ -26,6 +27,7 @@ export async function requireAdmin(): Promise<SessionUser> {
     id: session.user.id,
     email: session.user.email ?? "",
     role: session.user.role,
+    tenantId: session.user.tenantId,
     employeeId: session.user.employeeId ?? null,
   };
 }
@@ -42,6 +44,7 @@ export async function requireEmployee(): Promise<SessionUser> {
     id: session.user.id,
     email: session.user.email ?? "",
     role: session.user.role,
+    tenantId: session.user.tenantId,
     employeeId: session.user.employeeId,
   };
 }

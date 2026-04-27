@@ -48,8 +48,8 @@ export default async function MyWeekPage({ searchParams }: PageProps) {
 
   const employee = await prisma.employee.findFirst({
     where: isAdminPreview
-      ? { id: params.employee }
-      : { userId: session.user.id },
+      ? { id: params.employee, tenantId: session.user.tenantId }
+      : { userId: session.user.id, tenantId: session.user.tenantId },
     include: {
       location: { select: { id: true, name: true } },
     },
@@ -67,6 +67,7 @@ export default async function MyWeekPage({ searchParams }: PageProps) {
   const current = currentIsoWeek();
   const picked = pickWeek(params);
   const { header, days } = await loadMyWeek(
+    session.user,
     employee.id,
     employee.locationId,
     current,
@@ -74,8 +75,8 @@ export default async function MyWeekPage({ searchParams }: PageProps) {
   );
 
   const [accounts, requests] = await Promise.all([
-    loadMyAccounts(employee.id, picked.year),
-    loadMyRequests(employee.id, { limit: 5 }),
+    loadMyAccounts(session.user, employee.id, picked.year),
+    loadMyRequests(session.user, employee.id, { limit: 5 }),
   ]);
 
   const prevWeek = shiftWeek(picked, -1);

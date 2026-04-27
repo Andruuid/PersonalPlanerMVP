@@ -12,6 +12,7 @@ import {
   type AuditTableRow,
 } from "@/components/admin/audit/audit-table";
 import { AuditPagination } from "@/components/admin/audit/audit-pagination";
+import { requireAdmin } from "@/server/_shared";
 
 export const metadata = { title: "Audit-Log · PersonalPlaner" };
 
@@ -39,9 +40,11 @@ function pickPage(raw: string | undefined): number {
 }
 
 export default async function AuditPage({ searchParams }: PageProps) {
+  const admin = await requireAdmin();
   const raw = await searchParams;
 
   const filter: AuditFilter = {
+    tenantId: admin.tenantId,
     userId: raw.user && raw.user !== "ALL" ? raw.user : undefined,
     entity: raw.entity && raw.entity !== "ALL" ? raw.entity : undefined,
     action: raw.action && raw.action !== "ALL" ? raw.action : undefined,
@@ -52,7 +55,7 @@ export default async function AuditPage({ searchParams }: PageProps) {
   const page = pickPage(raw.page);
 
   const [facets, list] = await Promise.all([
-    loadAuditFacets(prisma),
+    loadAuditFacets(prisma, admin.tenantId),
     listAuditLogs(prisma, filter, { page, pageSize: PAGE_SIZE }),
   ]);
 

@@ -32,8 +32,8 @@ export default async function MyAccountsPage({ searchParams }: PageProps) {
 
   const employee = await prisma.employee.findFirst({
     where: isAdminPreview
-      ? { id: params.employee }
-      : { userId: session.user.id },
+      ? { id: params.employee, tenantId: session.user.tenantId }
+      : { userId: session.user.id, tenantId: session.user.tenantId },
     select: { id: true, firstName: true, lastName: true, roleLabel: true },
   });
 
@@ -52,8 +52,8 @@ export default async function MyAccountsPage({ searchParams }: PageProps) {
   }
 
   const [accounts, history] = await Promise.all([
-    loadMyAccounts(employee.id, year),
-    loadBookingHistory(employee.id, { year }),
+    loadMyAccounts(session.user, employee.id, year),
+    loadBookingHistory(session.user, employee.id, { year }),
   ]);
 
   const currentYear = new Date().getFullYear();
