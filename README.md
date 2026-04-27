@@ -51,6 +51,7 @@ Admin landet nach dem Login auf `/dashboard`, Mitarbeitende auf `/my-week`.
 | `npm run db:reset`    | DB zurücksetzen + Seed                             |
 | `npm run db:seed`     | Seed-Daten einspielen                              |
 | `npm run db:studio`   | Prisma Studio                                      |
+| `npm run db:push:libsql` | Migrationen auf eine libSQL/Turso-DB anwenden  |
 
 ## Datenmodell-Highlights
 
@@ -79,21 +80,34 @@ Die App läuft lokal mit SQLite und auf Netlify mit einer gehosteten DB
 Der Code nutzt bereits `@prisma/adapter-libsql`, daher braucht es keinen
 Provider-Wechsel.
 
-1. Turso-DB anlegen (`turso db create personalplaner-mvp`) und
-   `DATABASE_URL` (`libsql://...`) sowie `DATABASE_AUTH_TOKEN`
-   (`turso db tokens create personalplaner-mvp`) notieren.
+1. DB und Token in der [Turso-Web-UI](https://app.turso.tech) anlegen
+   (Region z. B. `aws-eu-west-1`) und `DATABASE_URL` (`libsql://...`)
+   sowie das ausgegebene `DATABASE_AUTH_TOKEN` notieren.
+   *(Die Turso-CLI hat kein Windows-Binary, deshalb läuft der ganze
+   Setup-Schritt über die Web-UI.)*
 2. In Netlify (Site settings → Environment variables) setzen:
    - `DATABASE_URL` = `libsql://...`
    - `DATABASE_AUTH_TOKEN` = `<token>`
-   - `AUTH_SECRET` = `openssl rand -base64 32`
-3. Schema einmalig pushen (lokal mit gesetzten Env-Variablen):
+   - `AUTH_SECRET` = mit `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` erzeugen
+3. Lokal ein `.env.local` anlegen (gitignored) und das Schema sowie die
+   Seed-Daten einmalig in die Turso-DB schreiben:
 
    ```powershell
-   $env:DATABASE_URL="libsql://..."
-   $env:DATABASE_AUTH_TOKEN="..."
-   npx prisma db push
-   npm run db:seed
+   # .env.local
+   DATABASE_URL="libsql://..."
+   DATABASE_AUTH_TOKEN="..."
    ```
+
+   ```powershell
+   npm run db:push:libsql   # wendet prisma/migrations/* auf Turso an
+   npm run db:seed          # demo-Konten + Stammdaten
+   ```
+
+   `db:push:libsql` ist ein kleines Skript (`scripts/db-push-libsql.mts`),
+   das die Migrations-SQL via `@libsql/client` ausführt und in einer
+   Tracking-Tabelle (`_prisma_libsql_migrations`) festhält. Das ist
+   nötig, weil Prisma 7 `prisma db push` nicht mehr direkt gegen
+   `libsql://`-URLs kann.
 4. Auf Netlify deployen — `netlify.toml` ruft automatisch
    `npx prisma generate && next build` auf.
 
