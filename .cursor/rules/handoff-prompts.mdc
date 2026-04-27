@@ -1,0 +1,43 @@
+---
+description: How to write handoff prompts that resume work in a fresh agent context
+alwaysApply: true
+---
+
+# Handoff prompts to a fresh agent
+
+Keep them small — pointer + delta, not a transcript.
+
+A fresh agent already has:
+
+- Workspace `AGENTS.md` and `.cursor/rules/` (auto-loaded)
+- User rules from Cursor settings (auto-loaded)
+- The codebase via Read / Glob / SemanticSearch
+- Git history via `git log`
+
+Include in a handoff prompt only what is NOT discoverable from the
+above:
+
+- Path to the authoritative spec (plan file, ticket, design doc)
+- Which phase / task / scope to start
+- Decisions made in chat but not yet in the spec (branch strategy,
+  acceptance changes, side-quest learnings worth carrying forward)
+
+If a draft handoff prompt is summarizing the tech stack, recent commits,
+file locations, conventions, or restating workspace rules: delete those
+sections. The agent will discover or already-have them. Restating them
+just risks drift and burns tokens.
+
+## Good
+
+```
+Read <path-to-plan>.md in full, then start Phase N — <title>. Switch to
+agent mode and follow the Runbook. Update todos as you go.
+
+Notes from the previous session: <one or two bullets of decisions or
+side-quests that aren't in the plan>.
+```
+
+## Bad
+
+A 100-line prompt that re-summarizes the tech stack, recent commits,
+and coding conventions before getting to the actual task.
