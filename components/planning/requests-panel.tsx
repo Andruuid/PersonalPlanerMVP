@@ -20,6 +20,7 @@ const TYPE_TITLES: Record<RequestView["type"], string> = {
   FREE_REQUESTED: "Freiwunsch",
   TZT: "TZT-Antrag",
   FREE_DAY: "Freier Tag",
+  PARENTAL_CARE: "Eltern-/Betreuungsurlaub",
 };
 
 const STATUS_BADGE: Record<RequestView["status"], string> = {

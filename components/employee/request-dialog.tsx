@@ -34,6 +34,8 @@ const DESCRIPTIONS: Record<RequestType, string> = {
   TZT: "TZT erfassen — geplante TZT-Tage zur Genehmigung beantragen.",
   FREE_DAY:
     "Freier Tag — unbezahlt freier Tag, sofern keine Sollzeit besteht.",
+  PARENTAL_CARE:
+    "Eltern-/Betreuungsurlaub — wird bei Genehmigung aus dem gleichnamigen Kontingentkonto bezogen.",
 };
 
 export function RequestDialog({ open, type, onOpenChange }: RequestDialogProps) {

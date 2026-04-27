@@ -140,6 +140,55 @@ describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
     expect(result.weeklyZeitsaldoDeltaMinutes).toBe(0);
     expect(result.totalHolidayCreditMinutes).toBe(0);
     expect(result.vacationDaysDebit).toBe(0);
+    expect(result.parentalCareDaysDebit).toBe(0);
+  });
+
+  it("parental/care leave is anrechenbar and debits its own day counter", () => {
+    const days = isoWeekDays(YEAR, WEEK);
+    const entries = asEntries({
+      [days[0].iso]: {
+        kind: "ABSENCE",
+        absenceType: "PARENTAL_CARE",
+        plannedMinutes: 0,
+      },
+      [days[1].iso]: { kind: "SHIFT", plannedMinutes: 504 },
+      [days[2].iso]: { kind: "SHIFT", plannedMinutes: 504 },
+      [days[3].iso]: { kind: "SHIFT", plannedMinutes: 504 },
+      [days[4].iso]: { kind: "SHIFT", plannedMinutes: 504 },
+    });
+    const result = computeWeeklyBalance(
+      YEAR,
+      WEEK,
+      entries,
+      noHolidays,
+      FULL_PENSUM,
+    );
+    expect(result.weeklyZeitsaldoDeltaMinutes).toBe(0);
+    expect(result.vacationDaysDebit).toBe(0);
+    expect(result.parentalCareDaysDebit).toBe(1);
+  });
+
+  it("military/civil service fulfills day soll on normal weekdays", () => {
+    const days = isoWeekDays(YEAR, WEEK);
+    const entries = asEntries({
+      [days[0].iso]: {
+        kind: "ABSENCE",
+        absenceType: "MILITARY_SERVICE",
+        plannedMinutes: 0,
+      },
+      [days[1].iso]: { kind: "SHIFT", plannedMinutes: 504 },
+      [days[2].iso]: { kind: "SHIFT", plannedMinutes: 504 },
+      [days[3].iso]: { kind: "SHIFT", plannedMinutes: 504 },
+      [days[4].iso]: { kind: "SHIFT", plannedMinutes: 504 },
+    });
+    const result = computeWeeklyBalance(
+      YEAR,
+      WEEK,
+      entries,
+      noHolidays,
+      FULL_PENSUM,
+    );
+    expect(result.weeklyZeitsaldoDeltaMinutes).toBe(0);
   });
 
   it("TZT in TARGET_REDUCTION reduces Soll instead of crediting Ist", () => {

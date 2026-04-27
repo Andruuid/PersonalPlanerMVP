@@ -8,7 +8,7 @@ import {
   type TztModel,
 } from "./soll";
 import { actualWorkMinutes, weeklyUezContribution } from "./overtime";
-import { vacationDaysDebit } from "./vacation";
+import { parentalCareDaysDebit, vacationDaysDebit } from "./vacation";
 import type { HolidayLookup } from "./holidays";
 
 export interface DayComputation {
@@ -39,6 +39,7 @@ export interface WeeklyComputation {
   weeklyWorkMinutes: number;
   weeklyUezDeltaMinutes: number;
   vacationDaysDebit: number;
+  parentalCareDaysDebit: number;
 }
 
 export interface EmployeeWeekConfig {
@@ -134,6 +135,7 @@ export function computeWeeklyBalance(
     cappedWorkForZeitsaldo + nonWorkAnrechenbarIst - totalSoll;
   const weeklyUez = weeklyUezContribution(weeklyWork, config.hazMinutesPerWeek);
   const vacation = vacationDaysDebit(days);
+  const parentalCare = parentalCareDaysDebit(days);
 
   return {
     year,
@@ -149,6 +151,7 @@ export function computeWeeklyBalance(
     weeklyWorkMinutes: weeklyWork,
     weeklyUezDeltaMinutes: weeklyUez,
     vacationDaysDebit: vacation,
+    parentalCareDaysDebit: parentalCare,
   };
 }
 

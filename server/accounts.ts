@@ -33,6 +33,7 @@ const DEFAULT_UNITS: Record<AccountType, AccountUnit> = {
   UEZ: "MINUTES",
   TZT: "DAYS",
   SONNTAG_FEIERTAG_KOMPENSATION: "MINUTES",
+  PARENTAL_CARE: "DAYS",
 };
 
 /**
@@ -55,6 +56,7 @@ export async function loadAccountsForEmployee(
     SONNTAG_FEIERTAG_KOMPENSATION: emptySummary(
       "SONNTAG_FEIERTAG_KOMPENSATION",
     ),
+    PARENTAL_CARE: emptySummary("PARENTAL_CARE"),
   };
   for (const b of balances) {
     const type = b.accountType as AccountType;
@@ -118,6 +120,7 @@ export async function loadAdminAccountsTable(
       SONNTAG_FEIERTAG_KOMPENSATION: emptySummary(
         "SONNTAG_FEIERTAG_KOMPENSATION",
       ),
+      PARENTAL_CARE: emptySummary("PARENTAL_CARE"),
     };
     for (const b of byEmployee.get(e.id) ?? []) {
       const type = b.accountType as AccountType;

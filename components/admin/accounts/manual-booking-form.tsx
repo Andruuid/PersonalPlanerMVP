@@ -28,7 +28,8 @@ export interface ManualBookingFormDefaults {
     | "FERIEN"
     | "UEZ"
     | "TZT"
-    | "SONNTAG_FEIERTAG_KOMPENSATION";
+    | "SONNTAG_FEIERTAG_KOMPENSATION"
+    | "PARENTAL_CARE";
   date: string;
   bookingType: "MANUAL_CREDIT" | "MANUAL_DEBIT" | "CORRECTION";
   comment?: string;
@@ -53,6 +54,11 @@ const ACCOUNT_OPTIONS: Array<{
     value: "SONNTAG_FEIERTAG_KOMPENSATION",
     label: "So./Feiertag-Kompensation",
     hint: "Wert in Minuten",
+  },
+  {
+    value: "PARENTAL_CARE",
+    label: "Eltern-/Betreuungsurlaub",
+    hint: "Wert in Tagen",
   },
 ];
 

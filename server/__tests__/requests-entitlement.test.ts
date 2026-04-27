@@ -35,6 +35,22 @@ describe("evaluateRequestEntitlement", () => {
     expect(result.error).toContain("TZT-Guthaben");
   });
 
+  it("rejects parental/care leave requests when dedicated balance is too low", () => {
+    const result = evaluateRequestEntitlement({
+      type: "PARENTAL_CARE",
+      startDate: parseIsoDate("2026-03-02")!,
+      endDate: parseIsoDate("2026-03-03")!,
+      weeklyTargetMinutes: 2520,
+      vacationDaysPerYear: 25,
+      balancesByYear: {
+        2026: { PARENTAL_CARE: 1 },
+      },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("Eltern-/Betreuungsurlaub");
+  });
+
   it("rejects free-requested when zeitsaldo minutes are insufficient", () => {
     const result = evaluateRequestEntitlement({
       type: "FREE_REQUESTED",

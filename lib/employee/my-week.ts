@@ -17,6 +17,10 @@ const ABSENCE_LABEL: Record<string, string> = {
   FREE_REQUESTED: "Frei verlangt",
   UNPAID: "Unbezahlt",
   TZT: "TZT",
+  PARENTAL_CARE: "Eltern-/Betreuungsurlaub",
+  MILITARY_SERVICE: "Militärdienst",
+  CIVIL_PROTECTION_SERVICE: "Zivilschutz",
+  CIVIL_SERVICE: "Zivildienst",
   HOLIDAY_AUTO: "Feiertag",
 };
 

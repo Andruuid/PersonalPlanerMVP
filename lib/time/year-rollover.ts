@@ -3,7 +3,8 @@ export type AccountType =
   | "FERIEN"
   | "UEZ"
   | "TZT"
-  | "SONNTAG_FEIERTAG_KOMPENSATION";
+  | "SONNTAG_FEIERTAG_KOMPENSATION"
+  | "PARENTAL_CARE";
 export type AccountUnit = "MINUTES" | "DAYS";
 
 export interface AccountStateInput {

@@ -63,6 +63,16 @@ describe("planYearRollover", () => {
     expect(plan.carryoverBooking).toBe(240);
   });
 
+  it("parental/care leave carries forward 1:1 with opening 0", () => {
+    const plan = planYearRollover({
+      accountType: "PARENTAL_CARE",
+      unit: "DAYS",
+      closingValue: 2,
+    });
+    expect(plan.newYearOpening).toBe(0);
+    expect(plan.carryoverBooking).toBe(2);
+  });
+
   it("supports a negative Zeitsaldo carryover", () => {
     const plan = planYearRollover({
       accountType: "ZEITSALDO",

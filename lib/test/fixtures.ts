@@ -145,6 +145,10 @@ export type SeededAbsenceType =
   | "FREE_REQUESTED"
   | "UNPAID"
   | "TZT"
+  | "PARENTAL_CARE"
+  | "MILITARY_SERVICE"
+  | "CIVIL_PROTECTION_SERVICE"
+  | "CIVIL_SERVICE"
   | "HOLIDAY_AUTO";
 
 export interface SeedAbsenceOpts {

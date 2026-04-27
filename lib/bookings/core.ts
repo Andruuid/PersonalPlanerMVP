@@ -35,6 +35,7 @@ export const ACCOUNT_UNITS: Record<AccountType, AccountUnit> = {
   UEZ: "MINUTES",
   TZT: "DAYS",
   SONNTAG_FEIERTAG_KOMPENSATION: "MINUTES",
+  PARENTAL_CARE: "DAYS",
 };
 
 const ACCOUNT_TYPES: AccountType[] = [
@@ -43,6 +44,7 @@ const ACCOUNT_TYPES: AccountType[] = [
   "UEZ",
   "TZT",
   "SONNTAG_FEIERTAG_KOMPENSATION",
+  "PARENTAL_CARE",
 ];
 
 /** Prisma default interactive-tx timeout is 5s; week close / carryover can exceed that. */
@@ -468,6 +470,12 @@ export async function recalcWeekClose(
         bookingsToCreate.push({
           accountType: "FERIEN",
           value: -result.vacationDaysDebit,
+        });
+      }
+      if (result.parentalCareDaysDebit !== 0) {
+        bookingsToCreate.push({
+          accountType: "PARENTAL_CARE",
+          value: -result.parentalCareDaysDebit,
         });
       }
       if (result.holidayCompensationMinutes !== 0) {

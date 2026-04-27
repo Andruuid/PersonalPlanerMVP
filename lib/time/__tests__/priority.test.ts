@@ -53,6 +53,10 @@ describe("resolveDay", () => {
       ["FREE_REQUESTED", "FREE_REQUESTED"],
       ["UNPAID", "UNPAID"],
       ["TZT", "TZT_ABSENCE"],
+      ["PARENTAL_CARE", "PARENTAL_CARE"],
+      ["MILITARY_SERVICE", "SERVICE"],
+      ["CIVIL_PROTECTION_SERVICE", "SERVICE"],
+      ["CIVIL_SERVICE", "SERVICE"],
       ["HOLIDAY_AUTO", "HOLIDAY"],
     ] as const;
     for (const [absence, kind] of map) {

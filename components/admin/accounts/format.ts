@@ -14,6 +14,10 @@ export const ACCOUNT_DISPLAY: Record<AccountType, AccountDisplayConfig> = {
     label: "So./Feiertag-Kompensation",
     unitLabel: "Stunden",
   },
+  PARENTAL_CARE: {
+    label: "Eltern-/Betreuungsurlaub",
+    unitLabel: "Tage",
+  },
 };
 
 export function formatMinutesAsHours(minutes: number): string {

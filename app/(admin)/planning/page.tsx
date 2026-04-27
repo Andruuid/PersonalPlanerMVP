@@ -104,6 +104,10 @@ function entryView(raw: {
       FREE_REQUESTED: "Frei verlangt",
       UNPAID: "Unbezahlt",
       TZT: "TZT",
+      PARENTAL_CARE: "Eltern-/Betreuungsurlaub",
+      MILITARY_SERVICE: "Militärdienst",
+      CIVIL_PROTECTION_SERVICE: "Zivilschutz",
+      CIVIL_SERVICE: "Zivildienst",
       HOLIDAY_AUTO: "Feiertag",
     };
     title = labelMap[raw.absenceType] ?? "Abwesenheit";

@@ -41,8 +41,8 @@ export function dailySollMinutes(
 
 /**
  * Anrechenbare Istzeit for absence types that should NOT reduce the
- * Zeitsaldo: VACATION, SICK, ACCIDENT, TZT_ABSENCE all credit the day's Soll
- * back as Ist so the day balance is 0.
+ * Zeitsaldo: VACATION, PARENTAL_CARE, SICK, ACCIDENT, SERVICE, TZT_ABSENCE
+ * all credit the day's Soll back as Ist so the day balance is 0.
  */
 export function anrechenbarIstMinutes(
   kind: DayKind,
@@ -59,6 +59,8 @@ export function anrechenbarIstMinutes(
     case "SICK":
     case "ACCIDENT":
     case "VACATION":
+    case "PARENTAL_CARE":
+    case "SERVICE":
       return baseDailySollMinutes(weeklyTargetMinutes, standardWorkDays);
     case "TZT_ABSENCE":
       return tztModel === "TARGET_REDUCTION"

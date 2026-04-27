@@ -21,8 +21,8 @@ import {
 } from "./_shared";
 
 const REQUEST_TO_ABSENCE: Record<
-  "VACATION" | "FREE_REQUESTED" | "TZT" | "FREE_DAY",
-  "VACATION" | "FREE_REQUESTED" | "TZT" | "UNPAID"
+  "VACATION" | "FREE_REQUESTED" | "TZT" | "FREE_DAY" | "PARENTAL_CARE",
+  "VACATION" | "FREE_REQUESTED" | "TZT" | "UNPAID" | "PARENTAL_CARE"
 > = {
   VACATION: "VACATION",
   FREE_REQUESTED: "FREE_REQUESTED",
@@ -30,6 +30,7 @@ const REQUEST_TO_ABSENCE: Record<
   // "Freier Tag" should behave like a regular free-requested day
   // (Zeitsaldo impact), not like unpaid leave (Soll reduction).
   FREE_DAY: "FREE_REQUESTED",
+  PARENTAL_CARE: "PARENTAL_CARE",
 };
 
 function* daysInRange(start: Date, end: Date): Generator<Date> {
@@ -186,7 +187,13 @@ export async function rejectRequestAction(
 
 const createRequestSchema = z
   .object({
-    type: z.enum(["VACATION", "FREE_REQUESTED", "TZT", "FREE_DAY"]),
+    type: z.enum([
+      "VACATION",
+      "FREE_REQUESTED",
+      "TZT",
+      "FREE_DAY",
+      "PARENTAL_CARE",
+    ]),
     startDate: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/, "Startdatum erforderlich"),
@@ -247,7 +254,7 @@ export async function createAbsenceRequestAction(
       employeeId,
       year: { in: years.length > 0 ? years : [startDate.getFullYear()] },
       accountType: {
-        in: ["ZEITSALDO", "FERIEN", "TZT"],
+        in: ["ZEITSALDO", "FERIEN", "TZT", "PARENTAL_CARE"],
       },
     },
     select: { year: true, accountType: true, currentValue: true },

@@ -30,6 +30,7 @@ const ACCOUNT_ORDER: AccountType[] = [
   "UEZ",
   "TZT",
   "SONNTAG_FEIERTAG_KOMPENSATION",
+  "PARENTAL_CARE",
 ];
 
 type DialogState =

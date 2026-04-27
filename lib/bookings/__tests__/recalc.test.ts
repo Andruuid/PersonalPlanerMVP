@@ -109,6 +109,39 @@ describe("recalcWeekClose", () => {
     expect(ferien?.currentValue).toBe(20);
   });
 
+  it("creates a parental/care leave debit on its dedicated account", async () => {
+    const employee = await seedEmployee(db.prisma, { locationId });
+    for (let i = 0; i < 5; i++) {
+      await seedAbsenceEntry(db.prisma, {
+        weekId,
+        employeeId: employee.id,
+        isoDate: weekDays[i],
+        absenceType: "PARENTAL_CARE",
+      });
+    }
+
+    await recalcWeekClose(db.prisma, weekId, adminId);
+
+    const bookings = await db.prisma.booking.findMany({
+      where: { employeeId: employee.id, bookingType: "AUTO_WEEKLY" },
+    });
+    expect(bookings).toHaveLength(1);
+    expect(bookings[0].accountType).toBe("PARENTAL_CARE");
+    expect(bookings[0].value).toBe(-5);
+
+    const parentalCare = await db.prisma.accountBalance.findUnique({
+      where: {
+        employeeId_accountType_year: {
+          employeeId: employee.id,
+          accountType: "PARENTAL_CARE",
+          year: YEAR,
+        },
+      },
+    });
+    expect(parentalCare?.openingValue).toBe(0);
+    expect(parentalCare?.currentValue).toBe(-5);
+  });
+
   it("does not debit Ferien for a vacation day that falls on a holiday", async () => {
     await seedHoliday(db.prisma, locationId, weekDays[3], "Test-Feiertag");
     const employee = await seedEmployee(db.prisma, { locationId });

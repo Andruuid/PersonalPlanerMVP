@@ -51,6 +51,10 @@ const ABSENCE_OPTIONS: Array<{
   { value: "SICK", label: "Krank" },
   { value: "ACCIDENT", label: "Unfall" },
   { value: "UNPAID", label: "Unbezahlter Urlaub" },
+  { value: "PARENTAL_CARE", label: "Eltern-/Betreuungsurlaub" },
+  { value: "MILITARY_SERVICE", label: "Militärdienst" },
+  { value: "CIVIL_PROTECTION_SERVICE", label: "Zivilschutz" },
+  { value: "CIVIL_SERVICE", label: "Zivildienst" },
   { value: "HOLIDAY_AUTO", label: "Feiertag" },
 ];
 
@@ -101,7 +105,17 @@ function AssignmentForm({
     initialEntry?.oneTimeLabel ?? "",
   );
   const [absence, setAbsence] = useState<
-    "VACATION" | "SICK" | "ACCIDENT" | "FREE_REQUESTED" | "UNPAID" | "TZT" | "HOLIDAY_AUTO"
+    | "VACATION"
+    | "SICK"
+    | "ACCIDENT"
+    | "FREE_REQUESTED"
+    | "UNPAID"
+    | "TZT"
+    | "PARENTAL_CARE"
+    | "MILITARY_SERVICE"
+    | "CIVIL_PROTECTION_SERVICE"
+    | "CIVIL_SERVICE"
+    | "HOLIDAY_AUTO"
   >(initialEntry?.absenceType ?? "VACATION");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -324,6 +338,10 @@ function AssignmentForm({
                     | "FREE_REQUESTED"
                     | "UNPAID"
                     | "TZT"
+                    | "PARENTAL_CARE"
+                    | "MILITARY_SERVICE"
+                    | "CIVIL_PROTECTION_SERVICE"
+                    | "CIVIL_SERVICE"
                     | "HOLIDAY_AUTO",
                 )
               }

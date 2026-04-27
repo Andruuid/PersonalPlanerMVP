@@ -1,8 +1,13 @@
 import { addDays } from "date-fns";
 import { baseDailySollMinutes } from "@/lib/time/soll";
 
-export type RequestType = "VACATION" | "FREE_REQUESTED" | "TZT" | "FREE_DAY";
-export type RequestAccountType = "ZEITSALDO" | "FERIEN" | "TZT";
+export type RequestType =
+  | "VACATION"
+  | "FREE_REQUESTED"
+  | "TZT"
+  | "FREE_DAY"
+  | "PARENTAL_CARE";
+export type RequestAccountType = "ZEITSALDO" | "FERIEN" | "TZT" | "PARENTAL_CARE";
 
 export interface RequestEntitlementInput {
   type: RequestType;
@@ -84,6 +89,19 @@ export function evaluateRequestEntitlement(
         return {
           ok: false,
           error: `Zu wenig TZT-Guthaben (${year}): benötigt ${requestedDays}, verfügbar ${available}.`,
+        };
+      }
+    }
+    return { ok: true };
+  }
+
+  if (effectiveType === "PARENTAL_CARE") {
+    for (const [year, requestedDays] of weekdaysByYear) {
+      const available = getAccountValue(input, year, "PARENTAL_CARE");
+      if (available < requestedDays) {
+        return {
+          ok: false,
+          error: `Zu wenig Eltern-/Betreuungsurlaub (${year}): benötigt ${requestedDays}, verfügbar ${available}.`,
         };
       }
     }

@@ -9,6 +9,10 @@ export type AbsenceType =
   | "FREE_REQUESTED"
   | "UNPAID"
   | "TZT"
+  | "PARENTAL_CARE"
+  | "MILITARY_SERVICE"
+  | "CIVIL_PROTECTION_SERVICE"
+  | "CIVIL_SERVICE"
   | "HOLIDAY_AUTO";
 
 export interface PlanEntryView {
@@ -55,7 +59,7 @@ export interface ServiceOption {
 
 export interface RequestView {
   id: string;
-  type: "VACATION" | "FREE_REQUESTED" | "TZT" | "FREE_DAY";
+  type: "VACATION" | "FREE_REQUESTED" | "TZT" | "FREE_DAY" | "PARENTAL_CARE";
   status: "OPEN" | "APPROVED" | "REJECTED";
   startDate: string;
   endDate: string;

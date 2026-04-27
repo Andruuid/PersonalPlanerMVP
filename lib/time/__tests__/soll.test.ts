@@ -33,13 +33,15 @@ describe("dailySollMinutes", () => {
     expect(dailySollMinutes("UNPAID", 2520)).toBe(0);
   });
 
-  it("returns base Soll for work (including weekend work), sick, accident, vacation, TZT, free-requested, empty weekday", () => {
+  it("returns base Soll for work (including weekend work), service/absence kinds, and empty weekday", () => {
     const base = 2520 / STANDARD_WORK_DAYS;
     expect(dailySollMinutes("WORK", 2520)).toBe(base);
     expect(dailySollMinutes("WORK_ON_WEEKEND", 2520)).toBe(base);
     expect(dailySollMinutes("SICK", 2520)).toBe(base);
     expect(dailySollMinutes("ACCIDENT", 2520)).toBe(base);
     expect(dailySollMinutes("VACATION", 2520)).toBe(base);
+    expect(dailySollMinutes("PARENTAL_CARE", 2520)).toBe(base);
+    expect(dailySollMinutes("SERVICE", 2520)).toBe(base);
     expect(dailySollMinutes("TZT_ABSENCE", 2520)).toBe(base);
     expect(dailySollMinutes("FREE_REQUESTED", 2520)).toBe(base);
     expect(dailySollMinutes("EMPTY_WEEKDAY", 2520)).toBe(base);
@@ -60,10 +62,12 @@ describe("anrechenbarIstMinutes", () => {
     expect(anrechenbarIstMinutes("HOLIDAY_WORK", 240, weekly)).toBe(240);
   });
 
-  it("credits Tagessoll back as Ist for VACATION/SICK/ACCIDENT/TZT", () => {
+  it("credits Tagessoll back as Ist for neutral absence kinds", () => {
     expect(anrechenbarIstMinutes("SICK", 0, weekly)).toBe(base);
     expect(anrechenbarIstMinutes("ACCIDENT", 0, weekly)).toBe(base);
     expect(anrechenbarIstMinutes("VACATION", 0, weekly)).toBe(base);
+    expect(anrechenbarIstMinutes("PARENTAL_CARE", 0, weekly)).toBe(base);
+    expect(anrechenbarIstMinutes("SERVICE", 0, weekly)).toBe(base);
     expect(anrechenbarIstMinutes("TZT_ABSENCE", 0, weekly)).toBe(base);
   });
 

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   CalendarHeart,
+  Baby,
   CalendarX,
   Hand,
   Hourglass,
@@ -43,6 +44,12 @@ const BUTTONS: ButtonSpec[] = [
     type: "FREE_DAY",
     label: "Freien Tag angeben",
     icon: CalendarX,
+    variant: "outline",
+  },
+  {
+    type: "PARENTAL_CARE",
+    label: "Eltern-/Betreuungsurlaub",
+    icon: Baby,
     variant: "outline",
   },
 ];

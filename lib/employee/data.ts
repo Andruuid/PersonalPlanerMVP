@@ -93,5 +93,6 @@ export async function loadMyAccounts(
     zeitsaldo: get("ZEITSALDO"),
     ferien,
     tzt: get("TZT"),
+    parentalCare: get("PARENTAL_CARE"),
   };
 }

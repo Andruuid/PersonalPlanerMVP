@@ -56,6 +56,13 @@ const CARDS: AccountCardConfig[] = [
     iconClass: "bg-violet-100 text-violet-700",
     unitLabel: (v) => (v ? formatTztDays(v.value) : "0.0 Tage"),
   },
+  {
+    key: "parentalCare",
+    label: "Eltern-/Betreuung",
+    icon: PalmtreeIcon,
+    iconClass: "bg-cyan-100 text-cyan-700",
+    unitLabel: (v) => (v ? formatDays(v.value) : "0.0 Tage"),
+  },
 ];
 
 export function AccountsPanel({ accounts }: AccountsPanelProps) {

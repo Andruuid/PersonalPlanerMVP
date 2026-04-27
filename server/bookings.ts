@@ -68,6 +68,7 @@ const manualBookingSchema = z.object({
     "UEZ",
     "TZT",
     "SONNTAG_FEIERTAG_KOMPENSATION",
+    "PARENTAL_CARE",
   ]),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Datum ungültig"),
   value: z.coerce.number().refine((v) => v !== 0, {
