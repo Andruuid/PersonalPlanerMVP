@@ -6,6 +6,12 @@ import { prisma } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import { isoDateString, parseIsoDate } from "@/lib/time/week";
 import {
+  evaluateRequestEntitlement,
+  requestedWeekdaysByYear,
+  type RequestEntitlementInput,
+  type RequestAccountType,
+} from "@/lib/requests/entitlement";
+import {
   fieldErrorsFromZod,
   readOptionalString,
   requireAdmin,
@@ -197,9 +203,53 @@ export async function createAbsenceRequestAction(
     return { ok: false, error: "Datum ungültig." };
   }
 
+  const employeeId = employee.employeeId!;
+  const years = Array.from(
+    new Set(Array.from(requestedWeekdaysByYear(startDate, endDate).keys())),
+  );
+  const employeeRow = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    select: {
+      weeklyTargetMinutes: true,
+      vacationDaysPerYear: true,
+    },
+  });
+  if (!employeeRow) {
+    return { ok: false, error: "Mitarbeitende:r nicht gefunden." };
+  }
+
+  const balances = await prisma.accountBalance.findMany({
+    where: {
+      employeeId,
+      year: { in: years.length > 0 ? years : [startDate.getFullYear()] },
+      accountType: {
+        in: ["ZEITSALDO", "FERIEN", "TZT"],
+      },
+    },
+    select: { year: true, accountType: true, currentValue: true },
+  });
+
+  const balancesByYear: RequestEntitlementInput["balancesByYear"] = {};
+  for (const row of balances) {
+    const y = (balancesByYear[row.year] ??= {});
+    y[row.accountType as RequestAccountType] = row.currentValue;
+  }
+
+  const entitlement = evaluateRequestEntitlement({
+    type: data.type,
+    startDate,
+    endDate,
+    weeklyTargetMinutes: employeeRow.weeklyTargetMinutes,
+    vacationDaysPerYear: employeeRow.vacationDaysPerYear,
+    balancesByYear,
+  });
+  if (!entitlement.ok) {
+    return { ok: false, error: entitlement.error ?? "Anspruch nicht ausreichend." };
+  }
+
   const created = await prisma.absenceRequest.create({
     data: {
-      employeeId: employee.employeeId!,
+      employeeId,
       type: data.type,
       startDate,
       endDate,
