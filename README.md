@@ -61,14 +61,15 @@ Admin landet nach dem Login auf `/dashboard`, Mitarbeitende auf `/my-week`.
 - `AccountBalance` + `Booking` — Zeitsaldo, Ferien, UEZ, TZT mit auditiertem Buchungs-Log.
 - `AuditLog` — vollständige Historie aller Änderungen.
 
-## Phasen-Status
+## Funktionsumfang
 
-- ✅ **Phase 1 (Foundation):** Scaffold, Auth, Datenmodell, App-Shell, Platzhalter-Seiten.
-- ✅ **Phase 2 (Admin-Stammdaten):** Mitarbeitende, Dienstvorlagen, Standorte/Feiertage.
-- ✅ **Phase 3 (Wochenplanung):** Drag-and-Drop-Raster, KPIs, Detailfenster, Veröffentlichen.
-- ✅ **Phase 4 (Mitarbeitersicht + Anträge):** Meine Woche, Antrag stellen, Genehmigungs-Loop.
-- ✅ **Phase 5 (Zeitlogik + Konten):** Sollzeit, Zeitsaldo, UEZ, Ferien, manuelle Buchungen, Jahreswechsel.
-- ✅ **Phase 6 (Audit + Netlify + Polish):** Audit-Log-UI, `netlify.toml`, README-Swap-Rezept, mobile QA.
+- **Auth & App-Shell:** Email/Passwort-Login (Auth.js), rollenbasiertes Routing (Admin/Mitarbeitende), responsive App-Shell.
+- **Admin-Stammdaten:** Mitarbeitende mit Pensum/Standort, Dienstvorlagen, Standorte und Feiertagskalender.
+- **Wochenplanung:** Drag-and-Drop-Raster mit KPIs, Detailfenster, Status-Maschine (Entwurf → Veröffentlicht → Abgeschlossen).
+- **Mitarbeitersicht + Anträge:** „Meine Woche", Antragsstellung (Ferien, Frei, TZT, Freier Tag), Genehmigungs-Loop.
+- **Zeitlogik + Konten:** Sollzeit, Zeitsaldo, UEZ, Ferien und TZT mit AUTO_WEEKLY-Buchungen, manuellen Buchungen und Jahreswechsel-Carryover.
+- **Audit-Log:** Vollständige Historie aller Änderungen mit Filter, Pagination und Vorher/Nachher-Diff.
+- **Dashboard:** Kennzahlen (offene Anträge, aktuelle Woche, aktive Mitarbeitende, Audit-Aktivität) und letzte Audit-Einträge auf einen Blick.
 
 ## Deployment auf Netlify (Demo)
 

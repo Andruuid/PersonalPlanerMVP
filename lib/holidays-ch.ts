@@ -1,7 +1,7 @@
 // Swiss public-holiday calendar utilities.
 // Used by the seeder and the Settings page year-generator.
-// Phase 5 (lib/time/holidays.ts) builds the Sollzeit-aware holiday lookup
-// on top of these raw dates.
+// `lib/time/holidays.ts` builds the Sollzeit-aware holiday lookup on top
+// of these raw dates.
 
 export interface HolidayDef {
   date: Date;

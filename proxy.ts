@@ -15,13 +15,7 @@ const ADMIN_PATHS = [
   "/settings",
   "/audit",
 ];
-const EMPLOYEE_PATHS = [
-  "/my-week",
-  "/my-requests",
-  "/my-accounts",
-  "/availability",
-  "/profile",
-];
+const EMPLOYEE_PATHS = ["/my-week", "/my-requests", "/my-accounts"];
 
 function pathMatches(pathname: string, prefixes: readonly string[]): boolean {
   return prefixes.some(

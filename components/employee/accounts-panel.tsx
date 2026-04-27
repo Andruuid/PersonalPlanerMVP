@@ -66,7 +66,7 @@ export function AccountsPanel({ accounts }: AccountsPanelProps) {
           Meine Konten
         </h2>
         <p className="text-xs text-neutral-500">
-          Stand der aktuellen Periode. Buchungen erscheinen mit Phase 5.
+          Stand der aktuellen Periode.
         </p>
       </header>
 

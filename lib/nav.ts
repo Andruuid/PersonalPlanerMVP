@@ -6,8 +6,6 @@ import {
   Home,
   Settings,
   ShieldCheck,
-  Sparkles,
-  User,
   UserPlus,
   Users,
   Wallet,
@@ -35,8 +33,6 @@ export const EMPLOYEE_NAV: NavItem[] = [
   { href: "/my-week", label: "Meine Woche", icon: CalendarDays },
   { href: "/my-requests", label: "Meine Anträge", icon: FileClock },
   { href: "/my-accounts", label: "Meine Konten", icon: Coins },
-  { href: "/availability", label: "Verfügbarkeit", icon: Sparkles },
-  { href: "/profile", label: "Profil", icon: User },
 ];
 
 export interface QuickAction {
