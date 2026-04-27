@@ -42,6 +42,7 @@ export function makeTestDb(): TestDb {
     async reset(): Promise<void> {
       // FK-safe order: leaves first.
       await prisma.auditLog.deleteMany();
+      await prisma.ertCase.deleteMany();
       await prisma.booking.deleteMany();
       await prisma.accountBalance.deleteMany();
       await prisma.publishedSnapshot.deleteMany();

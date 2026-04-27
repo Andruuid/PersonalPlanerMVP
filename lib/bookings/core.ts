@@ -19,6 +19,7 @@ import {
 } from "@/lib/time/balance";
 import { buildHolidayLookup } from "@/lib/time/holidays";
 import { isoDateString, isoWeekDays } from "@/lib/time/week";
+import { hasRestWindowMinutes, type TimeInterval } from "@/lib/time/ert";
 import { planYearRollover } from "@/lib/time/year-rollover";
 import type {
   AccountType,
@@ -42,6 +43,146 @@ const HEAVY_INTERACTIVE_TX: { timeout: number; maxWait: number } = {
   timeout: 30_000,
   maxWait: 10_000,
 };
+const ERT_MIN_REST_MINUTES = 35 * 60;
+const ERT_DUE_DAYS = 28;
+
+function dateAtMidnight(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function parseHourMinute(raw: string | null | undefined): { h: number; m: number } | null {
+  if (!raw) return null;
+  const m = /^(\d{2}):(\d{2})$/.exec(raw.trim());
+  if (!m) return null;
+  return { h: Number(m[1]), m: Number(m[2]) };
+}
+
+function intervalFromTimedEntry(entry: {
+  date: Date;
+  plannedMinutes: number;
+  oneTimeStart: string | null;
+  oneTimeEnd: string | null;
+  serviceTemplate: { startTime: string; endTime: string } | null;
+}): TimeInterval | null {
+  if (entry.plannedMinutes <= 0) return null;
+
+  const startRaw = entry.oneTimeStart ?? entry.serviceTemplate?.startTime ?? "08:00";
+  const startHm = parseHourMinute(startRaw);
+  if (!startHm) return null;
+
+  const day = dateAtMidnight(entry.date);
+  const start = new Date(day);
+  start.setHours(startHm.h, startHm.m, 0, 0);
+
+  const endRaw = entry.oneTimeEnd ?? entry.serviceTemplate?.endTime ?? null;
+  const endHm = parseHourMinute(endRaw);
+  let end: Date;
+  if (endHm) {
+    end = new Date(day);
+    end.setHours(endHm.h, endHm.m, 0, 0);
+    if (end <= start) {
+      end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
+    }
+  } else {
+    end = new Date(start.getTime() + entry.plannedMinutes * 60_000);
+  }
+
+  return end > start ? { start, end } : null;
+}
+
+async function computeErtFulfilled(
+  tx: Tx,
+  employeeId: string,
+  triggerDate: Date,
+  dueAt: Date,
+): Promise<boolean> {
+  const windowStart = addDays(dateAtMidnight(triggerDate), 1);
+  const windowEnd = addDays(dateAtMidnight(dueAt), 1);
+  if (windowEnd <= windowStart) return false;
+
+  const rows = await tx.planEntry.findMany({
+    where: {
+      employeeId,
+      date: { gte: windowStart, lt: windowEnd },
+      kind: { in: ["SHIFT", "ONE_TIME_SHIFT"] },
+      plannedMinutes: { gt: 0 },
+    },
+    select: {
+      date: true,
+      plannedMinutes: true,
+      oneTimeStart: true,
+      oneTimeEnd: true,
+      serviceTemplate: { select: { startTime: true, endTime: true } },
+    },
+  });
+
+  const intervals = rows
+    .map((r) => intervalFromTimedEntry(r))
+    .filter((r): r is TimeInterval => r !== null);
+
+  return hasRestWindowMinutes(
+    intervals,
+    windowStart,
+    windowEnd,
+    ERT_MIN_REST_MINUTES,
+  );
+}
+
+async function upsertAndAdvanceErtCases(
+  tx: Tx,
+  employeeId: string,
+  weekDays: Array<{ iso: string; kind: string; plannedMinutes: number }>,
+  referenceDate: Date,
+): Promise<void> {
+  for (const day of weekDays) {
+    if (day.kind !== "HOLIDAY_WORK" || day.plannedMinutes <= 300) continue;
+    const triggerDate = new Date(`${day.iso}T00:00:00`);
+    await tx.ertCase.upsert({
+      where: { employeeId_triggerDate: { employeeId, triggerDate } },
+      create: {
+        employeeId,
+        triggerDate,
+        holidayWorkMinutes: day.plannedMinutes,
+        status: "OPEN",
+        dueAt: addDays(triggerDate, ERT_DUE_DAYS),
+      },
+      update: {
+        holidayWorkMinutes: day.plannedMinutes,
+        dueAt: addDays(triggerDate, ERT_DUE_DAYS),
+      },
+    });
+  }
+
+  const openCases = await tx.ertCase.findMany({
+    where: {
+      employeeId,
+      status: { in: ["OPEN", "OVERDUE"] },
+    },
+  });
+  for (const ert of openCases) {
+    const fulfilled = await computeErtFulfilled(
+      tx,
+      employeeId,
+      ert.triggerDate,
+      ert.dueAt,
+    );
+    if (fulfilled) {
+      await tx.ertCase.update({
+        where: { id: ert.id },
+        data: { status: "FULFILLED", fulfilledAt: new Date(referenceDate) },
+      });
+      continue;
+    }
+    const isOverdue = referenceDate > ert.dueAt;
+    await tx.ertCase.update({
+      where: { id: ert.id },
+      data: {
+        status: isOverdue ? "OVERDUE" : "OPEN",
+        fulfilledAt: null,
+      },
+    });
+  }
+}
 
 function isEmployeeActiveOnDate(
   employee: { entryDate: Date; exitDate: Date | null },
@@ -296,6 +437,7 @@ export async function recalcWeekClose(
           tztModel: employee.tztModel,
         },
       );
+      await upsertAndAdvanceErtCases(tx, employee.id, result.days, sunday);
 
       const accountsToTouch: Set<AccountType> =
         touchedFromPrior.get(employee.id) ?? new Set<AccountType>();

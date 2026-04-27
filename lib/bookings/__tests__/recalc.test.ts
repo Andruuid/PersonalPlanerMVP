@@ -425,4 +425,24 @@ describe("recalcWeekClose", () => {
     expect(result.employeesAffected).toBe(2);
     expect(result.bookingsCreated).toBe(2);
   });
+
+  it("creates an OPEN ERT case for holiday work above 5 hours", async () => {
+    const employee = await seedEmployee(db.prisma, { locationId });
+    await seedHoliday(db.prisma, locationId, weekDays[0], "Feiertag");
+    await seedShiftEntry(db.prisma, {
+      weekId,
+      employeeId: employee.id,
+      isoDate: weekDays[0],
+      plannedMinutes: 360,
+    });
+
+    await recalcWeekClose(db.prisma, weekId, adminId);
+
+    const ertCases = await db.prisma.ertCase.findMany({
+      where: { employeeId: employee.id },
+    });
+    expect(ertCases).toHaveLength(1);
+    expect(["OPEN", "FULFILLED"]).toContain(ertCases[0].status);
+    expect(ertCases[0].holidayWorkMinutes).toBe(360);
+  });
 });

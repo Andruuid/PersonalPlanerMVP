@@ -79,6 +79,12 @@ enum TztModel {
   TARGET_REDUCTION
 }
 
+enum ErtCaseStatus {
+  OPEN
+  FULFILLED
+  OVERDUE
+}
+
 // ---------- Core entities ----------
 
 model User {
@@ -125,6 +131,7 @@ model Employee {
   absenceRequests      AbsenceRequest[]
   accountBalances      AccountBalance[]
   bookings             Booking[]
+  ertCases             ErtCase[]
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
 }
@@ -261,4 +268,21 @@ model AuditLog {
 
   @@index([entity, entityId])
   @@index([createdAt])
+}
+
+model ErtCase {
+  id               String        @id @default(cuid())
+  employeeId       String
+  employee         Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  triggerDate      DateTime
+  holidayWorkMinutes Int
+  status           ErtCaseStatus @default(OPEN)
+  dueAt            DateTime
+  fulfilledAt      DateTime?
+  note             String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@unique([employeeId, triggerDate])
+  @@index([employeeId, status, dueAt])
 }
