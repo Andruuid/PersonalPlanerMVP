@@ -41,6 +41,7 @@ export interface SeedEmployeeOpts {
   pensum?: number;
   weeklyTargetMinutes?: number;
   hazMinutesPerWeek?: number;
+  tztModel?: "DAILY_QUOTA" | "TARGET_REDUCTION";
   vacationDaysPerYear?: number;
   isActive?: boolean;
 }
@@ -74,6 +75,7 @@ export async function seedEmployee(
       vacationDaysPerYear: opts.vacationDaysPerYear ?? 25,
       weeklyTargetMinutes: opts.weeklyTargetMinutes ?? 2520,
       hazMinutesPerWeek: opts.hazMinutesPerWeek ?? 2700,
+      tztModel: opts.tztModel ?? "DAILY_QUOTA",
       isActive: opts.isActive ?? true,
     },
   });

@@ -10,6 +10,7 @@ import {
   EmployeeForm,
   type EmployeeFormDefaults,
   type LocationOption,
+  type TztModelValue,
 } from "./employee-form";
 import { setEmployeeActiveAction } from "@/server/employees";
 import { isoDateString } from "@/lib/time/week";
@@ -28,6 +29,7 @@ export interface EmployeeRow {
   vacationDaysPerYear: number;
   weeklyTargetMinutes: number;
   hazMinutesPerWeek: number;
+  tztModel: TztModelValue;
   isActive: boolean;
 }
 
@@ -206,6 +208,7 @@ function createDefaults(defaultLocationId: string): EmployeeFormDefaults {
     vacationDaysPerYear: 25,
     weeklyTargetMinutes: 2520,
     hazMinutesPerWeek: 2700,
+    tztModel: "DAILY_QUOTA",
     isActive: true,
   };
 }
@@ -224,6 +227,7 @@ function editDefaultsFromRow(row: EmployeeRow): EmployeeFormDefaults {
     vacationDaysPerYear: row.vacationDaysPerYear,
     weeklyTargetMinutes: row.weeklyTargetMinutes,
     hazMinutesPerWeek: row.hazMinutesPerWeek,
+    tztModel: row.tztModel,
     isActive: row.isActive,
   };
 }

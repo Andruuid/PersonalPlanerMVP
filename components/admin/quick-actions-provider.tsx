@@ -85,6 +85,7 @@ export function QuickActionsProvider({
               vacationDaysPerYear: 25,
               weeklyTargetMinutes: 2520,
               hazMinutesPerWeek: 2700,
+              tztModel: "DAILY_QUOTA",
               isActive: true,
             }}
             locations={locations}

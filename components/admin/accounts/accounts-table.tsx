@@ -5,6 +5,7 @@ import { Plus, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { HelpIconTooltip } from "@/components/ui/help-icon-tooltip";
 import {
   ManualBookingForm,
   type EmployeePickOption,
@@ -67,7 +68,10 @@ export function AccountsTable({ rows, year, todayIso }: Props) {
                 <th className="px-4 py-3">Mitarbeitende:r</th>
                 {ACCOUNT_ORDER.map((accountType) => (
                   <th key={accountType} className="px-4 py-3">
-                    {ACCOUNT_DISPLAY[accountType].label}
+                    <HeaderWithHelp
+                      label={ACCOUNT_DISPLAY[accountType].label}
+                      tooltip={`Aktueller Kontostand und Eröffnungswert für ${ACCOUNT_DISPLAY[accountType].label}.`}
+                    />
                   </th>
                 ))}
                 <th className="px-4 py-3 text-right">Aktionen</th>
@@ -168,6 +172,19 @@ export function AccountsTable({ rows, year, todayIso }: Props) {
         </DialogContent>
       </Dialog>
     </section>
+  );
+}
+
+function HeaderWithHelp({ label, tooltip }: { label: string; tooltip: string }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span>{label}</span>
+      <HelpIconTooltip
+        text={tooltip}
+        ariaLabel="Spaltenhilfe anzeigen"
+        contentClassName="max-w-72 normal-case"
+      />
+    </span>
   );
 }
 

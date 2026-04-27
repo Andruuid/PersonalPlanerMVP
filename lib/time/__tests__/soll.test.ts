@@ -43,6 +43,10 @@ describe("dailySollMinutes", () => {
     expect(dailySollMinutes("FREE_REQUESTED", 2520)).toBe(base);
     expect(dailySollMinutes("EMPTY_WEEKDAY", 2520)).toBe(base);
   });
+
+  it("treats TZT as Soll-reduction in TARGET_REDUCTION model", () => {
+    expect(dailySollMinutes("TZT_ABSENCE", 2520, "TARGET_REDUCTION")).toBe(0);
+  });
 });
 
 describe("anrechenbarIstMinutes", () => {
@@ -59,6 +63,12 @@ describe("anrechenbarIstMinutes", () => {
     expect(anrechenbarIstMinutes("ACCIDENT", 0, weekly)).toBe(base);
     expect(anrechenbarIstMinutes("VACATION", 0, weekly)).toBe(base);
     expect(anrechenbarIstMinutes("TZT_ABSENCE", 0, weekly)).toBe(base);
+  });
+
+  it("does not credit TZT Ist in TARGET_REDUCTION model", () => {
+    expect(anrechenbarIstMinutes("TZT_ABSENCE", 0, weekly, "TARGET_REDUCTION")).toBe(
+      0,
+    );
   });
 
   it("returns 0 Ist for HOLIDAY/WEEKEND_OFF/UNPAID/FREE_REQUESTED/EMPTY_WEEKDAY", () => {

@@ -107,6 +107,53 @@ async function recomputeBalance(
   });
 }
 
+export interface EmployeeOpeningBalancesInput {
+  employeeId: string;
+  vacationDaysPerYear: number;
+  entryDate: Date;
+  createdByUserId: string;
+  /** Per account: non-zero values post one OPENING booking (unit = account unit). */
+  openings: Partial<Record<AccountType, number>>;
+}
+
+/**
+ * Create OPENING bookings for initial balances (e.g. from employee onboarding).
+ * Idempotent per account only in the sense that the caller should run once at hire;
+ * duplicate calls would add duplicate openings.
+ */
+export async function applyEmployeeOpeningBalances(
+  tx: Tx,
+  input: EmployeeOpeningBalancesInput,
+): Promise<number> {
+  const year = input.entryDate.getFullYear();
+  let created = 0;
+  for (const accountType of ACCOUNT_TYPES) {
+    const value = input.openings[accountType];
+    if (value === undefined || value === null || value === 0) continue;
+    await ensureBalanceRow(
+      tx,
+      input.employeeId,
+      accountType,
+      year,
+      input.vacationDaysPerYear,
+    );
+    await tx.booking.create({
+      data: {
+        employeeId: input.employeeId,
+        accountType,
+        date: input.entryDate,
+        value,
+        bookingType: "OPENING",
+        comment: "Anfangsbestand (Stammdaten)",
+        createdByUserId: input.createdByUserId,
+      },
+    });
+    await recomputeBalance(tx, input.employeeId, accountType, year);
+    created += 1;
+  }
+  return created;
+}
+
 // ---------------------------------------------------------------------------
 // Week close / reopen
 // ---------------------------------------------------------------------------
@@ -235,6 +282,7 @@ export async function recalcWeekClose(
         {
           weeklyTargetMinutes: employee.weeklyTargetMinutes,
           hazMinutesPerWeek: employee.hazMinutesPerWeek,
+          tztModel: employee.tztModel,
         },
       );
 

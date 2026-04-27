@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { HelpIconTooltip } from "@/components/ui/help-icon-tooltip";
 import {
   Dialog,
   DialogClose,
@@ -103,7 +104,11 @@ function RequestForm({ type, onClose }: RequestFormProps) {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label htmlFor="startDate">Von</Label>
+          <LabelWithHelp
+            htmlFor="startDate"
+            label="Von"
+            tooltip="Startdatum des beantragten Zeitraums."
+          />
           <Input
             id="startDate"
             name="startDate"
@@ -117,7 +122,11 @@ function RequestForm({ type, onClose }: RequestFormProps) {
           ) : null}
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="endDate">Bis</Label>
+          <LabelWithHelp
+            htmlFor="endDate"
+            label="Bis"
+            tooltip="Enddatum des beantragten Zeitraums (inklusive)."
+          />
           <Input
             id="endDate"
             name="endDate"
@@ -134,7 +143,11 @@ function RequestForm({ type, onClose }: RequestFormProps) {
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="comment">Kommentar (optional)</Label>
+        <LabelWithHelp
+          htmlFor="comment"
+          label="Kommentar (optional)"
+          tooltip="Hilft bei der Entscheidung und erscheint in der Antragshistorie."
+        />
         <textarea
           id="comment"
           name="comment"
@@ -167,5 +180,22 @@ function RequestForm({ type, onClose }: RequestFormProps) {
         </Button>
       </DialogFooter>
     </form>
+  );
+}
+
+function LabelWithHelp({
+  htmlFor,
+  label,
+  tooltip,
+}: {
+  htmlFor: string;
+  label: string;
+  tooltip: string;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <Label htmlFor={htmlFor}>{label}</Label>
+      <HelpIconTooltip text={tooltip} />
+    </div>
   );
 }

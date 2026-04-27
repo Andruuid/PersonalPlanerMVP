@@ -4,6 +4,7 @@ import {
   STANDARD_WORK_DAYS,
   anrechenbarIstMinutes,
   dailySollMinutes,
+  type TztModel,
 } from "./soll";
 import { actualWorkMinutes, weeklyUezContribution } from "./overtime";
 import { vacationDaysDebit } from "./vacation";
@@ -36,6 +37,7 @@ export interface WeeklyComputation {
 export interface EmployeeWeekConfig {
   weeklyTargetMinutes: number;
   hazMinutesPerWeek: number;
+  tztModel?: TztModel;
   standardWorkDays?: number;
 }
 
@@ -64,6 +66,7 @@ export function computeWeeklyBalance(
   config: EmployeeWeekConfig,
 ): WeeklyComputation {
   const standardWorkDays = config.standardWorkDays ?? STANDARD_WORK_DAYS;
+  const tztModel = config.tztModel ?? "DAILY_QUOTA";
   const byDate = new Map<string, PlanEntryByDate>();
   for (const e of entries) byDate.set(e.date, e);
 
@@ -77,12 +80,14 @@ export function computeWeeklyBalance(
     const sollMinutes = dailySollMinutes(
       resolved.kind,
       config.weeklyTargetMinutes,
+      tztModel,
       standardWorkDays,
     );
     const istMinutes = anrechenbarIstMinutes(
       resolved.kind,
       resolved.plannedMinutes,
       config.weeklyTargetMinutes,
+      tztModel,
       standardWorkDays,
     );
     const dayCalc: DayComputation = {

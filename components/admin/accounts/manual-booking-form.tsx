@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { HelpIconTooltip } from "@/components/ui/help-icon-tooltip";
 import {
   DialogClose,
   DialogDescription,
@@ -123,7 +124,11 @@ export function ManualBookingForm({ employees, defaults, onSuccess }: Props) {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="accountType">Konto</Label>
+          <LabelWithHelp
+            htmlFor="accountType"
+            label="Konto"
+            tooltip="Legt Einheit und Kontologik fest: Zeitsaldo/UEZ in Minuten, Ferien/TZT in Tagen."
+          />
           <select
             id="accountType"
             name="accountType"
@@ -147,7 +152,11 @@ export function ManualBookingForm({ employees, defaults, onSuccess }: Props) {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="bookingType">Buchungsart</Label>
+          <LabelWithHelp
+            htmlFor="bookingType"
+            label="Buchungsart"
+            tooltip="Gutschrift erzwingt ein Plus, Belastung ein Minus; Korrektur übernimmt das eingegebene Vorzeichen."
+          />
           <select
             id="bookingType"
             name="bookingType"
@@ -163,7 +172,11 @@ export function ManualBookingForm({ employees, defaults, onSuccess }: Props) {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="date">Datum</Label>
+          <LabelWithHelp
+            htmlFor="date"
+            label="Datum"
+            tooltip="Buchungsdatum für Kontoführung und Historie."
+          />
           <Input
             id="date"
             name="date"
@@ -177,7 +190,11 @@ export function ManualBookingForm({ employees, defaults, onSuccess }: Props) {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="value">Wert</Label>
+          <LabelWithHelp
+            htmlFor="value"
+            label="Wert"
+            tooltip="Betrag erfassen; die Buchungsart steuert die Richtung (+/-)."
+          />
           <Input
             id="value"
             name="value"
@@ -195,7 +212,11 @@ export function ManualBookingForm({ employees, defaults, onSuccess }: Props) {
         </div>
 
         <div className="space-y-1.5 sm:col-span-2">
-          <Label htmlFor="comment">Kommentar (Pflicht)</Label>
+          <LabelWithHelp
+            htmlFor="comment"
+            label="Kommentar (Pflicht)"
+            tooltip="Wird im Audit-Log gespeichert und soll den Buchungsgrund nachvollziehbar beschreiben."
+          />
           <textarea
             id="comment"
             name="comment"
@@ -228,5 +249,22 @@ export function ManualBookingForm({ employees, defaults, onSuccess }: Props) {
         </Button>
       </DialogFooter>
     </form>
+  );
+}
+
+function LabelWithHelp({
+  htmlFor,
+  label,
+  tooltip,
+}: {
+  htmlFor: string;
+  label: string;
+  tooltip: string;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <Label htmlFor={htmlFor}>{label}</Label>
+      <HelpIconTooltip text={tooltip} />
+    </div>
   );
 }

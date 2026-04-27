@@ -39,6 +39,7 @@ export default async function EmployeesPage() {
     vacationDaysPerYear: e.vacationDaysPerYear,
     weeklyTargetMinutes: e.weeklyTargetMinutes,
     hazMinutesPerWeek: e.hazMinutesPerWeek,
+    tztModel: e.tztModel,
     isActive: e.isActive,
   }));
 

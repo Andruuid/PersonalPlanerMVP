@@ -135,6 +135,24 @@ describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
     expect(result.vacationDaysDebit).toBe(0);
   });
 
+  it("TZT in TARGET_REDUCTION reduces Soll instead of crediting Ist", () => {
+    const days = isoWeekDays(YEAR, WEEK);
+    const entries = asEntries({
+      [days[0].iso]: { kind: "ABSENCE", absenceType: "TZT", plannedMinutes: 0 },
+      [days[1].iso]: { kind: "SHIFT", plannedMinutes: 504 },
+      [days[2].iso]: { kind: "SHIFT", plannedMinutes: 504 },
+      [days[3].iso]: { kind: "SHIFT", plannedMinutes: 504 },
+      [days[4].iso]: { kind: "SHIFT", plannedMinutes: 504 },
+    });
+    const result = computeWeeklyBalance(YEAR, WEEK, entries, noHolidays, {
+      ...FULL_PENSUM,
+      tztModel: "TARGET_REDUCTION",
+    });
+    expect(result.weeklyZeitsaldoDeltaMinutes).toBe(0);
+    expect(result.totalSollMinutes).toBe(2016);
+    expect(result.totalIstMinutes).toBe(2016);
+  });
+
   it("unpaid leave reduces Soll to 0 — no contribution either way", () => {
     const days = isoWeekDays(YEAR, WEEK);
     const entries = asEntries({

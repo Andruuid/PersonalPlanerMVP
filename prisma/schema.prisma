@@ -73,6 +73,12 @@ enum BookingType {
   CARRYOVER
 }
 
+/// TZT accounting variant (Spec: Modell 1 = Tageskontingent, Modell 2 = Sollzeit-Reduktion).
+enum TztModel {
+  DAILY_QUOTA
+  TARGET_REDUCTION
+}
+
 // ---------- Core entities ----------
 
 model User {
@@ -113,6 +119,7 @@ model Employee {
   vacationDaysPerYear  Float             @default(25)
   weeklyTargetMinutes  Int               @default(2520) // 42h * 60
   hazMinutesPerWeek    Int               @default(2700) // 45h * 60
+  tztModel             TztModel          @default(DAILY_QUOTA)
   isActive             Boolean           @default(true)
   planEntries          PlanEntry[]
   absenceRequests      AbsenceRequest[]

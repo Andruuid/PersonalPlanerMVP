@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { HelpIconTooltip } from "@/components/ui/help-icon-tooltip";
 import {
   DialogClose,
   DialogFooter,
@@ -23,6 +24,8 @@ export interface LocationOption {
   name: string;
 }
 
+export type TztModelValue = "DAILY_QUOTA" | "TARGET_REDUCTION";
+
 export interface EmployeeFormDefaults {
   id?: string;
   email: string;
@@ -36,6 +39,7 @@ export interface EmployeeFormDefaults {
   vacationDaysPerYear: number;
   weeklyTargetMinutes: number;
   hazMinutesPerWeek: number;
+  tztModel: TztModelValue;
   isActive: boolean;
 }
 
@@ -165,6 +169,7 @@ export function EmployeeForm({
           step={0.5}
           min={0}
           defaultValue={defaults.vacationDaysPerYear}
+          tooltip="Jährlicher Ferienanspruch als Stammdatum; initialisiert den Eröffnungswert des Ferienkontos je Jahr."
           required
           error={fieldErr.vacationDaysPerYear}
         />
@@ -190,6 +195,7 @@ export function EmployeeForm({
           min={0}
           step={1}
           defaultValue={defaults.weeklyTargetMinutes}
+          tooltip="Wöchentliche Sollzeit für die Zeitsaldo-Berechnung; wird auf die Standardarbeitstage verteilt."
           hint="Standard: 2520 (42h × 60)"
           required
           error={fieldErr.weeklyTargetMinutes}
@@ -201,11 +207,83 @@ export function EmployeeForm({
           min={0}
           step={1}
           defaultValue={defaults.hazMinutesPerWeek}
+          tooltip="HAZ-Schwelle pro Woche; oberhalb davon schreibt die Wochenautomatik UEZ gut."
           hint="Standard: 2700 (45h) oder 3000 (50h)"
           required
           error={fieldErr.hazMinutesPerWeek}
         />
+        <SelectField
+          label="TZT-Modell"
+          name="tztModel"
+          defaultValue={defaults.tztModel}
+          tooltip="Modell 1: TZT bleibt über anrechenbare Istzeit Soll-/Ist-neutral. Modell 2: TZT reduziert die Tagessollzeit."
+          options={[
+            {
+              value: "DAILY_QUOTA",
+              label: "Modell 1 — Tageskontingent",
+            },
+            {
+              value: "TARGET_REDUCTION",
+              label: "Modell 2 — Sollzeit-Reduktion",
+            },
+          ]}
+          required
+          error={fieldErr.tztModel}
+        />
       </div>
+
+      {mode === "create" ? (
+        <div className="space-y-3 rounded-lg border border-neutral-200 bg-neutral-50/80 p-4">
+          <p className="text-sm font-medium text-neutral-900">
+            Anfangsbestände (optional)
+            <HelpTooltip text="Nur Werte ungleich 0 werden gebucht. Die Buchung erfolgt als OPENING auf das Eintrittsdatum." />
+          </p>
+          <p className="text-xs text-neutral-600">
+            Werte werden am Eintrittsdatum als Eröffnungsbuchungen (
+            <span className="font-mono">OPENING</span>) für das Jahr des
+            Eintritts gebucht. Leer oder 0 = keine Zusatzbuchung.
+          </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field
+              label="Zeitsaldo (Minuten)"
+              name="openingZeitsaldoMinutes"
+              type="number"
+              step={1}
+              defaultValue={0}
+              tooltip="Startwert im Zeitsaldo-Konto (Minuten). Positiv = Guthaben, negativ = Belastung."
+              error={fieldErr.openingZeitsaldoMinutes}
+            />
+            <Field
+              label="Überstunden / UEZ (Minuten)"
+              name="openingUezMinutes"
+              type="number"
+              step={1}
+              defaultValue={0}
+              tooltip="Startwert für das UEZ-Konto in Minuten."
+              error={fieldErr.openingUezMinutes}
+            />
+            <Field
+              label="Ferien (Tage)"
+              name="openingVacationDays"
+              type="number"
+              step={0.5}
+              defaultValue={0}
+              tooltip="Zusätzlicher Ferien-Startbestand in Tagen; additiv zum jährlichen Ferienanspruch."
+              hint="Additiv zum Kontojahr; Ferienkonto wird zusätzlich mit Jahresanspruch initialisiert."
+              error={fieldErr.openingVacationDays}
+            />
+            <Field
+              label="TZT (Tage)"
+              name="openingTztDays"
+              type="number"
+              step={0.5}
+              defaultValue={0}
+              tooltip="Startwert für das TZT-Konto in Tagen."
+              error={fieldErr.openingTztDays}
+            />
+          </div>
+        </div>
+      ) : null}
 
       <label className="flex items-center gap-2 text-sm">
         <input
@@ -243,14 +321,15 @@ export function EmployeeForm({
 
 interface FieldProps extends Omit<React.ComponentProps<"input">, "size"> {
   label: string;
+  tooltip?: string;
   hint?: string;
   error?: string;
 }
 
-function Field({ label, hint, error, name, ...rest }: FieldProps) {
+function Field({ label, tooltip, hint, error, name, ...rest }: FieldProps) {
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={name}>{label}</Label>
+      <LabelWithHelp htmlFor={name} label={label} tooltip={tooltip} />
       <Input id={name} name={name} {...rest} />
       {error ? (
         <p className="text-xs text-rose-700">{error}</p>
@@ -263,6 +342,7 @@ function Field({ label, hint, error, name, ...rest }: FieldProps) {
 
 interface SelectFieldProps {
   label: string;
+  tooltip?: string;
   name: string;
   defaultValue: string;
   options: Array<{ value: string; label: string }>;
@@ -272,6 +352,7 @@ interface SelectFieldProps {
 
 function SelectField({
   label,
+  tooltip,
   name,
   defaultValue,
   options,
@@ -280,7 +361,7 @@ function SelectField({
 }: SelectFieldProps) {
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={name}>{label}</Label>
+      <LabelWithHelp htmlFor={name} label={label} tooltip={tooltip} />
       <select
         id={name}
         name={name}
@@ -297,4 +378,25 @@ function SelectField({
       {error ? <p className="text-xs text-rose-700">{error}</p> : null}
     </div>
   );
+}
+
+function LabelWithHelp({
+  htmlFor,
+  label,
+  tooltip,
+}: {
+  htmlFor?: string;
+  label: string;
+  tooltip?: string;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <Label htmlFor={htmlFor}>{label}</Label>
+      {tooltip ? <HelpTooltip text={tooltip} /> : null}
+    </div>
+  );
+}
+
+function HelpTooltip({ text }: { text: string }) {
+  return <HelpIconTooltip text={text} />;
 }

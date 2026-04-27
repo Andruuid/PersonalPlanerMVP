@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { HelpIconTooltip } from "@/components/ui/help-icon-tooltip";
 import {
   Dialog,
   DialogClose,
@@ -214,7 +215,11 @@ function AssignmentForm({
 
         {tab === "SHIFT" ? (
           <div className="space-y-2">
-            <Label htmlFor="serviceId">Dienstvorlage</Label>
+            <LabelWithHelp
+              htmlFor="serviceId"
+              label="Dienstvorlage"
+              tooltip="Übernimmt Start, Ende und Pause aus der hinterlegten Vorlage."
+            />
             <select
               id="serviceId"
               value={serviceId}
@@ -242,7 +247,11 @@ function AssignmentForm({
         {tab === "ONE_TIME_SHIFT" ? (
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 space-y-1.5">
-              <Label htmlFor="oneTimeLabel">Bezeichnung</Label>
+              <LabelWithHelp
+                htmlFor="oneTimeLabel"
+                label="Bezeichnung"
+                tooltip="Freie Bezeichnung für den einmaligen Einsatz, z. B. Inventur."
+              />
               <Input
                 id="oneTimeLabel"
                 value={oneTimeLabel}
@@ -251,7 +260,11 @@ function AssignmentForm({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="oneTimeStart">Start</Label>
+              <LabelWithHelp
+                htmlFor="oneTimeStart"
+                label="Start"
+                tooltip="Startzeit des einmaligen Dienstes."
+              />
               <Input
                 id="oneTimeStart"
                 type="time"
@@ -260,7 +273,11 @@ function AssignmentForm({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="oneTimeEnd">Ende</Label>
+              <LabelWithHelp
+                htmlFor="oneTimeEnd"
+                label="Ende"
+                tooltip="Endzeit des einmaligen Dienstes."
+              />
               <Input
                 id="oneTimeEnd"
                 type="time"
@@ -269,7 +286,11 @@ function AssignmentForm({
               />
             </div>
             <div className="col-span-2 space-y-1.5">
-              <Label htmlFor="oneTimeBreak">Pause (Minuten)</Label>
+              <LabelWithHelp
+                htmlFor="oneTimeBreak"
+                label="Pause (Minuten)"
+                tooltip="Unbezahlte Pause in Minuten; reduziert die geplante Arbeitszeit."
+              />
               <Input
                 id="oneTimeBreak"
                 type="number"
@@ -286,7 +307,11 @@ function AssignmentForm({
 
         {tab === "ABSENCE" ? (
           <div className="space-y-2">
-            <Label htmlFor="absence">Abwesenheitstyp</Label>
+            <LabelWithHelp
+              htmlFor="absence"
+              label="Abwesenheitstyp"
+              tooltip="Bestimmt die Kontologik, z. B. Ferienabbau, Sollzeitwirkung oder Zeitsaldo-Effekt."
+            />
             <select
               id="absence"
               value={absence}
@@ -370,5 +395,22 @@ function TabButton({
     >
       {children}
     </button>
+  );
+}
+
+function LabelWithHelp({
+  htmlFor,
+  label,
+  tooltip,
+}: {
+  htmlFor: string;
+  label: string;
+  tooltip: string;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <Label htmlFor={htmlFor}>{label}</Label>
+      <HelpIconTooltip text={tooltip} contentClassName="max-w-72 normal-case" />
+    </div>
   );
 }

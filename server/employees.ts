@@ -12,6 +12,16 @@ import {
   safeRevalidatePath,
   type ActionResult,
 } from "./_shared";
+import { applyEmployeeOpeningBalances } from "@/lib/bookings/core";
+
+function openingAmountSchema(maxAbs: number) {
+  return z.preprocess((v) => {
+    if (v === "" || v === null || v === undefined) return 0;
+    if (typeof v === "number") return v;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }, z.number().finite().min(-maxAbs).max(maxAbs));
+}
 
 const baseSchema = z.object({
   firstName: z.string().min(1, "Vorname erforderlich"),
@@ -43,12 +53,19 @@ const baseSchema = z.object({
     .int("Ganzzahl erforderlich")
     .min(0, "Mindestens 0")
     .max(7200, "Maximal 7200"),
+  tztModel: z.enum(["DAILY_QUOTA", "TARGET_REDUCTION"], {
+    message: "TZT-Modell wählen",
+  }),
   isActive: z.boolean().default(true),
 });
 
 const createSchema = baseSchema.extend({
   email: z.string().email("E-Mail erforderlich"),
   password: z.string().min(6, "Mindestens 6 Zeichen"),
+  openingZeitsaldoMinutes: openingAmountSchema(500_000),
+  openingUezMinutes: openingAmountSchema(500_000),
+  openingVacationDays: openingAmountSchema(366),
+  openingTztDays: openingAmountSchema(366),
 });
 
 const updateSchema = baseSchema.extend({
@@ -77,7 +94,12 @@ function rawFromForm(formData: FormData): Record<string, unknown> {
     vacationDaysPerYear: formData.get("vacationDaysPerYear"),
     weeklyTargetMinutes: formData.get("weeklyTargetMinutes"),
     hazMinutesPerWeek: formData.get("hazMinutesPerWeek"),
+    tztModel: readOptionalString(formData.get("tztModel")) ?? "DAILY_QUOTA",
     isActive: readBooleanFlag(formData.get("isActive")),
+    openingZeitsaldoMinutes: formData.get("openingZeitsaldoMinutes"),
+    openingUezMinutes: formData.get("openingUezMinutes"),
+    openingVacationDays: formData.get("openingVacationDays"),
+    openingTztDays: formData.get("openingTztDays"),
   };
 }
 
@@ -109,33 +131,51 @@ export async function createEmployeeAction(
 
   const passwordHash = await bcrypt.hash(data.password, 10);
 
-  const employee = await prisma.$transaction(async (tx) => {
-    const user = await tx.user.create({
-      data: {
-        email: emailLower,
-        passwordHash,
-        role: "EMPLOYEE",
-        isActive: data.isActive,
-      },
-    });
+  const { openingBookingsCreated, employee } = await prisma.$transaction(
+    async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          email: emailLower,
+          passwordHash,
+          role: "EMPLOYEE",
+          isActive: data.isActive,
+        },
+      });
 
-    return tx.employee.create({
-      data: {
-        userId: user.id,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        roleLabel: data.roleLabel ?? null,
-        pensum: data.pensum,
-        entryDate: data.entryDate,
-        exitDate: data.exitDate ?? null,
-        locationId: data.locationId,
+      const emp = await tx.employee.create({
+        data: {
+          userId: user.id,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          roleLabel: data.roleLabel ?? null,
+          pensum: data.pensum,
+          entryDate: data.entryDate,
+          exitDate: data.exitDate ?? null,
+          locationId: data.locationId,
+          vacationDaysPerYear: data.vacationDaysPerYear,
+          weeklyTargetMinutes: data.weeklyTargetMinutes,
+          hazMinutesPerWeek: data.hazMinutesPerWeek,
+          tztModel: data.tztModel,
+          isActive: data.isActive,
+        },
+      });
+
+      const openingBookingsCreated = await applyEmployeeOpeningBalances(tx, {
+        employeeId: emp.id,
         vacationDaysPerYear: data.vacationDaysPerYear,
-        weeklyTargetMinutes: data.weeklyTargetMinutes,
-        hazMinutesPerWeek: data.hazMinutesPerWeek,
-        isActive: data.isActive,
-      },
-    });
-  });
+        entryDate: data.entryDate,
+        createdByUserId: admin.id,
+        openings: {
+          ZEITSALDO: data.openingZeitsaldoMinutes,
+          UEZ: data.openingUezMinutes,
+          FERIEN: data.openingVacationDays,
+          TZT: data.openingTztDays,
+        },
+      });
+
+      return { employee: emp, openingBookingsCreated };
+    },
+  );
 
   await writeAudit({
     userId: admin.id,
@@ -152,11 +192,15 @@ export async function createEmployeeAction(
       vacationDaysPerYear: employee.vacationDaysPerYear,
       weeklyTargetMinutes: employee.weeklyTargetMinutes,
       hazMinutesPerWeek: employee.hazMinutesPerWeek,
+      tztModel: employee.tztModel,
       isActive: employee.isActive,
+      openingBookingsCreated,
     },
   });
 
   safeRevalidatePath("createEmployeeAction", "/employees");
+  safeRevalidatePath("createEmployeeAction", "/accounts");
+  safeRevalidatePath("createEmployeeAction", "/my-accounts");
   safeRevalidatePath("createEmployeeAction", "/", "layout");
   return { ok: true };
 }
@@ -225,6 +269,7 @@ export async function updateEmployeeAction(
         vacationDaysPerYear: data.vacationDaysPerYear,
         weeklyTargetMinutes: data.weeklyTargetMinutes,
         hazMinutesPerWeek: data.hazMinutesPerWeek,
+        tztModel: data.tztModel,
         isActive: data.isActive,
       },
     });
@@ -245,6 +290,7 @@ export async function updateEmployeeAction(
       vacationDaysPerYear: before.vacationDaysPerYear,
       weeklyTargetMinutes: before.weeklyTargetMinutes,
       hazMinutesPerWeek: before.hazMinutesPerWeek,
+      tztModel: before.tztModel,
       isActive: before.isActive,
       passwordChanged: false,
     },
@@ -258,6 +304,7 @@ export async function updateEmployeeAction(
       vacationDaysPerYear: updated.vacationDaysPerYear,
       weeklyTargetMinutes: updated.weeklyTargetMinutes,
       hazMinutesPerWeek: updated.hazMinutesPerWeek,
+      tztModel: updated.tztModel,
       isActive: updated.isActive,
       passwordChanged: Boolean(passwordHash),
     },

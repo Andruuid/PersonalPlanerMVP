@@ -1,6 +1,7 @@
 import type { DayKind } from "./priority";
 
 export const STANDARD_WORK_DAYS = 5;
+export type TztModel = "DAILY_QUOTA" | "TARGET_REDUCTION";
 
 /**
  * Daily Sollzeit derived from the employee's weekly target divided across the
@@ -22,13 +23,15 @@ export function baseDailySollMinutes(
 export function dailySollMinutes(
   kind: DayKind,
   weeklyTargetMinutes: number,
+  tztModel: TztModel = "DAILY_QUOTA",
   standardWorkDays: number = STANDARD_WORK_DAYS,
 ): number {
   if (
     kind === "HOLIDAY" ||
     kind === "WEEKEND_OFF" ||
     kind === "WORK_ON_WEEKEND" ||
-    kind === "UNPAID"
+    kind === "UNPAID" ||
+    (kind === "TZT_ABSENCE" && tztModel === "TARGET_REDUCTION")
   ) {
     return 0;
   }
@@ -44,6 +47,7 @@ export function anrechenbarIstMinutes(
   kind: DayKind,
   plannedMinutes: number,
   weeklyTargetMinutes: number,
+  tztModel: TztModel = "DAILY_QUOTA",
   standardWorkDays: number = STANDARD_WORK_DAYS,
 ): number {
   switch (kind) {
@@ -53,8 +57,11 @@ export function anrechenbarIstMinutes(
     case "SICK":
     case "ACCIDENT":
     case "VACATION":
-    case "TZT_ABSENCE":
       return baseDailySollMinutes(weeklyTargetMinutes, standardWorkDays);
+    case "TZT_ABSENCE":
+      return tztModel === "TARGET_REDUCTION"
+        ? 0
+        : baseDailySollMinutes(weeklyTargetMinutes, standardWorkDays);
     case "HOLIDAY":
     case "WEEKEND_OFF":
     case "UNPAID":
