@@ -35,6 +35,22 @@ describe("evaluateRequestEntitlement", () => {
     expect(result.error).toContain("TZT-Guthaben");
   });
 
+  it("allows TZT requests in TARGET_REDUCTION model without checking TZT account", () => {
+    const result = evaluateRequestEntitlement({
+      type: "TZT",
+      startDate: parseIsoDate("2026-03-02")!,
+      endDate: parseIsoDate("2026-03-03")!,
+      weeklyTargetMinutes: 2520,
+      tztModel: "TARGET_REDUCTION",
+      vacationDaysPerYear: 25,
+      balancesByYear: {
+        2026: { TZT: 0 },
+      },
+    });
+
+    expect(result.ok).toBe(true);
+  });
+
   it("rejects parental/care leave requests when dedicated balance is too low", () => {
     const result = evaluateRequestEntitlement({
       type: "PARENTAL_CARE",

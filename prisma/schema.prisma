@@ -27,6 +27,7 @@ enum PlanEntryKind {
   SHIFT
   ONE_TIME_SHIFT
   ABSENCE
+  VFT
 }
 
 enum AbsenceType {

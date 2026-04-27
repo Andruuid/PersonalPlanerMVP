@@ -14,6 +14,7 @@ export interface RequestEntitlementInput {
   startDate: Date;
   endDate: Date;
   weeklyTargetMinutes: number;
+  tztModel?: "DAILY_QUOTA" | "TARGET_REDUCTION";
   vacationDaysPerYear: number;
   balancesByYear: Partial<
     Record<number, Partial<Record<RequestAccountType, number>>>
@@ -65,6 +66,7 @@ export function evaluateRequestEntitlement(
 ): RequestEntitlementResult {
   const effectiveType =
     input.type === "FREE_DAY" ? "FREE_REQUESTED" : input.type;
+  const tztModel = input.tztModel ?? "DAILY_QUOTA";
 
   const weekdaysByYear = requestedWeekdaysByYear(input.startDate, input.endDate);
   if (weekdaysByYear.size === 0) return { ok: true };
@@ -83,6 +85,11 @@ export function evaluateRequestEntitlement(
   }
 
   if (effectiveType === "TZT") {
+    // Model 2 (TARGET_REDUCTION): TZT reduces Soll directly, no TZT day
+    // allowance account is consumed.
+    if (tztModel === "TARGET_REDUCTION") {
+      return { ok: true };
+    }
     for (const [year, requestedDays] of weekdaysByYear) {
       const available = getAccountValue(input, year, "TZT");
       if (available < requestedDays) {

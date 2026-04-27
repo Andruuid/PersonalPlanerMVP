@@ -39,7 +39,7 @@ interface AssignmentFormProps
   onClose: () => void;
 }
 
-type Tab = "SHIFT" | "ONE_TIME_SHIFT" | "ABSENCE";
+type Tab = "SHIFT" | "ONE_TIME_SHIFT" | "ABSENCE" | "VFT";
 
 const ABSENCE_OPTIONS: Array<{
   value: NonNullable<UpsertPlanEntryInput & { kind: "ABSENCE" }>["absenceType"];
@@ -151,13 +151,20 @@ function AssignmentForm({
         oneTimeBreakMinutes: oneTimeBreak,
         oneTimeLabel,
       };
-    } else {
+    } else if (tab === "ABSENCE") {
       payload = {
         kind: "ABSENCE",
         weekId,
         employeeId,
         date: isoDate,
         absenceType: absence,
+      };
+    } else {
+      payload = {
+        kind: "VFT",
+        weekId,
+        employeeId,
+        date: isoDate,
       };
     }
 
@@ -224,6 +231,9 @@ function AssignmentForm({
             onClick={() => setTab("ABSENCE")}
           >
             Abwesenheit
+          </TabButton>
+          <TabButton active={tab === "VFT"} onClick={() => setTab("VFT")}>
+            VFT
           </TabButton>
         </div>
 
@@ -353,6 +363,12 @@ function AssignmentForm({
                 </option>
               ))}
             </select>
+          </div>
+        ) : null}
+
+        {tab === "VFT" ? (
+          <div className="rounded-md bg-neutral-50 px-3 py-2 text-sm text-neutral-700 ring-1 ring-neutral-200">
+            Verschobener freier Tag (VFT): reiner Planungstyp ohne Kontobuchung.
           </div>
         ) : null}
 

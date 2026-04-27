@@ -243,6 +243,7 @@ export async function createAbsenceRequestAction(
     select: {
       weeklyTargetMinutes: true,
       vacationDaysPerYear: true,
+      tztModel: true,
     },
   });
   if (!employeeRow) {
@@ -271,6 +272,7 @@ export async function createAbsenceRequestAction(
     startDate,
     endDate,
     weeklyTargetMinutes: employeeRow.weeklyTargetMinutes,
+    tztModel: employeeRow.tztModel,
     vacationDaysPerYear: employeeRow.vacationDaysPerYear,
     balancesByYear,
   });

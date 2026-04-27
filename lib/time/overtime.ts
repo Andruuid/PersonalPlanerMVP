@@ -30,3 +30,20 @@ export function weeklyUezContribution(
 ): number {
   return Math.max(0, weeklyWorkMinutes - hazMinutesPerWeek);
 }
+
+/**
+ * Weekly UES indicator (Ausweis only, not an account booking):
+ * work minutes between weekly Soll and HAZ.
+ *
+ * - Below/equal Soll: 0
+ * - Between Soll and HAZ: work - Soll
+ * - Above HAZ: HAZ - Soll (capped)
+ */
+export function weeklyUesIndicator(
+  weeklyWorkMinutes: number,
+  weeklySollMinutes: number,
+  hazMinutesPerWeek: number,
+): number {
+  const cappedWork = Math.min(weeklyWorkMinutes, hazMinutesPerWeek);
+  return Math.max(0, cappedWork - weeklySollMinutes);
+}

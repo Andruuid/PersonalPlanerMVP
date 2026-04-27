@@ -31,6 +31,7 @@ describe("dailySollMinutes", () => {
     expect(dailySollMinutes("HOLIDAY_WORK", 2520)).toBe(0);
     expect(dailySollMinutes("WEEKEND_OFF", 2520)).toBe(0);
     expect(dailySollMinutes("UNPAID", 2520)).toBe(0);
+    expect(dailySollMinutes("VFT", 2520)).toBe(0);
   });
 
   it("returns base Soll for work (including weekend work), service/absence kinds, and empty weekday", () => {
@@ -81,6 +82,7 @@ describe("anrechenbarIstMinutes", () => {
     expect(anrechenbarIstMinutes("HOLIDAY", 0, weekly)).toBe(0);
     expect(anrechenbarIstMinutes("WEEKEND_OFF", 0, weekly)).toBe(0);
     expect(anrechenbarIstMinutes("UNPAID", 0, weekly)).toBe(0);
+    expect(anrechenbarIstMinutes("VFT", 0, weekly)).toBe(0);
     expect(anrechenbarIstMinutes("FREE_REQUESTED", 0, weekly)).toBe(0);
     expect(anrechenbarIstMinutes("EMPTY_WEEKDAY", 0, weekly)).toBe(0);
   });

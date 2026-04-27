@@ -36,6 +36,10 @@ const absenceSchema = z.object({
   ]),
 });
 
+const vftSchema = z.object({
+  kind: z.literal("VFT"),
+});
+
 const baseSchema = z.object({
   weekId: z.string().min(1),
   employeeId: z.string().min(1),
@@ -47,6 +51,7 @@ export const upsertSchema = z.discriminatedUnion("kind", [
   shiftSchema.merge(baseSchema),
   oneTimeSchema.merge(baseSchema),
   absenceSchema.merge(baseSchema),
+  vftSchema.merge(baseSchema),
 ]);
 
 export type UpsertPlanEntryInput = z.infer<typeof upsertSchema>;

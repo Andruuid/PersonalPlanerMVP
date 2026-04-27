@@ -11,7 +11,7 @@ export type AbsenceType =
   | "CIVIL_SERVICE"
   | "HOLIDAY_AUTO";
 
-export type PlanEntryKind = "SHIFT" | "ONE_TIME_SHIFT" | "ABSENCE";
+export type PlanEntryKind = "SHIFT" | "ONE_TIME_SHIFT" | "ABSENCE" | "VFT";
 
 export interface PlanEntryInput {
   kind: PlanEntryKind;
@@ -37,6 +37,7 @@ export type DayKind =
   | "TZT_ABSENCE"
   | "SERVICE"
   | "UNPAID"
+  | "VFT"
   | "WORK"
   | "EMPTY_WEEKDAY";
 
@@ -108,6 +109,10 @@ export function resolveDay(
       };
     }
     return { kind: "EMPTY_WEEKDAY", plannedMinutes: 0 };
+  }
+
+  if (entry.kind === "VFT") {
+    return { kind: "VFT", plannedMinutes: 0 };
   }
 
   return { kind: "WORK", plannedMinutes: entry.plannedMinutes };

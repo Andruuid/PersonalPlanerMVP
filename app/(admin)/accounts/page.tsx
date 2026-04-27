@@ -32,7 +32,7 @@ export default async function AccountsPage({ searchParams }: PageProps) {
       <PageHeader
         caption={`Konten · ${year}`}
         title="Zeitkonten"
-        description="Zeitsaldo, Ferien, UEZ und TZT pro Mitarbeitenden. Werte ergeben sich aus AUTO_WEEKLY-Buchungen (Wochenabschluss) und manuellen Buchungen — alle audit-pflichtig."
+        description="Zeitsaldo, Ferien, UEZ, TZT und weitere Konten pro Mitarbeitenden. Zusätzlich wird der UES-Ausweis (Arbeitszeit zwischen Wochen-Soll und HAZ) als reiner Kennwert angezeigt."
         action={
           <div className="flex flex-wrap gap-2">
             <YearSwitcher year={year} currentYear={currentYear} />

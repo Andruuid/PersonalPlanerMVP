@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import type { KpiSummary } from "./types";
+import { formatMinutesAsHours } from "@/components/admin/accounts/format";
 
 interface KpiBarProps {
   summary: KpiSummary;
@@ -10,11 +11,12 @@ export function KpiBar({ summary }: KpiBarProps) {
     { label: "Offene Anträge", value: summary.openRequests.toString() },
     { label: "Unbesetzte Felder", value: summary.unassignedCells.toString() },
     { label: "Mitarbeitende aktiv", value: summary.activeEmployees.toString() },
+    { label: "UES-Ausweis", value: formatMinutesAsHours(summary.uesAusweisMinutes) },
     { label: "Status", value: summary.statusLabel, accent: true },
   ] as const;
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
       {items.map((it) => (
         <div
           key={it.label}

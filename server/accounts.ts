@@ -1,6 +1,8 @@
 import "server-only";
 
 import { prisma } from "@/lib/db";
+import { computeWeeklyBalance, type PlanEntryByDate } from "@/lib/time/balance";
+import { buildHolidayLookup } from "@/lib/time/holidays";
 import type {
   AccountType,
   AccountUnit,
@@ -87,7 +89,10 @@ export interface AdminAccountsRow {
   vacationDaysPerYear: number;
   weeklyTargetMinutes: number;
   hazMinutesPerWeek: number;
+  tztModel: "DAILY_QUOTA" | "TARGET_REDUCTION";
+  locationId: string;
   isActive: boolean;
+  uesAusweisMinutesYear: number;
   accounts: Record<AccountType, AccountSummary>;
 }
 
@@ -109,6 +114,71 @@ export async function loadAdminAccountsTable(
     const list = byEmployee.get(b.employeeId) ?? [];
     list.push(b);
     byEmployee.set(b.employeeId, list);
+  }
+
+  const closedWeeks = await prisma.week.findMany({
+    where: { year, status: "CLOSED" },
+    select: { id: true, year: true, weekNumber: true },
+  });
+  const planEntries = await prisma.planEntry.findMany({
+    where: { weekId: { in: closedWeeks.map((w) => w.id) } },
+    select: {
+      weekId: true,
+      employeeId: true,
+      date: true,
+      kind: true,
+      absenceType: true,
+      plannedMinutes: true,
+    },
+  });
+  const holidays = await prisma.holiday.findMany({
+    where: {
+      locationId: { in: employees.map((e) => e.locationId) },
+      date: { gte: new Date(year - 1, 11, 1), lt: new Date(year + 1, 1, 1) },
+    },
+  });
+  const holidaysByLocation = new Map<string, ReturnType<typeof buildHolidayLookup>>();
+  for (const locationId of new Set(employees.map((e) => e.locationId))) {
+    holidaysByLocation.set(
+      locationId,
+      buildHolidayLookup(
+        holidays
+          .filter((h) => h.locationId === locationId)
+          .map((h) => ({ date: h.date, name: h.name })),
+      ),
+    );
+  }
+  const entriesByWeekAndEmployee = new Map<string, PlanEntryByDate[]>();
+  for (const e of planEntries) {
+    const key = `${e.weekId}__${e.employeeId}`;
+    const list = entriesByWeekAndEmployee.get(key) ?? [];
+    list.push({
+      date: isoDateString(e.date),
+      kind: e.kind as PlanEntryByDate["kind"],
+      absenceType: e.absenceType as PlanEntryByDate["absenceType"],
+      plannedMinutes: e.plannedMinutes,
+    });
+    entriesByWeekAndEmployee.set(key, list);
+  }
+  const uesByEmployee = new Map<string, number>();
+  for (const employee of employees) {
+    let ues = 0;
+    for (const week of closedWeeks) {
+      const key = `${week.id}__${employee.id}`;
+      const result = computeWeeklyBalance(
+        week.year,
+        week.weekNumber,
+        entriesByWeekAndEmployee.get(key) ?? [],
+        holidaysByLocation.get(employee.locationId) ?? buildHolidayLookup([]),
+        {
+          weeklyTargetMinutes: employee.weeklyTargetMinutes,
+          hazMinutesPerWeek: employee.hazMinutesPerWeek,
+          tztModel: employee.tztModel,
+        },
+      );
+      ues += result.weeklyUesAusweisMinutes;
+    }
+    uesByEmployee.set(employee.id, ues);
   }
 
   return employees.map((e) => {
@@ -139,7 +209,10 @@ export async function loadAdminAccountsTable(
       vacationDaysPerYear: e.vacationDaysPerYear,
       weeklyTargetMinutes: e.weeklyTargetMinutes,
       hazMinutesPerWeek: e.hazMinutesPerWeek,
+      tztModel: e.tztModel as "DAILY_QUOTA" | "TARGET_REDUCTION",
+      locationId: e.locationId,
       isActive: e.isActive,
+      uesAusweisMinutesYear: uesByEmployee.get(e.id) ?? 0,
       accounts,
     };
   });

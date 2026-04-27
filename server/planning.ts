@@ -156,7 +156,7 @@ export async function upsertPlanEntryAction(
         data.oneTimeEnd,
         data.oneTimeBreakMinutes,
       );
-    } else {
+    } else if (data.kind === "ABSENCE") {
       absenceType = data.absenceType;
     }
 

@@ -1,6 +1,6 @@
 import type { ShiftKey } from "@/lib/shift-style";
 
-export type EntryKind = "SHIFT" | "ONE_TIME_SHIFT" | "ABSENCE";
+export type EntryKind = "SHIFT" | "ONE_TIME_SHIFT" | "ABSENCE" | "VFT";
 
 export type AbsenceType =
   | "VACATION"
@@ -82,6 +82,7 @@ export interface KpiSummary {
   openRequests: number;
   unassignedCells: number;
   activeEmployees: number;
+  uesAusweisMinutes: number;
   statusLabel: string;
 }
 

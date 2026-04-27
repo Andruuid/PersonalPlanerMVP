@@ -157,6 +157,10 @@ function buildDayView({
         timeRange = `${entry.oneTimeStart} – ${entry.oneTimeEnd}`;
       }
       subtitle = entry.comment ?? null;
+    } else if (entry.kind === "VFT") {
+      shiftKey = "FREI";
+      title = "VFT";
+      subtitle = entry.comment ?? "Verschobener freier Tag";
     } else if (entry.kind === "ABSENCE" && entry.absenceType) {
       shiftKey = shiftKeyForAbsence(entry.absenceType);
       title = ABSENCE_LABEL[entry.absenceType] ?? "Abwesenheit";

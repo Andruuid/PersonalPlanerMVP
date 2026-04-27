@@ -22,6 +22,9 @@ import {
   shiftKeyForServiceCode,
   type ShiftKey,
 } from "@/lib/shift-style";
+import { computeWeeklyBalance } from "@/lib/time/balance";
+import { buildHolidayLookup } from "@/lib/time/holidays";
+import type { PlanEntryByDate } from "@/lib/time/balance";
 
 export const metadata = { title: "Wochenplanung · PersonalPlaner" };
 
@@ -95,6 +98,9 @@ function entryView(raw: {
   } else if (raw.kind === "ONE_TIME_SHIFT") {
     shiftKey = "FRUEH";
     title = raw.oneTimeLabel ?? "Einmal-Dienst";
+  } else if (raw.kind === "VFT") {
+    shiftKey = "FREI";
+    title = "VFT";
   } else if (raw.kind === "ABSENCE" && raw.absenceType) {
     shiftKey = shiftKeyForAbsence(raw.absenceType);
     const labelMap: Record<string, string> = {
@@ -227,11 +233,58 @@ export default async function PlanningPage({ searchParams }: PageProps) {
   const totalCells = employees.length * days.length;
   const filledCells = Object.keys(entries).length;
   const unassignedCells = Math.max(0, totalCells - filledCells);
+  const locationIds = Array.from(new Set(employees.map((e) => e.locationId)));
+  const holidays = await prisma.holiday.findMany({
+    where: {
+      locationId: { in: locationIds },
+      date: {
+        gte: new Date(week.year - 1, 11, 1),
+        lt: new Date(week.year + 1, 1, 1),
+      },
+    },
+  });
+  const holidaysByLocation = new Map<string, ReturnType<typeof buildHolidayLookup>>();
+  for (const locId of locationIds) {
+    holidaysByLocation.set(
+      locId,
+      buildHolidayLookup(
+        holidays
+          .filter((h) => h.locationId === locId)
+          .map((h) => ({ date: h.date, name: h.name })),
+      ),
+    );
+  }
+  const entriesByEmployee = new Map<string, PlanEntryByDate[]>();
+  for (const e of planEntries) {
+    const list = entriesByEmployee.get(e.employeeId) ?? [];
+    list.push({
+      date: isoDateString(e.date),
+      kind: e.kind,
+      absenceType: e.absenceType ?? null,
+      plannedMinutes: e.plannedMinutes,
+    });
+    entriesByEmployee.set(e.employeeId, list);
+  }
+  const uesAusweisMinutes = employees.reduce((acc, employee) => {
+    const result = computeWeeklyBalance(
+      week.year,
+      week.weekNumber,
+      entriesByEmployee.get(employee.id) ?? [],
+      holidaysByLocation.get(employee.locationId) ?? buildHolidayLookup([]),
+      {
+        weeklyTargetMinutes: employee.weeklyTargetMinutes,
+        hazMinutesPerWeek: employee.hazMinutesPerWeek,
+        tztModel: employee.tztModel,
+      },
+    );
+    return acc + result.weeklyUesAusweisMinutes;
+  }, 0);
 
   const kpi: KpiSummary = {
     openRequests: openRequests.filter((r) => r.status === "OPEN").length,
     unassignedCells,
     activeEmployees: employees.length,
+    uesAusweisMinutes,
     statusLabel: STATUS_LABEL[week.status],
   };
 

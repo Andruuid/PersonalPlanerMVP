@@ -45,6 +45,7 @@ describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
     expect(result.totalHolidayCreditMinutes).toBe(0);
     expect(result.weeklyZeitsaldoDeltaMinutes).toBe(0);
     expect(result.weeklyWorkMinutes).toBe(2520);
+    expect(result.weeklyUesAusweisMinutes).toBe(0);
     expect(result.weeklyUezDeltaMinutes).toBe(0);
     expect(result.vacationDaysDebit).toBe(0);
   });
@@ -76,6 +77,8 @@ describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
     // Zeitsaldo sees only work up to HAZ: 2700 - 3024 = -324
     expect(result.weeklyZeitsaldoDeltaMinutes).toBe(-324);
     expect(result.weeklyWorkMinutes).toBe(3360);
+    // UES capped at HAZ: max(0, 2700 - 3024) = 0
+    expect(result.weeklyUesAusweisMinutes).toBe(0);
     expect(result.weeklyUezDeltaMinutes).toBe(660); // 3360 - 2700
   });
 
@@ -189,6 +192,32 @@ describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
       FULL_PENSUM,
     );
     expect(result.weeklyZeitsaldoDeltaMinutes).toBe(0);
+  });
+
+  it("VFT is a planning-only day with no account impact", () => {
+    const days = isoWeekDays(YEAR, WEEK);
+    const entries = asEntries({
+      [days[0].iso]: { kind: "VFT", plannedMinutes: 0 },
+      [days[1].iso]: { kind: "SHIFT", plannedMinutes: 504 },
+      [days[2].iso]: { kind: "SHIFT", plannedMinutes: 504 },
+      [days[3].iso]: { kind: "SHIFT", plannedMinutes: 504 },
+      [days[4].iso]: { kind: "SHIFT", plannedMinutes: 504 },
+      [days[5].iso]: { kind: "SHIFT", plannedMinutes: 504 },
+    });
+    const result = computeWeeklyBalance(
+      YEAR,
+      WEEK,
+      entries,
+      noHolidays,
+      FULL_PENSUM,
+    );
+    expect(result.days[0].kind).toBe("VFT");
+    expect(result.days[0].sollMinutes).toBe(0);
+    expect(result.days[0].istMinutes).toBe(0);
+    expect(result.weeklyZeitsaldoDeltaMinutes).toBe(0);
+    expect(result.weeklyUesAusweisMinutes).toBe(0);
+    expect(result.vacationDaysDebit).toBe(0);
+    expect(result.parentalCareDaysDebit).toBe(0);
   });
 
   it("TZT in TARGET_REDUCTION reduces Soll instead of crediting Ist", () => {

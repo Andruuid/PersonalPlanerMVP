@@ -78,4 +78,10 @@ describe("resolveDay", () => {
     expect(r.kind).toBe("WORK");
     expect(r.plannedMinutes).toBe(270);
   });
+
+  it("resolves VFT as dedicated planning day kind", () => {
+    const r = resolveDay({ kind: "VFT", plannedMinutes: 0 }, false, false);
+    expect(r.kind).toBe("VFT");
+    expect(r.plannedMinutes).toBe(0);
+  });
 });
