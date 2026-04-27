@@ -12,12 +12,26 @@ export interface SeededAdmin {
   email: string;
 }
 
+async function ensureTestTenant(prisma: PrismaClient, tenantId?: string) {
+  if (tenantId) {
+    return tenantId;
+  }
+  const tenant = await prisma.tenant.upsert({
+    where: { slug: "test-default" },
+    update: { name: "Test Default Tenant" },
+    create: { id: "test-default", name: "Test Default Tenant", slug: "test-default" },
+  });
+  return tenant.id;
+}
+
 export async function seedAdmin(
   prisma: PrismaClient,
   email = `admin-${randomUUID()}@test.local`,
+  tenantId?: string,
 ): Promise<SeededAdmin> {
+  const effectiveTenantId = await ensureTestTenant(prisma, tenantId);
   const u = await prisma.user.create({
-    data: { email, passwordHash: "x", role: "ADMIN" },
+    data: { tenantId: effectiveTenantId, email, passwordHash: "x", role: "ADMIN" },
   });
   return { id: u.id, email: u.email };
 }
@@ -26,9 +40,11 @@ export async function seedLocation(
   prisma: PrismaClient,
   name = "Test Location",
   holidayRegionCode = "ZH",
+  tenantId?: string,
 ): Promise<string> {
+  const effectiveTenantId = await ensureTestTenant(prisma, tenantId);
   const l = await prisma.location.create({
-    data: { name, holidayRegionCode },
+    data: { tenantId: effectiveTenantId, name, holidayRegionCode },
   });
   return l.id;
 }
@@ -46,6 +62,7 @@ export interface SeedEmployeeOpts {
   entryDate?: Date;
   exitDate?: Date | null;
   isActive?: boolean;
+  tenantId?: string;
 }
 
 export interface SeededEmployee {
@@ -58,9 +75,11 @@ export async function seedEmployee(
   prisma: PrismaClient,
   opts: SeedEmployeeOpts = {},
 ): Promise<SeededEmployee> {
-  const locationId = opts.locationId ?? (await seedLocation(prisma));
+  const tenantId = await ensureTestTenant(prisma, opts.tenantId);
+  const locationId = opts.locationId ?? (await seedLocation(prisma, "Test Location", "ZH", tenantId));
   const user = await prisma.user.create({
     data: {
+      tenantId,
       email: opts.email ?? `e-${randomUUID()}@test.local`,
       passwordHash: "x",
       role: "EMPLOYEE",
@@ -68,6 +87,7 @@ export async function seedEmployee(
   });
   const employee = await prisma.employee.create({
     data: {
+      tenantId,
       userId: user.id,
       firstName: opts.firstName ?? "Anna",
       lastName: opts.lastName ?? "Müller",
@@ -90,11 +110,13 @@ export async function seedHoliday(
   locationId: string,
   isoDate: string,
   name = "Feiertag",
+  tenantId?: string,
 ): Promise<string> {
+  const effectiveTenantId = await ensureTestTenant(prisma, tenantId);
   const date = parseIsoDate(isoDate);
   if (!date) throw new Error(`Invalid ISO date: ${isoDate}`);
   const h = await prisma.holiday.create({
-    data: { locationId, date, name },
+    data: { tenantId: effectiveTenantId, locationId, date, name },
   });
   return h.id;
 }
@@ -103,9 +125,11 @@ export async function seedDraftWeek(
   prisma: PrismaClient,
   year: number,
   weekNumber: number,
+  tenantId?: string,
 ): Promise<string> {
+  const effectiveTenantId = await ensureTestTenant(prisma, tenantId);
   const w = await prisma.week.create({
-    data: { year, weekNumber, status: "DRAFT" },
+    data: { tenantId: effectiveTenantId, year, weekNumber, status: "DRAFT" },
   });
   return w.id;
 }

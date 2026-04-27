@@ -61,6 +61,10 @@ export function makeTestDb(): TestDb {
       await prisma.employee.deleteMany();
       await prisma.location.deleteMany();
       await prisma.user.deleteMany();
+      await prisma.tenant.deleteMany();
+      await prisma.tenant.create({
+        data: { id: "default", name: "Default Tenant", slug: "default" },
+      });
     },
     async close(): Promise<void> {
       await prisma.$disconnect();

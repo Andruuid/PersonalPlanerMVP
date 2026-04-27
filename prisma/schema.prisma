@@ -110,7 +110,9 @@ enum ErtCaseStatus {
 
 model User {
   id           String     @id @default(cuid())
-  email        String     @unique
+  tenantId     String     @default("default")
+  tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  email        String
   passwordHash String
   role         Role
   isActive     Boolean    @default(true)
@@ -120,10 +122,35 @@ model User {
   auditLogs    AuditLog[]
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
+
+  @@unique([tenantId, email])
+}
+
+model Tenant {
+  id            String              @id @default(cuid())
+  name          String
+  slug          String              @unique
+  createdAt     DateTime            @default(now())
+  deletedAt     DateTime?
+  archivedUntil DateTime?
+  users         User[]
+  employees     Employee[]
+  locations     Location[]
+  serviceTemplates ServiceTemplate[]
+  weeks         Week[]
+  holidays      Holiday[]
+  bookings      Booking[]
+  absenceRequests AbsenceRequest[]
+  accountBalances AccountBalance[]
+  privacyRequests PrivacyRequest[]
+  ertCases      ErtCase[]
+  publishedSnapshots PublishedSnapshot[]
 }
 
 model Location {
   id                 String     @id @default(cuid())
+  tenantId           String     @default("default")
+  tenant             Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   name               String
   holidayRegionCode  String
   employees          Employee[]
@@ -136,6 +163,8 @@ model Location {
 
 model Employee {
   id                   String            @id @default(cuid())
+  tenantId             String            @default("default")
+  tenant               Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   userId               String            @unique
   user                 User              @relation(fields: [userId], references: [id], onDelete: Restrict)
   firstName            String
@@ -165,6 +194,8 @@ model Employee {
 
 model PrivacyRequest {
   id          String               @id @default(cuid())
+  tenantId    String               @default("default")
+  tenant      Tenant               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   employeeId  String
   employee    Employee             @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   type        PrivacyRequestType
@@ -182,6 +213,8 @@ model PrivacyRequest {
 
 model Holiday {
   id          String   @id @default(cuid())
+  tenantId    String   @default("default")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   date        DateTime
   name        String
   locationId  String
@@ -193,8 +226,10 @@ model Holiday {
 
 model ServiceTemplate {
   id             String      @id @default(cuid())
+  tenantId       String      @default("default")
+  tenant         Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   name           String
-  code           String      @unique
+  code           String
   startTime      String      // "07:00"
   endTime        String      // "15:30"
   breakMinutes   Int         @default(30)
@@ -205,10 +240,14 @@ model ServiceTemplate {
   planEntries    PlanEntry[]
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
+
+  @@unique([tenantId, code])
 }
 
 model Week {
   id            String              @id @default(cuid())
+  tenantId      String              @default("default")
+  tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   year          Int
   weekNumber    Int
   status        WeekStatus          @default(DRAFT)
@@ -221,7 +260,7 @@ model Week {
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
 
-  @@unique([year, weekNumber])
+  @@unique([tenantId, year, weekNumber])
 }
 
 model PlanEntry {
@@ -251,6 +290,8 @@ model PlanEntry {
 
 model PublishedSnapshot {
   id           String   @id @default(cuid())
+  tenantId     String   @default("default")
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   weekId       String
   week         Week     @relation(fields: [weekId], references: [id], onDelete: Cascade)
   snapshotJson String
@@ -259,6 +300,8 @@ model PublishedSnapshot {
 
 model AbsenceRequest {
   id            String         @id @default(cuid())
+  tenantId      String         @default("default")
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   employeeId    String
   employee      Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   type          RequestType
@@ -274,6 +317,8 @@ model AbsenceRequest {
 
 model AccountBalance {
   id            String      @id @default(cuid())
+  tenantId      String      @default("default")
+  tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   employeeId    String
   employee      Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   accountType   AccountType
@@ -288,6 +333,8 @@ model AccountBalance {
 
 model Booking {
   id              String       @id @default(cuid())
+  tenantId        String       @default("default")
+  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   employeeId      String
   employee        Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   accountType     AccountType
@@ -304,7 +351,7 @@ model Booking {
 
 model AuditLog {
   id         String   @id @default(cuid())
-  tenantId   String   @default("default")
+  tenantId   String
   userId     String
   user       User     @relation(fields: [userId], references: [id])
   action     String   // CREATE, UPDATE, DELETE, PUBLISH, CLOSE, ...
@@ -322,6 +369,8 @@ model AuditLog {
 
 model ErtCase {
   id               String        @id @default(cuid())
+  tenantId         String        @default("default")
+  tenant           Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   employeeId       String
   employee         Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   triggerDate      DateTime
