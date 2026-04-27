@@ -1,67 +1,32 @@
 "use server";
 
-import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
-import { parseIsoDate } from "@/lib/time/week";
+import {
+  moveSchema,
+  QUICK_SHIFT_CODES,
+  upsertSchema,
+  type UpsertPlanEntryInput,
+  type QuickPickKey,
+} from "@/lib/planning/plan-entry-schemas";
+import { isoDateString, parseIsoDate } from "@/lib/time/week";
 import {
   requireAdmin,
   fieldErrorsFromZod,
   type ActionResult,
 } from "./_shared";
 
-const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
-
-const shiftSchema = z.object({
-  kind: z.literal("SHIFT"),
-  serviceTemplateId: z.string().min(1, "Dienstvorlage wählen"),
-});
-
-const oneTimeSchema = z.object({
-  kind: z.literal("ONE_TIME_SHIFT"),
-  oneTimeStart: z.string().regex(TIME_RE, "Format HH:MM"),
-  oneTimeEnd: z.string().regex(TIME_RE, "Format HH:MM"),
-  oneTimeBreakMinutes: z.coerce
-    .number()
-    .int()
-    .min(0, "Mindestens 0")
-    .max(240, "Maximal 240"),
-  oneTimeLabel: z.string().min(1, "Bezeichnung erforderlich").max(60),
-});
-
-const absenceSchema = z.object({
-  kind: z.literal("ABSENCE"),
-  absenceType: z.enum([
-    "VACATION",
-    "SICK",
-    "ACCIDENT",
-    "FREE_REQUESTED",
-    "UNPAID",
-    "TZT",
-    "HOLIDAY_AUTO",
-  ]),
-});
-
-const baseSchema = z.object({
-  weekId: z.string().min(1),
-  employeeId: z.string().min(1),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Datum ungültig"),
-  comment: z.string().max(200).optional().nullable(),
-});
-
-const upsertSchema = z.discriminatedUnion("kind", [
-  shiftSchema.merge(baseSchema),
-  oneTimeSchema.merge(baseSchema),
-  absenceSchema.merge(baseSchema),
-]);
-
 function timeToMinutes(value: string): number {
   const [h, m] = value.split(":").map((p) => Number.parseInt(p, 10));
   return h * 60 + m;
 }
 
-function shiftMinutes(start: string, end: string, breakMinutes: number): number {
+function shiftMinutes(
+  start: string,
+  end: string,
+  breakMinutes: number,
+): number {
   const s = timeToMinutes(start);
   const e = timeToMinutes(end);
   const span = e >= s ? e - s : 24 * 60 - s + e;
@@ -118,8 +83,6 @@ function entrySnapshot(entry: {
     comment: entry.comment,
   };
 }
-
-export type UpsertPlanEntryInput = z.infer<typeof upsertSchema>;
 
 export async function upsertPlanEntryAction(
   input: UpsertPlanEntryInput,
@@ -269,15 +232,6 @@ export async function deletePlanEntryAction(
   return { ok: true };
 }
 
-const QUICK_SHIFT_CODES = ["FRUEH", "SPAET", "SAMSTAG"] as const;
-
-export type QuickPickKey =
-  | (typeof QUICK_SHIFT_CODES)[number]
-  | "VACATION"
-  | "FREE_REQUESTED"
-  | "TZT"
-  | "SICK";
-
 export async function quickSetPlanEntryAction(
   weekId: string,
   employeeId: string,
@@ -313,12 +267,6 @@ export async function quickSetPlanEntryAction(
   });
 }
 
-const moveSchema = z.object({
-  entryId: z.string().min(1),
-  toEmployeeId: z.string().min(1),
-  toDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-});
-
 export async function movePlanEntryAction(
   entryId: string,
   toEmployeeId: string,
@@ -348,7 +296,7 @@ export async function movePlanEntryAction(
 
   const sameSlot =
     entry.employeeId === toEmployeeId &&
-    entry.date.toISOString().slice(0, 10) === toIsoDate;
+    isoDateString(entry.date) === toIsoDate;
   if (sameSlot) return { ok: true };
 
   const result = await prisma.$transaction(async (tx) => {
@@ -376,12 +324,12 @@ export async function movePlanEntryAction(
     entityId: result.moved.id,
     oldValue: {
       employeeId: entry.employeeId,
-      date: entry.date.toISOString().slice(0, 10),
+      date: isoDateString(entry.date),
       replaced: result.replaced ? entrySnapshot(result.replaced) : null,
     },
     newValue: {
       employeeId: result.moved.employeeId,
-      date: result.moved.date.toISOString().slice(0, 10),
+      date: isoDateString(result.moved.date),
     },
   });
 

@@ -3,8 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
-import { isoWeekDays } from "@/lib/time/week";
-import { requireAdmin, type ActionResult } from "./_shared";
+import { isoDateString, isoWeekDays } from "@/lib/time/week";
+import {
+  actionErrorFromDatabase,
+  requireAdmin,
+  type ActionResult,
+} from "./_shared";
 import { recalcWeekClose, removeWeekClosingBookings } from "./bookings";
 
 export interface WeekIdentity {
@@ -104,7 +108,7 @@ async function buildSnapshot(weekId: string): Promise<WeekSnapshot> {
 
   const snapshotEntries: SnapshotEntry[] = entries.map((e) => ({
     id: e.id,
-    date: e.date.toISOString().slice(0, 10),
+    date: isoDateString(e.date),
     employeeId: e.employeeId,
     kind: e.kind,
     serviceTemplateId: e.serviceTemplateId,
@@ -218,13 +222,21 @@ export async function closeWeekAction(weekId: string): Promise<ActionResult> {
     };
   }
 
-  const closedAt = new Date();
-  await prisma.week.update({
-    where: { id: weekId },
-    data: { status: "CLOSED", closedAt },
-  });
+  try {
+    await recalcWeekClose(weekId, admin.id);
+  } catch (err) {
+    return { ok: false, error: actionErrorFromDatabase(err) };
+  }
 
-  await recalcWeekClose(weekId, admin.id);
+  const closedAt = new Date();
+  try {
+    await prisma.week.update({
+      where: { id: weekId },
+      data: { status: "CLOSED", closedAt },
+    });
+  } catch (err) {
+    return { ok: false, error: actionErrorFromDatabase(err) };
+  }
 
   await writeAudit({
     userId: admin.id,
@@ -254,12 +266,20 @@ export async function reopenWeekAction(weekId: string): Promise<ActionResult> {
     };
   }
 
-  await prisma.week.update({
-    where: { id: weekId },
-    data: { status: "DRAFT", closedAt: null },
-  });
+  try {
+    await removeWeekClosingBookings(weekId, admin.id);
+  } catch (err) {
+    return { ok: false, error: actionErrorFromDatabase(err) };
+  }
 
-  await removeWeekClosingBookings(weekId, admin.id);
+  try {
+    await prisma.week.update({
+      where: { id: weekId },
+      data: { status: "DRAFT", closedAt: null },
+    });
+  } catch (err) {
+    return { ok: false, error: actionErrorFromDatabase(err) };
+  }
 
   await writeAudit({
     userId: admin.id,

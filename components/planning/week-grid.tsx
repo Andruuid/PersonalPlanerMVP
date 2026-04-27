@@ -32,20 +32,18 @@ export function WeekGrid({
   }
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
+    <div className="min-w-0 overflow-x-auto rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm sm:p-4">
       <div
-        className="grid min-w-[820px] gap-3"
+        className="grid w-full min-w-0 gap-2 sm:gap-3"
         style={{
-          gridTemplateColumns: `200px repeat(${days.length}, minmax(110px, 1fr))`,
+          gridTemplateColumns: `minmax(9rem, 12rem) repeat(${days.length}, minmax(4.5rem, 1fr))`,
         }}
       >
-        <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-          Mitarbeitende
-        </div>
+        <div className="app-label-caps text-xs text-neutral-500">Mitarbeitende</div>
         {days.map((d) => (
           <div
             key={d.iso}
-            className="text-center text-xs font-semibold uppercase tracking-wide text-neutral-500"
+            className="app-label-caps text-center text-xs text-neutral-500"
           >
             <div>{d.weekdayLabel}</div>
             <div className="font-normal text-neutral-400">{d.shortDate}</div>

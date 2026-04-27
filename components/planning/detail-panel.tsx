@@ -5,10 +5,10 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getShiftStyle, type ShiftKey } from "@/lib/shift-style";
+import type { QuickPickKey } from "@/lib/planning/plan-entry-schemas";
 import {
   deletePlanEntryAction,
   quickSetPlanEntryAction,
-  type QuickPickKey,
 } from "@/server/planning";
 import type { PlanEntryView } from "./types";
 
@@ -80,7 +80,7 @@ export function DetailPanel({
   return (
     <section className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
       <header className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-700">
+        <h2 className="app-label-caps text-sm font-semibold text-neutral-700">
           Detailfenster
         </h2>
       </header>

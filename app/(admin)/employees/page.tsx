@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { isoDateString } from "@/lib/time/week";
 import { PageHeader } from "@/components/admin/page-header";
 import {
   EmployeesTable,
@@ -9,7 +10,7 @@ export const metadata = { title: "Mitarbeitende · PersonalPlaner" };
 
 function dateForInput(d: Date | null | undefined): string {
   if (!d) return "";
-  return d.toISOString().slice(0, 10);
+  return isoDateString(d);
 }
 
 export default async function EmployeesPage() {

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import { holidaysForRegion } from "@/lib/holidays-ch";
+import { isoDateString } from "@/lib/time/week";
 import {
   requireAdmin,
   fieldErrorsFromZod,
@@ -70,7 +71,7 @@ export async function addHolidayAction(
       entityId: created.id,
       newValue: {
         locationId: created.locationId,
-        date: created.date.toISOString().slice(0, 10),
+        date: isoDateString(created.date),
         name: created.name,
       },
     });
@@ -105,7 +106,7 @@ export async function deleteHolidayAction(
     entityId: holidayId,
     oldValue: {
       locationId: before.locationId,
-      date: before.date.toISOString().slice(0, 10),
+      date: isoDateString(before.date),
       name: before.name,
     },
   });
@@ -149,13 +150,13 @@ export async function generateRegionHolidaysAction(
     select: { date: true },
   });
   const existingKeys = new Set(
-    existing.map((h) => h.date.toISOString().slice(0, 10)),
+    existing.map((h) => isoDateString(h.date)),
   );
 
   let created = 0;
   let skipped = 0;
   for (const def of defs) {
-    const key = def.date.toISOString().slice(0, 10);
+    const key = isoDateString(def.date);
     if (existingKeys.has(key)) {
       skipped += 1;
       continue;

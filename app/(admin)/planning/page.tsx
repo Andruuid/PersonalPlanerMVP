@@ -2,6 +2,7 @@ import { format } from "date-fns";
 import { prisma } from "@/lib/db";
 import {
   currentIsoWeek,
+  isoDateString,
   isoWeekDays,
   startOfIsoWeek,
 } from "@/lib/time/week";
@@ -205,7 +206,7 @@ export default async function PlanningPage({ searchParams }: PageProps) {
 
   const entries: EntryMap = {};
   for (const e of planEntries) {
-    const iso = e.date.toISOString().slice(0, 10);
+    const iso = isoDateString(e.date);
     entries[entryKey(e.employeeId, iso)] = entryView({
       id: e.id,
       kind: e.kind,
@@ -234,8 +235,8 @@ export default async function PlanningPage({ searchParams }: PageProps) {
     id: r.id,
     type: r.type,
     status: r.status,
-    startDate: r.startDate.toISOString().slice(0, 10),
-    endDate: r.endDate.toISOString().slice(0, 10),
+    startDate: isoDateString(r.startDate),
+    endDate: isoDateString(r.endDate),
     rangeLabel: rangeLabel(r.startDate, r.endDate),
     employeeName: `${r.employee.firstName} ${r.employee.lastName}`,
     employeeId: r.employeeId,

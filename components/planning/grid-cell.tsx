@@ -61,7 +61,7 @@ export function GridCell({
             if (!locked) onOpenAssign();
           }}
           className={cn(
-            "flex h-full w-full items-center justify-center rounded-lg border border-dashed text-xs",
+            "flex h-full w-full items-center justify-center rounded-lg border border-dashed px-1.5 text-center text-xs font-medium leading-snug",
             selected
               ? "border-neutral-400 text-neutral-700"
               : "border-neutral-300 text-neutral-500",
@@ -70,9 +70,7 @@ export function GridCell({
           disabled={locked}
           aria-label="Eintrag hinzufügen"
         >
-          Ziehen oder
-          <br />
-          auswählen
+          Auswählen
         </button>
       )}
     </div>

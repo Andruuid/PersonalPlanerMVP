@@ -17,6 +17,7 @@ import {
 import { createAbsenceRequestAction } from "@/server/requests";
 import type { ActionResult } from "@/server/_shared";
 import { REQUEST_TYPE_LABELS, type RequestType } from "./types";
+import { isoDateString } from "@/lib/time/week";
 
 interface RequestDialogProps {
   open: boolean;
@@ -56,7 +57,7 @@ interface RequestFormProps {
 }
 
 function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  return isoDateString(new Date());
 }
 
 function RequestForm({ type, onClose }: RequestFormProps) {

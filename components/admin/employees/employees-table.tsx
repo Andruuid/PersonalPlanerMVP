@@ -12,6 +12,7 @@ import {
   type LocationOption,
 } from "./employee-form";
 import { setEmployeeActiveAction } from "@/server/employees";
+import { isoDateString } from "@/lib/time/week";
 
 export interface EmployeeRow {
   id: string;
@@ -199,7 +200,7 @@ function createDefaults(defaultLocationId: string): EmployeeFormDefaults {
     lastName: "",
     roleLabel: "",
     pensum: 100,
-    entryDate: new Date().toISOString().slice(0, 10),
+    entryDate: isoDateString(new Date()),
     exitDate: "",
     locationId: defaultLocationId,
     vacationDaysPerYear: 25,

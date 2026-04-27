@@ -11,7 +11,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -127,8 +127,21 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
   }
-  html {
-    @apply font-sans;
+  h1,
+  h2,
+  h3 {
+    @apply text-balance;
+    letter-spacing: -0.02em;
+  }
+  .app-page-title {
+    @apply tracking-tight;
+    letter-spacing: -0.025em;
+  }
+  .app-label-caps {
+    @apply font-medium uppercase tracking-wide;
+    letter-spacing: 0.08em;
   }
 }

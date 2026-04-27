@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { isoDateString } from "@/lib/time/week";
 import { PageHeader } from "@/components/admin/page-header";
 import {
   Card,
@@ -77,9 +78,9 @@ export default async function SettingsPage({ searchParams }: PageProps) {
     for (const h of holidays) {
       holidayRows.push({
         id: h.id,
-        date: h.date.toISOString().slice(0, 10),
+        date: isoDateString(h.date),
         name: h.name,
-        weekday: WEEKDAYS_DE[h.date.getUTCDay()],
+        weekday: WEEKDAYS_DE[h.date.getDay()],
       });
     }
   }

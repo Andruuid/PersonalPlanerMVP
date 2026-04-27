@@ -37,6 +37,12 @@ export const ACCOUNT_UNITS: Record<AccountType, AccountUnit> = {
 
 const ACCOUNT_TYPES: AccountType[] = ["ZEITSALDO", "FERIEN", "UEZ", "TZT"];
 
+/** Prisma default interactive-tx timeout is 5s; week close / carryover can exceed that. */
+const HEAVY_INTERACTIVE_TX: { timeout: number; maxWait: number } = {
+  timeout: 30_000,
+  maxWait: 10_000,
+};
+
 // ---------------------------------------------------------------------------
 // Internal helpers (transaction-scoped)
 // ---------------------------------------------------------------------------
@@ -287,7 +293,7 @@ export async function recalcWeekClose(
         employeesAffected += 1;
       }
     }
-  });
+  }, HEAVY_INTERACTIVE_TX);
 
   return {
     weekId,
@@ -351,7 +357,7 @@ export async function removeWeekClosingBookings(
         await recomputeBalance(tx, employeeId, accountType, yearForBookings);
       }
     }
-  });
+  }, HEAVY_INTERACTIVE_TX);
 
   return { weekId, bookingsRemoved };
 }
@@ -609,7 +615,7 @@ export async function applyYearEndCarryover(
         await recomputeBalance(tx, employee.id, accountType, toYear);
       }
     }
-  });
+  }, HEAVY_INTERACTIVE_TX);
 
   return {
     fromYear,

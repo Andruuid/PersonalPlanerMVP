@@ -17,6 +17,7 @@ import {
   ManualBookingForm,
   type EmployeePickOption,
 } from "@/components/admin/accounts/manual-booking-form";
+import { isoDateString } from "@/lib/time/week";
 
 export type QuickActionId =
   | "new-employee"
@@ -59,7 +60,7 @@ export function QuickActionsProvider({
     setDialog(id);
   }, []);
 
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = isoDateString(new Date());
 
   return (
     <QuickActionsContext.Provider value={{ open }}>
@@ -78,7 +79,7 @@ export function QuickActionsProvider({
               lastName: "",
               roleLabel: "",
               pensum: 100,
-              entryDate: new Date().toISOString().slice(0, 10),
+              entryDate: isoDateString(new Date()),
               exitDate: "",
               locationId: defaultLocationId,
               vacationDaysPerYear: 25,

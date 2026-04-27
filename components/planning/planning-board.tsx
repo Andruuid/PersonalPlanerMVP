@@ -15,7 +15,6 @@ import { WeekGrid } from "./week-grid";
 import { AssignmentDialog } from "./assignment-dialog";
 import { DetailPanel } from "./detail-panel";
 import { RequestsPanel } from "./requests-panel";
-import { ServicesPalette } from "./services-palette";
 import { StatusControls } from "./status-controls";
 import { WeekSelector } from "./week-selector";
 import {
@@ -29,10 +28,7 @@ import {
   type ServiceOption,
   type WeekView,
 } from "./types";
-import {
-  movePlanEntryAction,
-  upsertPlanEntryAction,
-} from "@/server/planning";
+import { movePlanEntryAction } from "@/server/planning";
 
 interface PlanningBoardProps {
   week: WeekView;
@@ -113,58 +109,17 @@ export function PlanningBoard({
 
     const activeData = active.data.current as
       | { type: "entry"; entryId: string }
-      | { type: "palette-service"; serviceId: string }
-      | { type: "palette-absence"; absenceType: string }
       | undefined;
-    if (!activeData) return;
+    if (!activeData || activeData.type !== "entry") return;
 
-    if (activeData.type === "entry") {
-      startTransition(async () => {
-        const r = await movePlanEntryAction(
-          activeData.entryId,
-          targetEmployeeId,
-          targetIsoDate,
-        );
-        if (!r.ok) toast.error(r.error);
-      });
-      return;
-    }
-
-    if (activeData.type === "palette-service") {
-      startTransition(async () => {
-        const r = await upsertPlanEntryAction({
-          kind: "SHIFT",
-          weekId: week.id,
-          employeeId: targetEmployeeId,
-          date: targetIsoDate,
-          serviceTemplateId: activeData.serviceId,
-        });
-        if (r.ok) toast.success("Dienst zugewiesen.");
-        else toast.error(r.error);
-      });
-      return;
-    }
-
-    if (activeData.type === "palette-absence") {
-      startTransition(async () => {
-        const r = await upsertPlanEntryAction({
-          kind: "ABSENCE",
-          weekId: week.id,
-          employeeId: targetEmployeeId,
-          date: targetIsoDate,
-          absenceType: activeData.absenceType as
-            | "VACATION"
-            | "SICK"
-            | "ACCIDENT"
-            | "FREE_REQUESTED"
-            | "UNPAID"
-            | "TZT"
-            | "HOLIDAY_AUTO",
-        });
-        if (r.ok) toast.success("Abwesenheit gesetzt.");
-        else toast.error(r.error);
-      });
-    }
+    startTransition(async () => {
+      const r = await movePlanEntryAction(
+        activeData.entryId,
+        targetEmployeeId,
+        targetIsoDate,
+      );
+      if (!r.ok) toast.error(r.error);
+    });
   }
 
   const selected = useMemo(() => {
@@ -191,18 +146,19 @@ export function PlanningBoard({
 
   return (
     <DndContext
+      id={`planning-board-dnd-${week.id}`}
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex flex-col gap-6 lg:flex-row">
-        <div className="min-w-0 flex-1 space-y-5">
+      <div className="flex flex-col gap-6">
+        <div className="min-w-0 space-y-5">
           <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div className="space-y-1">
-              <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+              <p className="app-label-caps text-xs text-neutral-500">
                 KW {week.weekNumber} · {locationName}
               </p>
-              <h1 className="text-2xl font-semibold text-neutral-900 md:text-3xl">
+              <h1 className="app-page-title text-2xl font-semibold text-neutral-900 md:text-3xl">
                 Wochenplanung
               </h1>
             </div>
@@ -213,8 +169,6 @@ export function PlanningBoard({
           </header>
 
           <KpiBar summary={kpi} />
-
-          <ServicesPalette services={services} locked={locked} />
 
           <WeekGrid
             employees={employees}
@@ -227,7 +181,7 @@ export function PlanningBoard({
           />
         </div>
 
-        <aside className="w-full shrink-0 space-y-4 lg:w-80 xl:w-96">
+        <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,16rem)_1fr] xl:grid-cols-[minmax(0,18rem)_1fr]">
           <RequestsPanel requests={requests} />
           <DetailPanel
             weekId={week.id}
@@ -243,7 +197,7 @@ export function PlanningBoard({
             entry={selectedEntry}
             locked={locked}
           />
-        </aside>
+        </div>
       </div>
 
       <AssignmentDialog

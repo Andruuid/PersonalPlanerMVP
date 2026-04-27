@@ -83,6 +83,11 @@ export function parseIsoDate(value: string): Date | null {
   return isValid(parsed) ? parsed : null;
 }
 
+/**
+ * Local calendar `yyyy-MM-dd` for display and map keys. Prefer this over
+ * `date.toISOString().slice(0, 10)` (UTC), which can shift the day in CH/EU
+ * for values stored as local `parse` midnights.
+ */
 export function isoDateString(date: Date): string {
   return format(date, "yyyy-MM-dd");
 }

@@ -62,6 +62,22 @@ export function readOptionalString(
   return trimmed.length === 0 ? null : trimmed;
 }
 
+/**
+ * Maps Prisma / driver errors (e.g. interactive transaction timeout) to a
+ * user-visible German message without leaking stack details.
+ */
+export function actionErrorFromDatabase(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (
+    /expired transaction|Transaction API error|interactive transaction.*timeout|timed out.*transaction/i.test(
+      msg,
+    )
+  ) {
+    return "Die Datenbank-Abrechnung hat zu lange gedauert. Bitte erneut versuchen. Bleibt der Fehler, wenden Sie sich an die Verwaltung.";
+  }
+  return "Beim Verarbeiten ist ein technischer Fehler aufgetreten. Bitte erneut versuchen.";
+}
+
 export function readBooleanFlag(value: FormDataEntryValue | null): boolean {
   return value === "on" || value === "true";
 }

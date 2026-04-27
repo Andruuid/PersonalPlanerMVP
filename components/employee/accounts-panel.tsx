@@ -66,7 +66,9 @@ export function AccountsPanel({ accounts }: AccountsPanelProps) {
           Meine Konten
         </h2>
         <p className="text-xs text-neutral-500">
-          Stand der aktuellen Periode.
+          Saldo und Ferien-Rest weiterschreiben mit dem Wochenabschluss (nur
+          veröffentlichte, dann abgeschlossene Wochen). Eintrag im Plan allein
+          reicht dafür nicht.
         </p>
       </header>
 

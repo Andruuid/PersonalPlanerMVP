@@ -14,10 +14,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import type { UpsertPlanEntryInput } from "@/lib/planning/plan-entry-schemas";
 import {
   upsertPlanEntryAction,
   deletePlanEntryAction,
-  type UpsertPlanEntryInput,
 } from "@/server/planning";
 import type { ServiceOption, PlanEntryView } from "./types";
 

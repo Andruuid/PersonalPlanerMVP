@@ -20,9 +20,7 @@ export function KpiBar({ summary }: KpiBarProps) {
           key={it.label}
           className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm"
         >
-          <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
-            {it.label}
-          </p>
+          <p className="app-label-caps text-xs text-neutral-500">{it.label}</p>
           <p
             className={cn(
               "mt-1 truncate font-semibold text-neutral-900",
