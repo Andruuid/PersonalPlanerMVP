@@ -64,7 +64,12 @@ export async function loadMyAccounts(
   ]);
 
   const get = (
-    accountType: "ZEITSALDO" | "FERIEN" | "UEZ" | "TZT",
+    accountType:
+      | "ZEITSALDO"
+      | "FERIEN"
+      | "UEZ"
+      | "TZT"
+      | "SONNTAG_FEIERTAG_KOMPENSATION",
   ): MyAccountValue | null => {
     const row = balances.find((b) => b.accountType === accountType);
     if (!row) return null;

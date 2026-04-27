@@ -10,6 +10,10 @@ export const ACCOUNT_DISPLAY: Record<AccountType, AccountDisplayConfig> = {
   FERIEN: { label: "Ferien", unitLabel: "Tage" },
   UEZ: { label: "UEZ", unitLabel: "Stunden" },
   TZT: { label: "TZT", unitLabel: "Tage" },
+  SONNTAG_FEIERTAG_KOMPENSATION: {
+    label: "So./Feiertag-Kompensation",
+    unitLabel: "Stunden",
+  },
 };
 
 export function formatMinutesAsHours(minutes: number): string {

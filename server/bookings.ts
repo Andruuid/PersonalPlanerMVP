@@ -62,7 +62,13 @@ export async function removeWeekClosingBookings(
 
 const manualBookingSchema = z.object({
   employeeId: z.string().min(1, "Mitarbeitende:r erforderlich"),
-  accountType: z.enum(["ZEITSALDO", "FERIEN", "UEZ", "TZT"]),
+  accountType: z.enum([
+    "ZEITSALDO",
+    "FERIEN",
+    "UEZ",
+    "TZT",
+    "SONNTAG_FEIERTAG_KOMPENSATION",
+  ]),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Datum ungültig"),
   value: z.coerce.number().refine((v) => v !== 0, {
     message: "Wert darf nicht 0 sein",

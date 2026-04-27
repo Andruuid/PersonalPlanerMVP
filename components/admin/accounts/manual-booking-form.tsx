@@ -23,7 +23,12 @@ export interface EmployeePickOption {
 
 export interface ManualBookingFormDefaults {
   employeeId: string;
-  accountType: "ZEITSALDO" | "FERIEN" | "UEZ" | "TZT";
+  accountType:
+    | "ZEITSALDO"
+    | "FERIEN"
+    | "UEZ"
+    | "TZT"
+    | "SONNTAG_FEIERTAG_KOMPENSATION";
   date: string;
   bookingType: "MANUAL_CREDIT" | "MANUAL_DEBIT" | "CORRECTION";
   comment?: string;
@@ -44,6 +49,11 @@ const ACCOUNT_OPTIONS: Array<{
   { value: "FERIEN", label: "Ferien", hint: "Wert in Tagen (z. B. 0.5 = halber Tag)" },
   { value: "UEZ", label: "UEZ", hint: "Wert in Minuten" },
   { value: "TZT", label: "TZT", hint: "Wert in Tagen" },
+  {
+    value: "SONNTAG_FEIERTAG_KOMPENSATION",
+    label: "So./Feiertag-Kompensation",
+    hint: "Wert in Minuten",
+  },
 ];
 
 const TYPE_OPTIONS: Array<{

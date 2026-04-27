@@ -24,7 +24,13 @@ interface Props {
   todayIso: string;
 }
 
-const ACCOUNT_ORDER: AccountType[] = ["ZEITSALDO", "FERIEN", "UEZ", "TZT"];
+const ACCOUNT_ORDER: AccountType[] = [
+  "ZEITSALDO",
+  "FERIEN",
+  "UEZ",
+  "TZT",
+  "SONNTAG_FEIERTAG_KOMPENSATION",
+];
 
 type DialogState =
   | { mode: "closed" }

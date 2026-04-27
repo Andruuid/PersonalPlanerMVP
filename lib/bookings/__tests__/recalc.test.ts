@@ -445,4 +445,40 @@ describe("recalcWeekClose", () => {
     expect(["OPEN", "FULFILLED"]).toContain(ertCases[0].status);
     expect(ertCases[0].holidayWorkMinutes).toBe(360);
   });
+
+  it("creates Sunday/holiday compensation booking for holiday work up to 5 hours", async () => {
+    const employee = await seedEmployee(db.prisma, { locationId });
+    await seedHoliday(db.prisma, locationId, weekDays[0], "Feiertag");
+    await seedShiftEntry(db.prisma, {
+      weekId,
+      employeeId: employee.id,
+      isoDate: weekDays[0],
+      plannedMinutes: 300,
+    });
+
+    await recalcWeekClose(db.prisma, weekId, adminId);
+
+    const compensationBooking = await db.prisma.booking.findFirst({
+      where: {
+        employeeId: employee.id,
+        bookingType: "AUTO_WEEKLY",
+        accountType: "SONNTAG_FEIERTAG_KOMPENSATION",
+      },
+    });
+    expect(compensationBooking).not.toBeNull();
+    expect(compensationBooking?.value).toBe(300);
+
+    const compensationBalance = await db.prisma.accountBalance.findUnique({
+      where: {
+        employeeId_accountType_year: {
+          employeeId: employee.id,
+          accountType: "SONNTAG_FEIERTAG_KOMPENSATION",
+          year: YEAR,
+        },
+      },
+    });
+    expect(compensationBalance?.openingValue).toBe(0);
+    expect(compensationBalance?.currentValue).toBe(300);
+    expect(compensationBalance?.unit).toBe("MINUTES");
+  });
 });

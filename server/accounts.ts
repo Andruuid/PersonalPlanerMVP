@@ -32,11 +32,12 @@ const DEFAULT_UNITS: Record<AccountType, AccountUnit> = {
   FERIEN: "DAYS",
   UEZ: "MINUTES",
   TZT: "DAYS",
+  SONNTAG_FEIERTAG_KOMPENSATION: "MINUTES",
 };
 
 /**
- * Returns all four account summaries for an employee in `year`. Missing rows
- * are returned as zero-balance defaults so the UI always renders the four
+ * Returns all account summaries for an employee in `year`. Missing rows
+ * are returned as zero-balance defaults so the UI always renders all
  * accounts. Pure read — does not mutate.
  */
 export async function loadAccountsForEmployee(
@@ -51,6 +52,9 @@ export async function loadAccountsForEmployee(
     FERIEN: emptySummary("FERIEN"),
     UEZ: emptySummary("UEZ"),
     TZT: emptySummary("TZT"),
+    SONNTAG_FEIERTAG_KOMPENSATION: emptySummary(
+      "SONNTAG_FEIERTAG_KOMPENSATION",
+    ),
   };
   for (const b of balances) {
     const type = b.accountType as AccountType;
@@ -111,6 +115,9 @@ export async function loadAdminAccountsTable(
       FERIEN: { ...emptySummary("FERIEN"), openingValue: e.vacationDaysPerYear },
       UEZ: emptySummary("UEZ"),
       TZT: emptySummary("TZT"),
+      SONNTAG_FEIERTAG_KOMPENSATION: emptySummary(
+        "SONNTAG_FEIERTAG_KOMPENSATION",
+      ),
     };
     for (const b of byEmployee.get(e.id) ?? []) {
       const type = b.accountType as AccountType;

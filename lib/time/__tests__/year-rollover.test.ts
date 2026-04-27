@@ -53,6 +53,16 @@ describe("planYearRollover", () => {
     expect(plan.carryoverBooking).toBe(1.5);
   });
 
+  it("Sunday/holiday compensation carries forward 1:1 with opening 0", () => {
+    const plan = planYearRollover({
+      accountType: "SONNTAG_FEIERTAG_KOMPENSATION",
+      unit: "MINUTES",
+      closingValue: 240,
+    });
+    expect(plan.newYearOpening).toBe(0);
+    expect(plan.carryoverBooking).toBe(240);
+  });
+
   it("supports a negative Zeitsaldo carryover", () => {
     const plan = planYearRollover({
       accountType: "ZEITSALDO",

@@ -57,6 +57,7 @@ enum AccountType {
   FERIEN
   UEZ
   TZT
+  SONNTAG_FEIERTAG_KOMPENSATION
 }
 
 enum AccountUnit {
