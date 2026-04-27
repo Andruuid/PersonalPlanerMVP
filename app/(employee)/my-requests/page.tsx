@@ -9,6 +9,7 @@ import {
   type MyRequestView,
   type RequestStatus,
 } from "@/components/employee/types";
+import { createPrivacyRequestFormAction } from "@/server/privacy";
 
 export const metadata = { title: "Meine Anträge · PersonalPlaner" };
 
@@ -68,6 +69,34 @@ export default async function MyRequestsPage() {
             </p>
           </header>
           <RequestStack variant="inline" />
+        </section>
+
+        <section className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
+          <header className="mb-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-700">
+              Datenschutz (DSGVO/DSG)
+            </h2>
+            <p className="text-xs text-neutral-500">
+              Exportiere deine gespeicherten Daten oder stelle einen Löschantrag.
+            </p>
+          </header>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href="/api/dsgvo/export"
+              className="inline-flex items-center rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50"
+            >
+              Daten-Auskunft exportieren
+            </a>
+            <form action={createPrivacyRequestFormAction}>
+              <input type="hidden" name="type" value="ERASURE" />
+              <button
+                type="submit"
+                className="inline-flex items-center rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800"
+              >
+                Löschantrag stellen
+              </button>
+            </form>
+          </div>
         </section>
 
         <div className="space-y-6">

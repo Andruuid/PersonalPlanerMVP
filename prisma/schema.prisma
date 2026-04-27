@@ -58,6 +58,18 @@ enum RequestStatus {
   REJECTED
 }
 
+enum PrivacyRequestType {
+  EXPORT
+  ERASURE
+}
+
+enum PrivacyRequestStatus {
+  OPEN
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
 enum AccountType {
   ZEITSALDO
   FERIEN
@@ -104,6 +116,7 @@ model User {
   isActive     Boolean    @default(true)
   employee     Employee?
   bookings     Booking[]  @relation("BookingCreatedBy")
+  privacyDecisions PrivacyRequest[] @relation("PrivacyRequestDecidedBy")
   auditLogs    AuditLog[]
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
@@ -142,11 +155,29 @@ model Employee {
   archivedUntil        DateTime?
   planEntries          PlanEntry[]
   absenceRequests      AbsenceRequest[]
+  privacyRequests      PrivacyRequest[]
   accountBalances      AccountBalance[]
   bookings             Booking[]
   ertCases             ErtCase[]
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
+}
+
+model PrivacyRequest {
+  id          String               @id @default(cuid())
+  employeeId  String
+  employee    Employee             @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type        PrivacyRequestType
+  status      PrivacyRequestStatus @default(OPEN)
+  note        String?
+  decidedById String?
+  decidedBy   User?                @relation("PrivacyRequestDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+  decidedAt   DateTime?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@index([employeeId, createdAt])
+  @@index([status, type])
 }
 
 model Holiday {
