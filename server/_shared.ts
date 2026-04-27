@@ -29,6 +29,22 @@ export async function requireAdmin(): Promise<SessionUser> {
   };
 }
 
+export async function requireEmployee(): Promise<SessionUser> {
+  const session = await auth();
+  if (!session?.user) {
+    throw new Error("Unauthorized: not signed in");
+  }
+  if (!session.user.employeeId) {
+    throw new Error("Forbidden: linked employee profile required");
+  }
+  return {
+    id: session.user.id,
+    email: session.user.email ?? "",
+    role: session.user.role,
+    employeeId: session.user.employeeId,
+  };
+}
+
 export function fieldErrorsFromZod(err: ZodError): Record<string, string> {
   const out: Record<string, string> = {};
   for (const issue of err.issues) {

@@ -1,0 +1,67 @@
+import type { ShiftKey } from "@/lib/shift-style";
+
+export type RequestType = "VACATION" | "FREE_REQUESTED" | "TZT" | "FREE_DAY";
+export type RequestStatus = "OPEN" | "APPROVED" | "REJECTED";
+
+export interface MyDayView {
+  iso: string;
+  longDate: string;
+  shortDate: string;
+  weekdayLabel: string;
+  isWeekend: boolean;
+  holidayName: string | null;
+  shiftKey: ShiftKey;
+  title: string;
+  timeRange: string | null;
+  subtitle: string | null;
+}
+
+export interface MyWeekHeader {
+  year: number;
+  weekNumber: number;
+  status: "DRAFT" | "PUBLISHED" | "CLOSED";
+  publishedAt: string | null;
+  hasSnapshot: boolean;
+}
+
+export interface MyAccountValue {
+  unit: "MINUTES" | "DAYS";
+  value: number;
+}
+
+export interface MyAccountsView {
+  zeitsaldo: MyAccountValue | null;
+  ferien: MyAccountValue | null;
+  tzt: MyAccountValue | null;
+}
+
+export interface MyRequestView {
+  id: string;
+  type: RequestType;
+  status: RequestStatus;
+  startIso: string;
+  endIso: string;
+  rangeLabel: string;
+  comment: string | null;
+  decidedAt: string | null;
+  createdAt: string;
+}
+
+export const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
+  VACATION: "Ferienantrag",
+  FREE_REQUESTED: "Frei verlangt",
+  TZT: "TZT-Antrag",
+  FREE_DAY: "Freier Tag",
+};
+
+export const REQUEST_STATUS_LABELS: Record<RequestStatus, string> = {
+  OPEN: "Offen",
+  APPROVED: "Genehmigt",
+  REJECTED: "Abgelehnt",
+};
+
+export const REQUEST_STATUS_BADGE: Record<RequestStatus, string> = {
+  OPEN: "bg-amber-100 text-amber-800",
+  APPROVED: "bg-emerald-100 text-emerald-800",
+  REJECTED: "bg-rose-100 text-rose-800",
+};

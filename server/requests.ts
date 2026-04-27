@@ -2,10 +2,17 @@
 
 import { addDays, getISOWeek, getISOWeekYear } from "date-fns";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
-import { isoDateString } from "@/lib/time/week";
-import { requireAdmin, type ActionResult } from "./_shared";
+import { isoDateString, parseIsoDate } from "@/lib/time/week";
+import {
+  fieldErrorsFromZod,
+  readOptionalString,
+  requireAdmin,
+  requireEmployee,
+  type ActionResult,
+} from "./_shared";
 
 const REQUEST_TO_ABSENCE: Record<
   "VACATION" | "FREE_REQUESTED" | "TZT" | "FREE_DAY",
@@ -144,6 +151,121 @@ export async function rejectRequestAction(
   revalidatePath("/planning");
   revalidatePath("/absences");
   revalidatePath("/my-requests");
+  return { ok: true };
+}
+
+const createRequestSchema = z
+  .object({
+    type: z.enum(["VACATION", "FREE_REQUESTED", "TZT", "FREE_DAY"]),
+    startDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Startdatum erforderlich"),
+    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enddatum erforderlich"),
+    comment: z.string().max(500).optional().nullable(),
+  })
+  .refine((d) => d.endDate >= d.startDate, {
+    message: "Enddatum muss nach Startdatum liegen.",
+    path: ["endDate"],
+  });
+
+export async function createAbsenceRequestAction(
+  _prev: ActionResult | undefined,
+  formData: FormData,
+): Promise<ActionResult> {
+  const employee = await requireEmployee();
+
+  const raw = {
+    type: readOptionalString(formData.get("type")) ?? "",
+    startDate: readOptionalString(formData.get("startDate")) ?? "",
+    endDate: readOptionalString(formData.get("endDate")) ?? "",
+    comment: readOptionalString(formData.get("comment")),
+  };
+
+  const parsed = createRequestSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: "Bitte Eingaben prüfen.",
+      fieldErrors: fieldErrorsFromZod(parsed.error),
+    };
+  }
+  const data = parsed.data;
+
+  const startDate = parseIsoDate(data.startDate);
+  const endDate = parseIsoDate(data.endDate);
+  if (!startDate || !endDate) {
+    return { ok: false, error: "Datum ungültig." };
+  }
+
+  const created = await prisma.absenceRequest.create({
+    data: {
+      employeeId: employee.employeeId!,
+      type: data.type,
+      startDate,
+      endDate,
+      status: "OPEN",
+      comment: data.comment ?? null,
+    },
+  });
+
+  await writeAudit({
+    userId: employee.id,
+    action: "CREATE",
+    entity: "AbsenceRequest",
+    entityId: created.id,
+    newValue: {
+      type: data.type,
+      from: data.startDate,
+      to: data.endDate,
+      status: "OPEN",
+    },
+    comment: data.comment ?? null,
+  });
+
+  revalidatePath("/my-requests");
+  revalidatePath("/my-week");
+  revalidatePath("/absences");
+  revalidatePath("/planning");
+  return { ok: true };
+}
+
+export async function cancelOwnRequestAction(
+  requestId: string,
+): Promise<ActionResult> {
+  const employee = await requireEmployee();
+
+  const request = await prisma.absenceRequest.findUnique({
+    where: { id: requestId },
+  });
+  if (!request) return { ok: false, error: "Antrag nicht gefunden." };
+  if (request.employeeId !== employee.employeeId) {
+    return { ok: false, error: "Kein Zugriff auf diesen Antrag." };
+  }
+  if (request.status !== "OPEN") {
+    return {
+      ok: false,
+      error: "Nur offene Anträge können zurückgezogen werden.",
+    };
+  }
+
+  await prisma.absenceRequest.delete({ where: { id: requestId } });
+
+  await writeAudit({
+    userId: employee.id,
+    action: "CANCEL",
+    entity: "AbsenceRequest",
+    entityId: requestId,
+    oldValue: {
+      type: request.type,
+      from: isoDateString(request.startDate),
+      to: isoDateString(request.endDate),
+      status: request.status,
+    },
+  });
+
+  revalidatePath("/my-requests");
+  revalidatePath("/absences");
+  revalidatePath("/planning");
   return { ok: true };
 }
 
