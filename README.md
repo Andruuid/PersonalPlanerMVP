@@ -1,5 +1,7 @@
 # PersonalPlanerMVP
 
+[![CI](https://github.com/Andruuid/PersonalPlanerMVP/actions/workflows/ci.yml/badge.svg)](https://github.com/Andruuid/PersonalPlanerMVP/actions/workflows/ci.yml)
+
 Next.js 16 + TypeScript MVP für Personalplanung & Zeitkonten in Schweizer KMU.
 Single-Tenant, Email/Passwort-Login, lokale SQLite-DB via Prisma 7 (libSQL),
 Drag-and-Drop-Wochenplanung und Mitarbeitersicht.

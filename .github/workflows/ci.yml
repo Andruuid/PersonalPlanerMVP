@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-test:
+    name: Lint, typecheck & test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # Prisma reads DATABASE_URL via prisma.config.ts even for `generate`.
+      # The vitest globalSetup overrides this per-template, so the value
+      # only needs to be a syntactically valid SQLite URL.
+      DATABASE_URL: file:./prisma/ci.db
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prisma generate
+        run: npx prisma generate
+
+      - name: TypeScript
+        run: npx tsc --noEmit
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Vitest (unit + integration)
+        run: npm test
+
+  build:
+    name: Next.js build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: file:./prisma/ci.db
+      # CI-only placeholder; never used to sign real sessions.
+      AUTH_SECRET: ci-only-placeholder-not-a-real-secret-xxxxxxxxxx
+      AUTH_TRUST_HOST: "true"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prisma generate
+        run: npx prisma generate
+
+      - name: Prisma push (silences route-probing warnings during build)
+        run: npx prisma db push --accept-data-loss --url "$DATABASE_URL"
+
+      - name: Next.js build
+        run: npm run build
