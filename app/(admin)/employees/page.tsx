@@ -18,7 +18,7 @@ export default async function EmployeesPage() {
     prisma.employee.findMany({
       orderBy: [{ isActive: "desc" }, { lastName: "asc" }, { firstName: "asc" }],
       include: {
-        user: { select: { email: true } },
+        user: { select: { email: true, isActive: true } },
         location: { select: { id: true, name: true } },
       },
     }),
@@ -41,6 +41,7 @@ export default async function EmployeesPage() {
     hazMinutesPerWeek: e.hazMinutesPerWeek,
     tztModel: e.tztModel,
     isActive: e.isActive,
+    userIsActive: e.user.isActive,
   }));
 
   return (
@@ -48,7 +49,7 @@ export default async function EmployeesPage() {
       <PageHeader
         caption="Stammdaten"
         title="Mitarbeitende"
-        description="Anlegen, bearbeiten und deaktivieren von Mitarbeitenden inklusive Pensum, Standort und Ferienanspruch. Alle Änderungen werden im Audit-Log protokolliert."
+        description="Anlegen, bearbeiten und deaktivieren von Mitarbeitenden inklusive Pensum, Standort und Ferienanspruch. Zusätzlich kann das Login-Konto separat gesperrt/entsperrt werden. Alle Änderungen werden im Audit-Log protokolliert."
       />
 
       <EmployeesTable

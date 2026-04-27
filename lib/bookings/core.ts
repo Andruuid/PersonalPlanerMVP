@@ -43,6 +43,15 @@ const HEAVY_INTERACTIVE_TX: { timeout: number; maxWait: number } = {
   maxWait: 10_000,
 };
 
+function isEmployeeActiveOnDate(
+  employee: { entryDate: Date; exitDate: Date | null },
+  referenceDate: Date,
+): boolean {
+  if (employee.entryDate > referenceDate) return false;
+  if (employee.exitDate && employee.exitDate < referenceDate) return false;
+  return true;
+}
+
 // ---------------------------------------------------------------------------
 // Internal helpers (transaction-scoped)
 // ---------------------------------------------------------------------------
@@ -198,9 +207,11 @@ export async function recalcWeekClose(
   const sunday = days[6].date;
   const yearForBookings = sunday.getFullYear();
 
-  const employees = await prisma.employee.findMany({
-    where: { isActive: true },
-  });
+  const employees = (
+    await prisma.employee.findMany({
+      where: { isActive: true },
+    })
+  ).filter((employee) => isEmployeeActiveOnDate(employee, sunday));
 
   const planEntries = await prisma.planEntry.findMany({
     where: { weekId },
@@ -434,7 +445,10 @@ export interface ApplyManualBookingResult {
 export class ManualBookingError extends Error {
   constructor(
     message: string,
-    readonly code: "EMPLOYEE_NOT_FOUND" | "ZERO_VALUE",
+    readonly code:
+      | "EMPLOYEE_NOT_FOUND"
+      | "ZERO_VALUE"
+      | "EMPLOYMENT_NOT_ACTIVE_ON_DATE",
   ) {
     super(message);
     this.name = "ManualBookingError";
@@ -451,12 +465,23 @@ export async function applyManualBooking(
 
   const employee = await prisma.employee.findUnique({
     where: { id: input.employeeId },
-    select: { id: true, vacationDaysPerYear: true },
+    select: {
+      id: true,
+      vacationDaysPerYear: true,
+      entryDate: true,
+      exitDate: true,
+    },
   });
   if (!employee) {
     throw new ManualBookingError(
       "Mitarbeitende:r nicht gefunden",
       "EMPLOYEE_NOT_FOUND",
+    );
+  }
+  if (!isEmployeeActiveOnDate(employee, input.date)) {
+    throw new ManualBookingError(
+      "Buchungsdatum liegt ausserhalb der Anstellungsdauer.",
+      "EMPLOYMENT_NOT_ACTIVE_ON_DATE",
     );
   }
 
@@ -574,9 +599,11 @@ export async function applyYearEndCarryover(
   const carryDate = new Date(toYear, 0, 1);
   const carryDateNext = addDays(carryDate, 1);
 
-  const employees = await prisma.employee.findMany({
-    where: { isActive: true },
-  });
+  const employees = (
+    await prisma.employee.findMany({
+      where: { isActive: true },
+    })
+  ).filter((employee) => isEmployeeActiveOnDate(employee, carryDate));
 
   let bookingsCreated = 0;
 

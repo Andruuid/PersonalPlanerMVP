@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Pencil, Plus, UserCheck, UserMinus } from "lucide-react";
+import { Lock, LockOpen, Pencil, Plus, UserCheck, UserMinus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,7 @@ import {
   type LocationOption,
   type TztModelValue,
 } from "./employee-form";
-import { setEmployeeActiveAction } from "@/server/employees";
+import { setEmployeeActiveAction, setUserLockAction } from "@/server/employees";
 import { isoDateString } from "@/lib/time/week";
 
 export interface EmployeeRow {
@@ -31,6 +31,7 @@ export interface EmployeeRow {
   hazMinutesPerWeek: number;
   tztModel: TztModelValue;
   isActive: boolean;
+  userIsActive: boolean;
 }
 
 interface Props {
@@ -64,6 +65,27 @@ export function EmployeesTable({
         toast.success(
           employee.isActive ? "Mitarbeitende:r deaktiviert." : "Mitarbeitende:r aktiviert.",
         );
+      } else {
+        toast.error(result.error);
+      }
+    });
+  }
+
+  function toggleUserLock(employee: EmployeeRow) {
+    startTransition(employee.id, async () => {
+      const locking = employee.userIsActive;
+      let reason: string | undefined;
+      if (locking) {
+        const value = window.prompt(
+          "Sperrgrund (z.B. Compliance, Sicherheitsvorfall) eingeben:",
+        );
+        if (value === null) return;
+        reason = value;
+      }
+
+      const result = await setUserLockAction(employee.id, locking, reason);
+      if (result.ok) {
+        toast.success(locking ? "Benutzerkonto gesperrt." : "Benutzerkonto entsperrt.");
       } else {
         toast.error(result.error);
       }
@@ -127,13 +149,24 @@ export function EmployeesTable({
                     {e.vacationDaysPerYear} Tage
                   </td>
                   <td className="px-4 py-3">
-                    {e.isActive ? (
-                      <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
-                        Aktiv
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary">Inaktiv</Badge>
-                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {e.isActive ? (
+                        <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
+                          Mitarbeit aktiv
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary">Mitarbeit inaktiv</Badge>
+                      )}
+                      {e.userIsActive ? (
+                        <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
+                          Login aktiv
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">
+                          Login gesperrt
+                        </Badge>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-2">
@@ -160,6 +193,24 @@ export function EmployeesTable({
                           <>
                             <UserCheck className="mr-1 h-3.5 w-3.5" />
                             Aktivieren
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={pendingId === e.id}
+                        onClick={() => toggleUserLock(e)}
+                      >
+                        {e.userIsActive ? (
+                          <>
+                            <Lock className="mr-1 h-3.5 w-3.5" />
+                            Sperren
+                          </>
+                        ) : (
+                          <>
+                            <LockOpen className="mr-1 h-3.5 w-3.5" />
+                            Entsperren
                           </>
                         )}
                       </Button>

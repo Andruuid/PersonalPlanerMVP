@@ -353,3 +353,57 @@ export async function setEmployeeActiveAction(
   safeRevalidatePath("setEmployeeActiveAction", "/", "layout");
   return { ok: true };
 }
+
+export async function setUserLockAction(
+  employeeId: string,
+  locked: boolean,
+  reason?: string,
+): Promise<ActionResult> {
+  const admin = await requireAdmin();
+
+  const before = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    include: {
+      user: {
+        select: { id: true, isActive: true },
+      },
+    },
+  });
+  if (!before) {
+    return { ok: false, error: "Mitarbeitende:r nicht gefunden." };
+  }
+
+  const trimmedReason = reason?.trim();
+  if (locked && (!trimmedReason || trimmedReason.length < 3)) {
+    return {
+      ok: false,
+      error: "Bitte Sperrgrund mit mindestens 3 Zeichen angeben.",
+    };
+  }
+
+  const userIsActive = !locked;
+  await prisma.user.update({
+    where: { id: before.userId },
+    data: { isActive: userIsActive },
+  });
+
+  await writeAudit({
+    userId: admin.id,
+    action: locked ? "LOCK_USER" : "UNLOCK_USER",
+    entity: "User",
+    entityId: before.userId,
+    oldValue: {
+      userIsActive: before.user.isActive,
+      employeeIsActive: before.isActive,
+    },
+    newValue: {
+      userIsActive,
+      employeeIsActive: before.isActive,
+    },
+    comment: trimmedReason ?? null,
+  });
+
+  safeRevalidatePath("setUserLockAction", "/employees");
+  safeRevalidatePath("setUserLockAction", "/", "layout");
+  return { ok: true };
+}

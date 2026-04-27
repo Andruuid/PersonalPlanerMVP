@@ -55,6 +55,8 @@ export function AuditFilter({
     action !== "ALL" ||
     fromIso !== "" ||
     toIso !== "";
+  const hasUserLockActions =
+    facets.actions.includes("LOCK_USER") || facets.actions.includes("UNLOCK_USER");
 
   return (
     <div className="space-y-3 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
@@ -118,6 +120,48 @@ export function AuditFilter({
           />
         </Field>
       </div>
+
+      {hasUserLockActions ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium text-neutral-600">Schnellfilter:</span>
+          <button
+            type="button"
+            onClick={() => update({ entity: "User", action: "LOCK_USER" })}
+            className={cn(
+              "rounded-md border px-2.5 py-1 text-xs font-medium",
+              action === "LOCK_USER" && entity === "User"
+                ? "border-amber-300 bg-amber-100 text-amber-900"
+                : "border-neutral-300 text-neutral-700 hover:bg-neutral-100",
+            )}
+          >
+            Gesperrte Nutzer
+          </button>
+          <button
+            type="button"
+            onClick={() => update({ entity: "User", action: "UNLOCK_USER" })}
+            className={cn(
+              "rounded-md border px-2.5 py-1 text-xs font-medium",
+              action === "UNLOCK_USER" && entity === "User"
+                ? "border-emerald-300 bg-emerald-100 text-emerald-900"
+                : "border-neutral-300 text-neutral-700 hover:bg-neutral-100",
+            )}
+          >
+            Entsperrte Nutzer
+          </button>
+          <button
+            type="button"
+            onClick={() => update({ entity: "User", action: "ALL" })}
+            className={cn(
+              "rounded-md border px-2.5 py-1 text-xs font-medium",
+              entity === "User" && action === "ALL"
+                ? "border-blue-300 bg-blue-100 text-blue-900"
+                : "border-neutral-300 text-neutral-700 hover:bg-neutral-100",
+            )}
+          >
+            Alle User-Aktionen
+          </button>
+        </div>
+      ) : null}
 
       {hasFilter ? (
         <div className="flex justify-end">

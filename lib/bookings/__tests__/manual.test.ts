@@ -219,6 +219,80 @@ describe("applyManualBooking", () => {
       }),
     ).rejects.toBeInstanceOf(ManualBookingError);
   });
+
+  it("rejects a booking date before entryDate", async () => {
+    const employee = await seedEmployee(db.prisma, {
+      locationId,
+      entryDate: parseIsoDate("2026-05-15")!,
+    });
+
+    await expect(
+      applyManualBooking(db.prisma, {
+        employeeId: employee.id,
+        accountType: "ZEITSALDO",
+        date: parseIsoDate("2026-05-14")!,
+        value: 60,
+        bookingType: "MANUAL_CREDIT",
+        comment: "vor Eintritt",
+        createdByUserId: adminId,
+      }),
+    ).rejects.toMatchObject({
+      name: "ManualBookingError",
+      code: "EMPLOYMENT_NOT_ACTIVE_ON_DATE",
+    });
+  });
+
+  it("rejects a booking date after exitDate", async () => {
+    const employee = await seedEmployee(db.prisma, {
+      locationId,
+      exitDate: parseIsoDate("2026-05-14")!,
+    });
+
+    await expect(
+      applyManualBooking(db.prisma, {
+        employeeId: employee.id,
+        accountType: "ZEITSALDO",
+        date: parseIsoDate("2026-05-15")!,
+        value: 60,
+        bookingType: "MANUAL_CREDIT",
+        comment: "nach Austritt",
+        createdByUserId: adminId,
+      }),
+    ).rejects.toMatchObject({
+      name: "ManualBookingError",
+      code: "EMPLOYMENT_NOT_ACTIVE_ON_DATE",
+    });
+  });
+
+  it("allows booking on entryDate and exitDate boundaries", async () => {
+    const employee = await seedEmployee(db.prisma, {
+      locationId,
+      entryDate: parseIsoDate("2026-05-15")!,
+      exitDate: parseIsoDate("2026-05-20")!,
+    });
+
+    const onEntry = await applyManualBooking(db.prisma, {
+      employeeId: employee.id,
+      accountType: "ZEITSALDO",
+      date: parseIsoDate("2026-05-15")!,
+      value: 30,
+      bookingType: "MANUAL_CREDIT",
+      comment: "am Eintritt",
+      createdByUserId: adminId,
+    });
+    expect(onEntry.signedValue).toBe(30);
+
+    const onExit = await applyManualBooking(db.prisma, {
+      employeeId: employee.id,
+      accountType: "ZEITSALDO",
+      date: parseIsoDate("2026-05-20")!,
+      value: 20,
+      bookingType: "MANUAL_CREDIT",
+      comment: "am Austritt",
+      createdByUserId: adminId,
+    });
+    expect(onExit.signedValue).toBe(20);
+  });
 });
 
 describe("deleteBooking", () => {

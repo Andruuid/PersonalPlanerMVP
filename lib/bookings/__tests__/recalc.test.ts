@@ -10,7 +10,7 @@ import {
   seedAbsenceEntry,
 } from "@/lib/test/fixtures";
 import { recalcWeekClose } from "@/lib/bookings/core";
-import { isoWeekDays } from "@/lib/time/week";
+import { isoWeekDays, parseIsoDate } from "@/lib/time/week";
 
 const YEAR = 2026;
 const KW = 10;
@@ -350,5 +350,79 @@ describe("recalcWeekClose", () => {
       where: { employeeId: inactive.id },
     });
     expect(bookings).toHaveLength(0);
+  });
+
+  it("skips employees whose entryDate is after the closed week", async () => {
+    const futureEntry = await seedEmployee(db.prisma, {
+      locationId,
+      entryDate: new Date(2026, 11, 1),
+    });
+    for (let i = 0; i < 5; i++) {
+      await seedShiftEntry(db.prisma, {
+        weekId,
+        employeeId: futureEntry.id,
+        isoDate: weekDays[i],
+        plannedMinutes: 540,
+      });
+    }
+
+    const result = await recalcWeekClose(db.prisma, weekId, adminId);
+    expect(result.employeesAffected).toBe(0);
+    expect(result.bookingsCreated).toBe(0);
+
+    const bookings = await db.prisma.booking.findMany({
+      where: { employeeId: futureEntry.id, bookingType: "AUTO_WEEKLY" },
+    });
+    expect(bookings).toHaveLength(0);
+  });
+
+  it("skips employees whose exitDate is before the closed week end", async () => {
+    const alreadyExited = await seedEmployee(db.prisma, {
+      locationId,
+      exitDate: new Date(2026, 0, 31),
+    });
+    for (let i = 0; i < 5; i++) {
+      await seedShiftEntry(db.prisma, {
+        weekId,
+        employeeId: alreadyExited.id,
+        isoDate: weekDays[i],
+        plannedMinutes: 540,
+      });
+    }
+
+    const result = await recalcWeekClose(db.prisma, weekId, adminId);
+    expect(result.employeesAffected).toBe(0);
+    expect(result.bookingsCreated).toBe(0);
+
+    const bookings = await db.prisma.booking.findMany({
+      where: { employeeId: alreadyExited.id, bookingType: "AUTO_WEEKLY" },
+    });
+    expect(bookings).toHaveLength(0);
+  });
+
+  it("includes employees when entryDate or exitDate equals the week close date", async () => {
+    const boundaryEntry = await seedEmployee(db.prisma, {
+      locationId,
+      entryDate: parseIsoDate(weekDays[6])!,
+    });
+    const boundaryExit = await seedEmployee(db.prisma, {
+      locationId,
+      exitDate: parseIsoDate(weekDays[6])!,
+    });
+
+    for (const employeeId of [boundaryEntry.id, boundaryExit.id]) {
+      for (let i = 0; i < 5; i++) {
+        await seedShiftEntry(db.prisma, {
+          weekId,
+          employeeId,
+          isoDate: weekDays[i],
+          plannedMinutes: 540,
+        });
+      }
+    }
+
+    const result = await recalcWeekClose(db.prisma, weekId, adminId);
+    expect(result.employeesAffected).toBe(2);
+    expect(result.bookingsCreated).toBe(2);
   });
 });

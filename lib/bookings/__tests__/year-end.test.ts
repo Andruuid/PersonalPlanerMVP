@@ -243,4 +243,91 @@ describe("applyYearEndCarryover", () => {
     });
     expect(inactiveCarry).toBeNull();
   });
+
+  it("skips active employees who enter after carryover date", async () => {
+    const futureJoiner = await seedEmployee(db.prisma, {
+      locationId,
+      entryDate: new Date(TO_YEAR, 0, 2),
+    });
+    await db.prisma.accountBalance.create({
+      data: {
+        employeeId: futureJoiner.id,
+        accountType: "ZEITSALDO",
+        year: FROM_YEAR,
+        openingValue: 0,
+        currentValue: 100,
+        unit: "MINUTES",
+      },
+    });
+
+    const result = await applyYearEndCarryover(db.prisma, FROM_YEAR, adminId);
+    expect(result.employeesProcessed).toBe(0);
+
+    const carry = await db.prisma.booking.findFirst({
+      where: { employeeId: futureJoiner.id, bookingType: "CARRYOVER" },
+    });
+    expect(carry).toBeNull();
+  });
+
+  it("skips active employees who exited before carryover date", async () => {
+    const exited = await seedEmployee(db.prisma, {
+      locationId,
+      exitDate: new Date(FROM_YEAR, 11, 31),
+    });
+
+    const date = parseIsoDate(`${FROM_YEAR}-12-15`)!;
+    await applyManualBooking(db.prisma, {
+      employeeId: exited.id,
+      accountType: "ZEITSALDO",
+      date,
+      value: 100,
+      bookingType: "MANUAL_CREDIT",
+      comment: "leftover",
+      createdByUserId: adminId,
+    });
+
+    const result = await applyYearEndCarryover(db.prisma, FROM_YEAR, adminId);
+    expect(result.employeesProcessed).toBe(0);
+
+    const carry = await db.prisma.booking.findFirst({
+      where: { employeeId: exited.id, bookingType: "CARRYOVER" },
+    });
+    expect(carry).toBeNull();
+  });
+
+  it("includes active employees when entryDate or exitDate equals carryover date", async () => {
+    const startsOnCarryDate = await seedEmployee(db.prisma, {
+      locationId,
+      entryDate: new Date(TO_YEAR, 0, 1),
+    });
+    const exitsOnCarryDate = await seedEmployee(db.prisma, {
+      locationId,
+      exitDate: new Date(TO_YEAR, 0, 1),
+    });
+
+    await db.prisma.accountBalance.create({
+      data: {
+        employeeId: startsOnCarryDate.id,
+        accountType: "ZEITSALDO",
+        year: FROM_YEAR,
+        openingValue: 0,
+        currentValue: 100,
+        unit: "MINUTES",
+      },
+    });
+    await db.prisma.accountBalance.create({
+      data: {
+        employeeId: exitsOnCarryDate.id,
+        accountType: "ZEITSALDO",
+        year: FROM_YEAR,
+        openingValue: 0,
+        currentValue: 100,
+        unit: "MINUTES",
+      },
+    });
+
+    const result = await applyYearEndCarryover(db.prisma, FROM_YEAR, adminId);
+    expect(result.employeesProcessed).toBe(2);
+    expect(result.bookingsCreated).toBe(2);
+  });
 });

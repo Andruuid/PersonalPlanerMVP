@@ -43,6 +43,8 @@ export interface SeedEmployeeOpts {
   hazMinutesPerWeek?: number;
   tztModel?: "DAILY_QUOTA" | "TARGET_REDUCTION";
   vacationDaysPerYear?: number;
+  entryDate?: Date;
+  exitDate?: Date | null;
   isActive?: boolean;
 }
 
@@ -70,7 +72,8 @@ export async function seedEmployee(
       firstName: opts.firstName ?? "Anna",
       lastName: opts.lastName ?? "Müller",
       pensum: opts.pensum ?? 100,
-      entryDate: new Date(2024, 0, 1),
+      entryDate: opts.entryDate ?? new Date(2024, 0, 1),
+      exitDate: opts.exitDate ?? null,
       locationId,
       vacationDaysPerYear: opts.vacationDaysPerYear ?? 25,
       weeklyTargetMinutes: opts.weeklyTargetMinutes ?? 2520,
