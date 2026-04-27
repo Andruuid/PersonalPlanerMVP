@@ -17,15 +17,28 @@ export default async function AdminLayout({
     redirect("/my-week");
   }
 
-  const locations = await prisma.location.findMany({
-    orderBy: { name: "asc" },
-    select: { id: true, name: true },
-  });
+  const [locations, employees] = await Promise.all([
+    prisma.location.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+    prisma.employee.findMany({
+      where: { isActive: true },
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+      select: { id: true, firstName: true, lastName: true, roleLabel: true },
+    }),
+  ]);
+
+  const employeeOptions = employees.map((e) => ({
+    id: e.id,
+    label: `${e.firstName} ${e.lastName}${e.roleLabel ? ` · ${e.roleLabel}` : ""}`,
+  }));
 
   return (
     <QuickActionsProvider
       locations={locations}
       defaultLocationId={locations[0]?.id ?? ""}
+      employees={employeeOptions}
     >
       <AppShell
         variant="admin"

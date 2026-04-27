@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import { isoWeekDays } from "@/lib/time/week";
 import { requireAdmin, type ActionResult } from "./_shared";
+import { recalcWeekClose, removeWeekClosingBookings } from "./bookings";
 
 export interface WeekIdentity {
   id: string;
@@ -223,6 +224,8 @@ export async function closeWeekAction(weekId: string): Promise<ActionResult> {
     data: { status: "CLOSED", closedAt },
   });
 
+  await recalcWeekClose(weekId, admin.id);
+
   await writeAudit({
     userId: admin.id,
     action: "CLOSE",
@@ -234,6 +237,8 @@ export async function closeWeekAction(weekId: string): Promise<ActionResult> {
 
   revalidatePath("/planning");
   revalidatePath("/my-week");
+  revalidatePath("/accounts");
+  revalidatePath("/my-accounts");
   return { ok: true };
 }
 
@@ -254,6 +259,8 @@ export async function reopenWeekAction(weekId: string): Promise<ActionResult> {
     data: { status: "DRAFT", closedAt: null },
   });
 
+  await removeWeekClosingBookings(weekId, admin.id);
+
   await writeAudit({
     userId: admin.id,
     action: "REOPEN",
@@ -265,5 +272,7 @@ export async function reopenWeekAction(weekId: string): Promise<ActionResult> {
 
   revalidatePath("/planning");
   revalidatePath("/my-week");
+  revalidatePath("/accounts");
+  revalidatePath("/my-accounts");
   return { ok: true };
 }

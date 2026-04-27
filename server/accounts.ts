@@ -1,0 +1,173 @@
+import "server-only";
+
+import { prisma } from "@/lib/db";
+import type {
+  AccountType,
+  AccountUnit,
+  BookingType,
+} from "@/lib/generated/prisma/enums";
+import { isoDateString } from "@/lib/time/week";
+
+export interface AccountSummary {
+  accountType: AccountType;
+  unit: AccountUnit;
+  openingValue: number;
+  currentValue: number;
+}
+
+export interface BookingHistoryRow {
+  id: string;
+  accountType: AccountType;
+  unit: AccountUnit;
+  date: string;
+  value: number;
+  bookingType: BookingType;
+  comment: string | null;
+  createdByEmail: string | null;
+  createdAtIso: string;
+}
+
+const DEFAULT_UNITS: Record<AccountType, AccountUnit> = {
+  ZEITSALDO: "MINUTES",
+  FERIEN: "DAYS",
+  UEZ: "MINUTES",
+  TZT: "DAYS",
+};
+
+/**
+ * Returns all four account summaries for an employee in `year`. Missing rows
+ * are returned as zero-balance defaults so the UI always renders the four
+ * accounts. Pure read — does not mutate.
+ */
+export async function loadAccountsForEmployee(
+  employeeId: string,
+  year: number,
+): Promise<Record<AccountType, AccountSummary>> {
+  const balances = await prisma.accountBalance.findMany({
+    where: { employeeId, year },
+  });
+  const map: Record<AccountType, AccountSummary> = {
+    ZEITSALDO: emptySummary("ZEITSALDO"),
+    FERIEN: emptySummary("FERIEN"),
+    UEZ: emptySummary("UEZ"),
+    TZT: emptySummary("TZT"),
+  };
+  for (const b of balances) {
+    const type = b.accountType as AccountType;
+    map[type] = {
+      accountType: type,
+      unit: b.unit as AccountUnit,
+      openingValue: b.openingValue,
+      currentValue: b.currentValue,
+    };
+  }
+  return map;
+}
+
+function emptySummary(accountType: AccountType): AccountSummary {
+  return {
+    accountType,
+    unit: DEFAULT_UNITS[accountType],
+    openingValue: 0,
+    currentValue: 0,
+  };
+}
+
+export interface AdminAccountsRow {
+  employeeId: string;
+  firstName: string;
+  lastName: string;
+  roleLabel: string | null;
+  vacationDaysPerYear: number;
+  weeklyTargetMinutes: number;
+  hazMinutesPerWeek: number;
+  isActive: boolean;
+  accounts: Record<AccountType, AccountSummary>;
+}
+
+/** Loads the per-employee account table the admin Zeitkonten page renders. */
+export async function loadAdminAccountsTable(
+  year: number,
+): Promise<AdminAccountsRow[]> {
+  const employees = await prisma.employee.findMany({
+    orderBy: [{ isActive: "desc" }, { lastName: "asc" }, { firstName: "asc" }],
+  });
+  if (employees.length === 0) return [];
+
+  const balances = await prisma.accountBalance.findMany({
+    where: { year, employeeId: { in: employees.map((e) => e.id) } },
+  });
+
+  const byEmployee = new Map<string, typeof balances>();
+  for (const b of balances) {
+    const list = byEmployee.get(b.employeeId) ?? [];
+    list.push(b);
+    byEmployee.set(b.employeeId, list);
+  }
+
+  return employees.map((e) => {
+    const accounts: Record<AccountType, AccountSummary> = {
+      ZEITSALDO: emptySummary("ZEITSALDO"),
+      FERIEN: { ...emptySummary("FERIEN"), openingValue: e.vacationDaysPerYear },
+      UEZ: emptySummary("UEZ"),
+      TZT: emptySummary("TZT"),
+    };
+    for (const b of byEmployee.get(e.id) ?? []) {
+      const type = b.accountType as AccountType;
+      accounts[type] = {
+        accountType: type,
+        unit: b.unit as AccountUnit,
+        openingValue: b.openingValue,
+        currentValue: b.currentValue,
+      };
+    }
+    return {
+      employeeId: e.id,
+      firstName: e.firstName,
+      lastName: e.lastName,
+      roleLabel: e.roleLabel,
+      vacationDaysPerYear: e.vacationDaysPerYear,
+      weeklyTargetMinutes: e.weeklyTargetMinutes,
+      hazMinutesPerWeek: e.hazMinutesPerWeek,
+      isActive: e.isActive,
+      accounts,
+    };
+  });
+}
+
+/** Booking history for an employee, optionally filtered to a single year. */
+export async function loadBookingHistory(
+  employeeId: string,
+  options: { year?: number; limit?: number } = {},
+): Promise<BookingHistoryRow[]> {
+  const where: { employeeId: string; date?: { gte: Date; lt: Date } } = {
+    employeeId,
+  };
+  if (options.year !== undefined) {
+    where.date = {
+      gte: new Date(options.year, 0, 1),
+      lt: new Date(options.year + 1, 0, 1),
+    };
+  }
+
+  const rows = await prisma.booking.findMany({
+    where,
+    orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+    take: options.limit,
+    include: {
+      createdByUser: { select: { email: true } },
+    },
+  });
+
+  return rows.map((r) => ({
+    id: r.id,
+    accountType: r.accountType as AccountType,
+    unit: DEFAULT_UNITS[r.accountType as AccountType],
+    date: isoDateString(r.date),
+    value: r.value,
+    bookingType: r.bookingType as BookingType,
+    comment: r.comment,
+    createdByEmail: r.createdByUser.email,
+    createdAtIso: r.createdAt.toISOString(),
+  }));
+}

@@ -1,0 +1,125 @@
+import { isoDateString, isoWeekDays } from "./week";
+import { resolveDay, type PlanEntryInput, type DayKind } from "./priority";
+import {
+  STANDARD_WORK_DAYS,
+  anrechenbarIstMinutes,
+  dailySollMinutes,
+} from "./soll";
+import { actualWorkMinutes, weeklyUezContribution } from "./overtime";
+import { vacationDaysDebit } from "./vacation";
+import type { HolidayLookup } from "./holidays";
+
+export interface DayComputation {
+  iso: string;
+  isWeekend: boolean;
+  isHoliday: boolean;
+  holidayName: string | null;
+  kind: DayKind;
+  sollMinutes: number;
+  istMinutes: number;
+  plannedMinutes: number;
+  contributionMinutes: number;
+}
+
+export interface WeeklyComputation {
+  year: number;
+  weekNumber: number;
+  days: DayComputation[];
+  totalSollMinutes: number;
+  totalIstMinutes: number;
+  weeklyZeitsaldoDeltaMinutes: number;
+  weeklyWorkMinutes: number;
+  weeklyUezDeltaMinutes: number;
+  vacationDaysDebit: number;
+}
+
+export interface EmployeeWeekConfig {
+  weeklyTargetMinutes: number;
+  hazMinutesPerWeek: number;
+  standardWorkDays?: number;
+}
+
+export interface PlanEntryByDate extends PlanEntryInput {
+  date: string;
+}
+
+function isWeekendIso(iso: string): boolean {
+  const date = new Date(`${iso}T00:00:00Z`);
+  const dow = date.getUTCDay();
+  return dow === 0 || dow === 6;
+}
+
+/**
+ * Compute the full weekly balance breakdown for one employee.
+ *
+ * `entries` may contain at most one plan entry per date — the caller is
+ * responsible for that invariant (the DB has the (week, employee, date)
+ * uniqueness enforced via the upsertPlanEntryAction).
+ */
+export function computeWeeklyBalance(
+  year: number,
+  weekNumber: number,
+  entries: PlanEntryByDate[],
+  holidays: HolidayLookup,
+  config: EmployeeWeekConfig,
+): WeeklyComputation {
+  const standardWorkDays = config.standardWorkDays ?? STANDARD_WORK_DAYS;
+  const byDate = new Map<string, PlanEntryByDate>();
+  for (const e of entries) byDate.set(e.date, e);
+
+  const days = isoWeekDays(year, weekNumber).map((d) => {
+    const iso = d.iso;
+    const isWeekend = isWeekendIso(iso);
+    const isHoliday = holidays.has(iso);
+    const holidayName = holidays.nameOf(iso);
+    const entry = byDate.get(iso) ?? null;
+    const resolved = resolveDay(entry, isHoliday, isWeekend);
+    const sollMinutes = dailySollMinutes(
+      resolved.kind,
+      config.weeklyTargetMinutes,
+      standardWorkDays,
+    );
+    const istMinutes = anrechenbarIstMinutes(
+      resolved.kind,
+      resolved.plannedMinutes,
+      config.weeklyTargetMinutes,
+      standardWorkDays,
+    );
+    const dayCalc: DayComputation = {
+      iso,
+      isWeekend,
+      isHoliday,
+      holidayName,
+      kind: resolved.kind,
+      sollMinutes,
+      istMinutes,
+      plannedMinutes: resolved.plannedMinutes,
+      contributionMinutes: istMinutes - sollMinutes,
+    };
+    return dayCalc;
+  });
+
+  const totalSoll = days.reduce((acc, d) => acc + d.sollMinutes, 0);
+  const totalIst = days.reduce((acc, d) => acc + d.istMinutes, 0);
+  const weeklyZeitsaldoDelta = totalIst - totalSoll;
+  const weeklyWork = actualWorkMinutes(days);
+  const weeklyUez = weeklyUezContribution(weeklyWork, config.hazMinutesPerWeek);
+  const vacation = vacationDaysDebit(days);
+
+  return {
+    year,
+    weekNumber,
+    days,
+    totalSollMinutes: totalSoll,
+    totalIstMinutes: totalIst,
+    weeklyZeitsaldoDeltaMinutes: weeklyZeitsaldoDelta,
+    weeklyWorkMinutes: weeklyWork,
+    weeklyUezDeltaMinutes: weeklyUez,
+    vacationDaysDebit: vacation,
+  };
+}
+
+/** Convenience: convert a Date to ISO yyyy-MM-dd in the local timezone. */
+export function toIsoDate(date: Date): string {
+  return isoDateString(date);
+}

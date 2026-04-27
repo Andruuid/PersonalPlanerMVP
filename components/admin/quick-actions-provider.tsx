@@ -7,13 +7,16 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { toast } from "sonner";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
   EmployeeForm,
   type LocationOption,
 } from "@/components/admin/employees/employee-form";
 import { ServiceForm } from "@/components/admin/services/service-form";
+import {
+  ManualBookingForm,
+  type EmployeePickOption,
+} from "@/components/admin/accounts/manual-booking-form";
 
 export type QuickActionId =
   | "new-employee"
@@ -37,28 +40,26 @@ export function useQuickActions(): QuickActionsContextValue {
 interface ProviderProps {
   locations: LocationOption[];
   defaultLocationId: string;
+  employees: EmployeePickOption[];
   children: ReactNode;
 }
 
-type DialogState = "closed" | "new-employee" | "new-service";
+type DialogState = "closed" | "new-employee" | "new-service" | "manual-booking";
 
 export function QuickActionsProvider({
   locations,
   defaultLocationId,
+  employees,
   children,
 }: ProviderProps) {
   const [dialog, setDialog] = useState<DialogState>("closed");
   const close = useCallback(() => setDialog("closed"), []);
 
   const open = useCallback((id: QuickActionId) => {
-    if (id === "manual-booking") {
-      toast.info(
-        "Manuelle Buchung erscheint mit Phase 5 (Zeitkonten + Buchungen).",
-      );
-      return;
-    }
     setDialog(id);
   }, []);
+
+  const todayIso = new Date().toISOString().slice(0, 10);
 
   return (
     <QuickActionsContext.Provider value={{ open }}>
@@ -106,6 +107,24 @@ export function QuickActionsProvider({
               breakMinutes: 30,
               comment: "",
               isActive: true,
+            }}
+            onSuccess={close}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={dialog === "manual-booking"}
+        onOpenChange={(o) => !o && close()}
+      >
+        <DialogContent className="sm:max-w-2xl">
+          <ManualBookingForm
+            employees={employees}
+            defaults={{
+              employeeId: employees[0]?.id ?? "",
+              accountType: "ZEITSALDO",
+              date: todayIso,
+              bookingType: "MANUAL_CREDIT",
             }}
             onSuccess={close}
           />

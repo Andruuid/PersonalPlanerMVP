@@ -1,0 +1,33 @@
+import type { AccountType, AccountUnit } from "@/lib/generated/prisma/enums";
+
+export interface AccountDisplayConfig {
+  label: string;
+  unitLabel: string;
+}
+
+export const ACCOUNT_DISPLAY: Record<AccountType, AccountDisplayConfig> = {
+  ZEITSALDO: { label: "Zeitsaldo", unitLabel: "Stunden" },
+  FERIEN: { label: "Ferien", unitLabel: "Tage" },
+  UEZ: { label: "UEZ", unitLabel: "Stunden" },
+  TZT: { label: "TZT", unitLabel: "Tage" },
+};
+
+export function formatMinutesAsHours(minutes: number): string {
+  const sign = minutes >= 0 ? "+" : "−";
+  const abs = Math.abs(Math.round(minutes));
+  const h = Math.floor(abs / 60);
+  const m = abs % 60;
+  return `${sign}${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+export function formatDays(days: number, suffix: "Tage" | "Tag" = "Tage"): string {
+  const rounded = Math.round(days * 10) / 10;
+  const sign = rounded > 0 ? "+" : rounded < 0 ? "−" : "";
+  const abs = Math.abs(rounded);
+  return `${sign}${abs.toFixed(1)} ${suffix}`;
+}
+
+export function formatAccountValue(unit: AccountUnit, value: number): string {
+  if (unit === "MINUTES") return formatMinutesAsHours(value);
+  return formatDays(value);
+}
