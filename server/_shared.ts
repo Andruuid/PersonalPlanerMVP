@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import type { Role } from "@/lib/generated/prisma/enums";
 import type { ZodError } from "zod";
@@ -76,6 +77,39 @@ export function actionErrorFromDatabase(err: unknown): string {
     return "Die Datenbank-Abrechnung hat zu lange gedauert. Bitte erneut versuchen. Bleibt der Fehler, wenden Sie sich an die Verwaltung.";
   }
   return "Beim Verarbeiten ist ein technischer Fehler aufgetreten. Bitte erneut versuchen.";
+}
+
+/**
+ * Writes to the host’s server logs (e.g. Netlify → Functions), not the browser.
+ * Use when catching errors in server actions so production issues are diagnosable.
+ */
+export function logServerError(scope: string, err: unknown): void {
+  if (err instanceof Error) {
+    console.error(`[server:${scope}]`, err.message, err.stack);
+  } else {
+    console.error(`[server:${scope}]`, err);
+  }
+}
+
+/**
+ * `revalidatePath` can throw when the request has no static-generation / ISR
+ * store (e.g. some serverless contexts — Next.js invariant “static generation
+ * store missing”). The DB write has already succeeded; do not fail the action.
+ */
+export function safeRevalidatePath(
+  context: string,
+  path: string,
+  type?: "page" | "layout",
+): void {
+  try {
+    if (type !== undefined) {
+      revalidatePath(path, type);
+    } else {
+      revalidatePath(path);
+    }
+  } catch (err) {
+    logServerError(`${context} revalidatePath`, err);
+  }
 }
 
 export function readBooleanFlag(value: FormDataEntryValue | null): boolean {

@@ -1,7 +1,6 @@
 "use server";
 
 import { z } from "zod";
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import {
@@ -9,6 +8,7 @@ import {
   fieldErrorsFromZod,
   readOptionalString,
   readBooleanFlag,
+  safeRevalidatePath,
   type ActionResult,
 } from "./_shared";
 
@@ -103,8 +103,8 @@ export async function createServiceAction(
     },
   });
 
-  revalidatePath("/services");
-  revalidatePath("/", "layout");
+  safeRevalidatePath("createServiceAction", "/services");
+  safeRevalidatePath("createServiceAction", "/", "layout");
   return { ok: true };
 }
 
@@ -182,8 +182,8 @@ export async function updateServiceAction(
     },
   });
 
-  revalidatePath("/services");
-  revalidatePath("/", "layout");
+  safeRevalidatePath("updateServiceAction", "/services");
+  safeRevalidatePath("updateServiceAction", "/", "layout");
   return { ok: true };
 }
 
@@ -214,7 +214,7 @@ export async function setServiceActiveAction(
     newValue: { isActive },
   });
 
-  revalidatePath("/services");
-  revalidatePath("/", "layout");
+  safeRevalidatePath("setServiceActiveAction", "/services");
+  safeRevalidatePath("setServiceActiveAction", "/", "layout");
   return { ok: true };
 }

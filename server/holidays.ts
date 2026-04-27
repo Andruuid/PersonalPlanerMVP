@@ -1,7 +1,6 @@
 "use server";
 
 import { z } from "zod";
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import { holidaysForRegion } from "@/lib/holidays-ch";
@@ -10,6 +9,7 @@ import {
   requireAdmin,
   fieldErrorsFromZod,
   readOptionalString,
+  safeRevalidatePath,
   type ActionResult,
 } from "./_shared";
 
@@ -83,7 +83,7 @@ export async function addHolidayAction(
     };
   }
 
-  revalidatePath("/settings");
+  safeRevalidatePath("addHolidayAction", "/settings");
   return { ok: true };
 }
 
@@ -111,7 +111,7 @@ export async function deleteHolidayAction(
     },
   });
 
-  revalidatePath("/settings");
+  safeRevalidatePath("deleteHolidayAction", "/settings");
   return { ok: true };
 }
 
@@ -181,6 +181,6 @@ export async function generateRegionHolidaysAction(
     },
   });
 
-  revalidatePath("/settings");
+  safeRevalidatePath("generateRegionHolidaysAction", "/settings");
   return { ok: true, data: { created, skipped } };
 }

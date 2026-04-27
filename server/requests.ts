@@ -1,7 +1,6 @@
 "use server";
 
 import { addDays, getISOWeek, getISOWeekYear } from "date-fns";
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
@@ -11,6 +10,7 @@ import {
   readOptionalString,
   requireAdmin,
   requireEmployee,
+  safeRevalidatePath,
   type ActionResult,
 } from "./_shared";
 
@@ -111,9 +111,9 @@ export async function approveRequestAction(
     },
   });
 
-  revalidatePath("/planning");
-  revalidatePath("/absences");
-  revalidatePath("/my-requests");
+  safeRevalidatePath("approveRequestAction", "/planning");
+  safeRevalidatePath("approveRequestAction", "/absences");
+  safeRevalidatePath("approveRequestAction", "/my-requests");
   return { ok: true };
 }
 
@@ -148,9 +148,9 @@ export async function rejectRequestAction(
     newValue: { status: "REJECTED" },
   });
 
-  revalidatePath("/planning");
-  revalidatePath("/absences");
-  revalidatePath("/my-requests");
+  safeRevalidatePath("rejectRequestAction", "/planning");
+  safeRevalidatePath("rejectRequestAction", "/absences");
+  safeRevalidatePath("rejectRequestAction", "/my-requests");
   return { ok: true };
 }
 
@@ -222,10 +222,10 @@ export async function createAbsenceRequestAction(
     comment: data.comment ?? null,
   });
 
-  revalidatePath("/my-requests");
-  revalidatePath("/my-week");
-  revalidatePath("/absences");
-  revalidatePath("/planning");
+  safeRevalidatePath("createAbsenceRequestAction", "/my-requests");
+  safeRevalidatePath("createAbsenceRequestAction", "/my-week");
+  safeRevalidatePath("createAbsenceRequestAction", "/absences");
+  safeRevalidatePath("createAbsenceRequestAction", "/planning");
   return { ok: true };
 }
 
@@ -263,9 +263,9 @@ export async function cancelOwnRequestAction(
     },
   });
 
-  revalidatePath("/my-requests");
-  revalidatePath("/absences");
-  revalidatePath("/planning");
+  safeRevalidatePath("cancelOwnRequestAction", "/my-requests");
+  safeRevalidatePath("cancelOwnRequestAction", "/absences");
+  safeRevalidatePath("cancelOwnRequestAction", "/planning");
   return { ok: true };
 }
 
@@ -299,8 +299,8 @@ export async function reopenRequestAction(
     newValue: { status: "OPEN" },
   });
 
-  revalidatePath("/planning");
-  revalidatePath("/absences");
-  revalidatePath("/my-requests");
+  safeRevalidatePath("reopenRequestAction", "/planning");
+  safeRevalidatePath("reopenRequestAction", "/absences");
+  safeRevalidatePath("reopenRequestAction", "/my-requests");
   return { ok: true };
 }

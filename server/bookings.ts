@@ -1,7 +1,6 @@
 "use server";
 
 import { z } from "zod";
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import { isoDateString, parseIsoDate } from "@/lib/time/week";
@@ -18,6 +17,7 @@ import {
   fieldErrorsFromZod,
   readOptionalString,
   requireAdmin,
+  safeRevalidatePath,
   type ActionResult,
 } from "./_shared";
 
@@ -130,8 +130,8 @@ export async function manualBookingAction(
       comment: data.comment,
     });
 
-    revalidatePath("/accounts");
-    revalidatePath("/my-accounts");
+    safeRevalidatePath("manualBookingAction", "/accounts");
+    safeRevalidatePath("manualBookingAction", "/my-accounts");
     return { ok: true };
   } catch (err) {
     if (err instanceof ManualBookingError) {
@@ -163,8 +163,8 @@ export async function deleteBookingAction(
       },
     });
 
-    revalidatePath("/accounts");
-    revalidatePath("/my-accounts");
+    safeRevalidatePath("deleteBookingAction", "/accounts");
+    safeRevalidatePath("deleteBookingAction", "/my-accounts");
     return { ok: true };
   } catch (err) {
     if (err instanceof DeleteBookingError) {
@@ -213,7 +213,7 @@ export async function runYearEndCarryoverAction(
     },
   });
 
-  revalidatePath("/accounts");
-  revalidatePath("/my-accounts");
+  safeRevalidatePath("runYearEndCarryoverAction", "/accounts");
+  safeRevalidatePath("runYearEndCarryoverAction", "/my-accounts");
   return { ok: true };
 }

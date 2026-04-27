@@ -147,24 +147,38 @@ function AssignmentForm({
     }
 
     startTransition(async () => {
-      const result = await upsertPlanEntryAction(payload);
-      if (result.ok) {
-        toast.success("Eintrag gespeichert.");
-        onClose();
-      } else {
-        setError(result.error);
+      try {
+        const result = await upsertPlanEntryAction(payload);
+        if (result.ok) {
+          toast.success("Eintrag gespeichert.");
+          onClose();
+        } else {
+          setError(result.error);
+        }
+      } catch (e) {
+        console.error("[AssignmentDialog] upsertPlanEntryAction", e);
+        setError(
+          "Unerwarteter Serverfehler. In der Entwicklertools-Konsole (F12) und in den Netlify-Function-Logs finden sich Details.",
+        );
       }
     });
   }
 
   function handleDelete() {
     startDeleteTransition(async () => {
-      const result = await deletePlanEntryAction(weekId, employeeId, isoDate);
-      if (result.ok) {
-        toast.success("Eintrag entfernt.");
-        onClose();
-      } else {
-        toast.error(result.error);
+      try {
+        const result = await deletePlanEntryAction(weekId, employeeId, isoDate);
+        if (result.ok) {
+          toast.success("Eintrag entfernt.");
+          onClose();
+        } else {
+          toast.error(result.error);
+        }
+      } catch (e) {
+        console.error("[AssignmentDialog] deletePlanEntryAction", e);
+        toast.error(
+          "Unerwarteter Serverfehler — siehe Konsole (F12) bzw. Netlify-Logs.",
+        );
       }
     });
   }

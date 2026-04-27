@@ -1,12 +1,12 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import { isoDateString, isoWeekDays } from "@/lib/time/week";
 import {
   actionErrorFromDatabase,
   requireAdmin,
+  safeRevalidatePath,
   type ActionResult,
 } from "./_shared";
 import { recalcWeekClose, removeWeekClosingBookings } from "./bookings";
@@ -176,8 +176,8 @@ export async function publishWeekAction(
     newValue: { status: "PUBLISHED", publishedAt: publishedAt.toISOString() },
   });
 
-  revalidatePath("/planning");
-  revalidatePath("/my-week");
+  safeRevalidatePath("publishWeekAction", "/planning");
+  safeRevalidatePath("publishWeekAction", "/my-week");
   return { ok: true };
 }
 
@@ -206,7 +206,7 @@ export async function resetWeekToDraftAction(
     newValue: { status: "DRAFT" },
   });
 
-  revalidatePath("/planning");
+  safeRevalidatePath("resetWeekToDraftAction", "/planning");
   return { ok: true };
 }
 
@@ -247,10 +247,10 @@ export async function closeWeekAction(weekId: string): Promise<ActionResult> {
     newValue: { status: "CLOSED", closedAt: closedAt.toISOString() },
   });
 
-  revalidatePath("/planning");
-  revalidatePath("/my-week");
-  revalidatePath("/accounts");
-  revalidatePath("/my-accounts");
+  safeRevalidatePath("closeWeekAction", "/planning");
+  safeRevalidatePath("closeWeekAction", "/my-week");
+  safeRevalidatePath("closeWeekAction", "/accounts");
+  safeRevalidatePath("closeWeekAction", "/my-accounts");
   return { ok: true };
 }
 
@@ -290,9 +290,9 @@ export async function reopenWeekAction(weekId: string): Promise<ActionResult> {
     newValue: { status: "DRAFT" },
   });
 
-  revalidatePath("/planning");
-  revalidatePath("/my-week");
-  revalidatePath("/accounts");
-  revalidatePath("/my-accounts");
+  safeRevalidatePath("reopenWeekAction", "/planning");
+  safeRevalidatePath("reopenWeekAction", "/my-week");
+  safeRevalidatePath("reopenWeekAction", "/accounts");
+  safeRevalidatePath("reopenWeekAction", "/my-accounts");
   return { ok: true };
 }

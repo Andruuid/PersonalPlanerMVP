@@ -1,13 +1,13 @@
 "use server";
 
 import { z } from "zod";
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import {
   requireAdmin,
   fieldErrorsFromZod,
   readOptionalString,
+  safeRevalidatePath,
   type ActionResult,
 } from "./_shared";
 
@@ -67,8 +67,8 @@ export async function createLocationAction(
     },
   });
 
-  revalidatePath("/settings");
-  revalidatePath("/", "layout");
+  safeRevalidatePath("createLocationAction", "/settings");
+  safeRevalidatePath("createLocationAction", "/", "layout");
   return { ok: true };
 }
 
@@ -116,7 +116,7 @@ export async function updateLocationAction(
     },
   });
 
-  revalidatePath("/settings");
-  revalidatePath("/", "layout");
+  safeRevalidatePath("updateLocationAction", "/settings");
+  safeRevalidatePath("updateLocationAction", "/", "layout");
   return { ok: true };
 }

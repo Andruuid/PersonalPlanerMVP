@@ -2,7 +2,6 @@
 
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import {
@@ -10,6 +9,7 @@ import {
   fieldErrorsFromZod,
   readOptionalString,
   readBooleanFlag,
+  safeRevalidatePath,
   type ActionResult,
 } from "./_shared";
 
@@ -156,8 +156,8 @@ export async function createEmployeeAction(
     },
   });
 
-  revalidatePath("/employees");
-  revalidatePath("/", "layout");
+  safeRevalidatePath("createEmployeeAction", "/employees");
+  safeRevalidatePath("createEmployeeAction", "/", "layout");
   return { ok: true };
 }
 
@@ -263,8 +263,8 @@ export async function updateEmployeeAction(
     },
   });
 
-  revalidatePath("/employees");
-  revalidatePath("/", "layout");
+  safeRevalidatePath("updateEmployeeAction", "/employees");
+  safeRevalidatePath("updateEmployeeAction", "/", "layout");
   return { ok: true };
 }
 
@@ -302,7 +302,7 @@ export async function setEmployeeActiveAction(
     newValue: { isActive },
   });
 
-  revalidatePath("/employees");
-  revalidatePath("/", "layout");
+  safeRevalidatePath("setEmployeeActiveAction", "/employees");
+  safeRevalidatePath("setEmployeeActiveAction", "/", "layout");
   return { ok: true };
 }
