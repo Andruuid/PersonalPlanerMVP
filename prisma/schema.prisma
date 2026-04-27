@@ -1,0 +1,257 @@
+// Prisma schema for PersonalPlanerMVP
+// Single-tenant Swiss SME planning + time-account web app.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ---------- Enums ----------
+
+enum Role {
+  ADMIN
+  EMPLOYEE
+}
+
+enum WeekStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+enum PlanEntryKind {
+  SHIFT
+  ONE_TIME_SHIFT
+  ABSENCE
+}
+
+enum AbsenceType {
+  VACATION
+  SICK
+  ACCIDENT
+  FREE_REQUESTED
+  UNPAID
+  TZT
+  HOLIDAY_AUTO
+}
+
+enum RequestType {
+  VACATION
+  FREE_REQUESTED
+  TZT
+  FREE_DAY
+}
+
+enum RequestStatus {
+  OPEN
+  APPROVED
+  REJECTED
+}
+
+enum AccountType {
+  ZEITSALDO
+  FERIEN
+  UEZ
+  TZT
+}
+
+enum AccountUnit {
+  MINUTES
+  DAYS
+}
+
+enum BookingType {
+  OPENING
+  AUTO_WEEKLY
+  MANUAL_CREDIT
+  MANUAL_DEBIT
+  CORRECTION
+  CARRYOVER
+}
+
+// ---------- Core entities ----------
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  role         Role
+  isActive     Boolean    @default(true)
+  employee     Employee?
+  bookings     Booking[]  @relation("BookingCreatedBy")
+  auditLogs    AuditLog[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model Location {
+  id                 String     @id @default(cuid())
+  name               String
+  holidayRegionCode  String
+  employees          Employee[]
+  holidays           Holiday[]
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+}
+
+model Employee {
+  id                   String            @id @default(cuid())
+  userId               String            @unique
+  user                 User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName            String
+  lastName             String
+  roleLabel            String?           // e.g. "Verkauf", "Backoffice"
+  pensum               Int               // 0-100
+  entryDate            DateTime
+  exitDate             DateTime?
+  locationId           String
+  location             Location          @relation(fields: [locationId], references: [id])
+  vacationDaysPerYear  Float             @default(25)
+  weeklyTargetMinutes  Int               @default(2520) // 42h * 60
+  hazMinutesPerWeek    Int               @default(2700) // 45h * 60
+  isActive             Boolean           @default(true)
+  planEntries          PlanEntry[]
+  absenceRequests      AbsenceRequest[]
+  accountBalances      AccountBalance[]
+  bookings             Booking[]
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+}
+
+model Holiday {
+  id          String   @id @default(cuid())
+  date        DateTime
+  name        String
+  locationId  String
+  location    Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([locationId, date])
+}
+
+model ServiceTemplate {
+  id             String      @id @default(cuid())
+  name           String
+  code           String      @unique
+  startTime      String      // "07:00"
+  endTime        String      // "15:30"
+  breakMinutes   Int         @default(30)
+  comment        String?
+  defaultDays    Int?        // bitmask: Mon=1, Tue=2, ..., Sun=64
+  requiredCount  Int?
+  isActive       Boolean     @default(true)
+  planEntries    PlanEntry[]
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+}
+
+model Week {
+  id            String              @id @default(cuid())
+  year          Int
+  weekNumber    Int
+  status        WeekStatus          @default(DRAFT)
+  publishedAt   DateTime?
+  closedAt      DateTime?
+  planEntries   PlanEntry[]
+  snapshots     PublishedSnapshot[]
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@unique([year, weekNumber])
+}
+
+model PlanEntry {
+  id                  String           @id @default(cuid())
+  weekId              String
+  week                Week             @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  employeeId          String
+  employee            Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date                DateTime
+  kind                PlanEntryKind
+  serviceTemplateId   String?
+  serviceTemplate     ServiceTemplate? @relation(fields: [serviceTemplateId], references: [id])
+  oneTimeStart        String?          // "07:00"
+  oneTimeEnd          String?          // "15:30"
+  oneTimeBreakMinutes Int?
+  oneTimeLabel        String?
+  absenceType         AbsenceType?
+  plannedMinutes      Int              @default(0)
+  comment             String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  @@index([weekId, employeeId, date])
+}
+
+model PublishedSnapshot {
+  id           String   @id @default(cuid())
+  weekId       String
+  week         Week     @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  snapshotJson String
+  publishedAt  DateTime @default(now())
+}
+
+model AbsenceRequest {
+  id            String         @id @default(cuid())
+  employeeId    String
+  employee      Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type          RequestType
+  startDate     DateTime
+  endDate       DateTime
+  status        RequestStatus  @default(OPEN)
+  comment       String?
+  decidedAt     DateTime?
+  decidedById   String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model AccountBalance {
+  id            String      @id @default(cuid())
+  employeeId    String
+  employee      Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  accountType   AccountType
+  year          Int
+  openingValue  Float       @default(0)
+  currentValue  Float       @default(0)
+  unit          AccountUnit
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([employeeId, accountType, year])
+}
+
+model Booking {
+  id              String       @id @default(cuid())
+  employeeId      String
+  employee        Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  accountType     AccountType
+  date            DateTime
+  value           Float        // signed, in account unit
+  bookingType     BookingType
+  comment         String?
+  createdByUserId String
+  createdByUser   User         @relation("BookingCreatedBy", fields: [createdByUserId], references: [id])
+  createdAt       DateTime     @default(now())
+
+  @@index([employeeId, accountType, date])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  action     String   // CREATE, UPDATE, DELETE, PUBLISH, CLOSE, ...
+  entity     String   // Employee, PlanEntry, Booking, ...
+  entityId   String?
+  oldValue   String?
+  newValue   String?
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}

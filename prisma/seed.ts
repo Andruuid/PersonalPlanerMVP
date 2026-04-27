@@ -1,0 +1,226 @@
+import "dotenv/config";
+import bcrypt from "bcryptjs";
+import { PrismaClient } from "../lib/generated/prisma/client";
+import { PrismaLibSql } from "@prisma/adapter-libsql";
+
+const adapter = new PrismaLibSql({
+  url: process.env.DATABASE_URL ?? "file:./prisma/dev.db",
+});
+const prisma = new PrismaClient({ adapter });
+
+interface DemoEmployee {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  roleLabel: string;
+  pensum: number;
+  vacationDaysPerYear: number;
+}
+
+const DEMO_EMPLOYEES: DemoEmployee[] = [
+  {
+    email: "anna.keller@demo.ch",
+    password: "demo123",
+    firstName: "Anna",
+    lastName: "Keller",
+    roleLabel: "Verkauf",
+    pensum: 100,
+    vacationDaysPerYear: 25,
+  },
+  {
+    email: "marco.huber@demo.ch",
+    password: "demo123",
+    firstName: "Marco",
+    lastName: "Huber",
+    roleLabel: "Backoffice",
+    pensum: 80,
+    vacationDaysPerYear: 25,
+  },
+  {
+    email: "lina.meier@demo.ch",
+    password: "demo123",
+    firstName: "Lina",
+    lastName: "Meier",
+    roleLabel: "Aushilfe",
+    pensum: 40,
+    vacationDaysPerYear: 20,
+  },
+  {
+    email: "noah.schmid@demo.ch",
+    password: "demo123",
+    firstName: "Noah",
+    lastName: "Schmid",
+    roleLabel: "Bar",
+    pensum: 60,
+    vacationDaysPerYear: 22,
+  },
+];
+
+// Swiss federal + Lucerne (LU) public holidays for the current year.
+function luHolidays(year: number): Array<{ date: Date; name: string }> {
+  const make = (month: number, day: number, name: string) => ({
+    date: new Date(Date.UTC(year, month - 1, day)),
+    name,
+  });
+  // Easter calculation (Anonymous Gregorian algorithm).
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const easterMonth = Math.floor((h + l - 7 * m + 114) / 31);
+  const easterDay = ((h + l - 7 * m + 114) % 31) + 1;
+  const easter = new Date(Date.UTC(year, easterMonth - 1, easterDay));
+  const offset = (days: number, name: string) => ({
+    date: new Date(easter.getTime() + days * 24 * 60 * 60 * 1000),
+    name,
+  });
+
+  return [
+    make(1, 1, "Neujahr"),
+    make(1, 2, "Berchtoldstag"),
+    offset(-2, "Karfreitag"),
+    offset(1, "Ostermontag"),
+    make(5, 1, "Tag der Arbeit"),
+    offset(39, "Auffahrt"),
+    offset(50, "Pfingstmontag"),
+    offset(60, "Fronleichnam"),
+    make(8, 1, "Bundesfeier"),
+    make(8, 15, "Mariä Himmelfahrt"),
+    make(11, 1, "Allerheiligen"),
+    make(12, 8, "Mariä Empfängnis"),
+    make(12, 25, "Weihnachten"),
+    make(12, 26, "Stephanstag"),
+  ];
+}
+
+async function main() {
+  console.log("Seeding database...");
+
+  const location = await prisma.location.upsert({
+    where: { id: "loc-luzern" },
+    update: { name: "Standort Luzern", holidayRegionCode: "LU" },
+    create: {
+      id: "loc-luzern",
+      name: "Standort Luzern",
+      holidayRegionCode: "LU",
+    },
+  });
+
+  // Holidays for current year (LU).
+  const year = new Date().getFullYear();
+  for (const h of luHolidays(year)) {
+    await prisma.holiday.upsert({
+      where: { locationId_date: { locationId: location.id, date: h.date } },
+      update: { name: h.name },
+      create: { locationId: location.id, date: h.date, name: h.name },
+    });
+  }
+
+  // Service templates.
+  const services = [
+    {
+      code: "FRUEH",
+      name: "Frühdienst",
+      startTime: "07:00",
+      endTime: "15:30",
+      breakMinutes: 30,
+      comment: "Kasse / Öffnung",
+    },
+    {
+      code: "SPAET",
+      name: "Spätdienst",
+      startTime: "12:30",
+      endTime: "21:00",
+      breakMinutes: 30,
+      comment: "Schliessdienst",
+    },
+    {
+      code: "SAMSTAG",
+      name: "Samstagsdienst",
+      startTime: "08:00",
+      endTime: "17:00",
+      breakMinutes: 45,
+      comment: "Wochenend-Verkauf",
+    },
+  ];
+  for (const s of services) {
+    await prisma.serviceTemplate.upsert({
+      where: { code: s.code },
+      update: s,
+      create: s,
+    });
+  }
+
+  // Admin user.
+  const adminPwd = await bcrypt.hash("admin123", 10);
+  await prisma.user.upsert({
+    where: { email: "admin@demo.ch" },
+    update: { passwordHash: adminPwd, role: "ADMIN", isActive: true },
+    create: {
+      email: "admin@demo.ch",
+      passwordHash: adminPwd,
+      role: "ADMIN",
+      isActive: true,
+    },
+  });
+
+  // Demo employees + their User accounts.
+  for (const e of DEMO_EMPLOYEES) {
+    const pwd = await bcrypt.hash(e.password, 10);
+    const user = await prisma.user.upsert({
+      where: { email: e.email },
+      update: { passwordHash: pwd, role: "EMPLOYEE", isActive: true },
+      create: {
+        email: e.email,
+        passwordHash: pwd,
+        role: "EMPLOYEE",
+        isActive: true,
+      },
+    });
+
+    await prisma.employee.upsert({
+      where: { userId: user.id },
+      update: {
+        firstName: e.firstName,
+        lastName: e.lastName,
+        roleLabel: e.roleLabel,
+        pensum: e.pensum,
+        vacationDaysPerYear: e.vacationDaysPerYear,
+        weeklyTargetMinutes: Math.round((42 * 60 * e.pensum) / 100),
+        locationId: location.id,
+      },
+      create: {
+        userId: user.id,
+        firstName: e.firstName,
+        lastName: e.lastName,
+        roleLabel: e.roleLabel,
+        pensum: e.pensum,
+        entryDate: new Date(Date.UTC(year - 1, 0, 1)),
+        vacationDaysPerYear: e.vacationDaysPerYear,
+        weeklyTargetMinutes: Math.round((42 * 60 * e.pensum) / 100),
+        hazMinutesPerWeek: 45 * 60,
+        locationId: location.id,
+      },
+    });
+  }
+
+  console.log("Seed complete.");
+}
+
+main()
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  })
+  .finally(() => {
+    void prisma.$disconnect();
+  });
