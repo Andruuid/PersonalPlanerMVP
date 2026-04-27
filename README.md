@@ -52,6 +52,7 @@ Admin landet nach dem Login auf `/dashboard`, Mitarbeitende auf `/my-week`.
 | `npm run db:seed`     | Seed-Daten einspielen                              |
 | `npm run db:studio`   | Prisma Studio                                      |
 | `npm run db:push:libsql` | Migrationen auf eine libSQL/Turso-DB anwenden  |
+| `npm run db:copy:turso`  | Optional: Daten zwischen zwei Turso-DBs kopieren (sonst neu + Seed) |
 
 ## Datenmodell-Highlights
 
@@ -109,6 +110,15 @@ Provider-Wechsel.
    Tracking-Tabelle (`_prisma_libsql_migrations`) festhält. Das ist
    nötig, weil Prisma 7 `prisma db push` nicht mehr direkt gegen
    `libsql://`-URLs kann.
+
+   **Region wechseln / neue leere DB (ohne alte Daten):** In der Turso-Web-UI
+   eine neue Datenbank in der gewünschten Region anlegen, in `.env.local`
+   `DATABASE_URL` und `DATABASE_AUTH_TOKEN` darauf setzen, dann wie oben
+   `npm run db:push:libsql` und `npm run db:seed` — fertig. Netlify-Variablen
+   auf dieselbe URL/Token umstellen und deployen; die alte DB in Turso kannst
+   du löschen, wenn du sie nicht mehr brauchst. *(Nur wenn du wirklich Daten
+   von einer bestehenden Turso-DB übernehmen willst: `npm run db:copy:turso`,
+   siehe `scripts/turso-copy-data.mts`.)*
 4. Auf Netlify deployen — `netlify.toml` ruft automatisch
    `npx prisma generate && next build` auf.
 
