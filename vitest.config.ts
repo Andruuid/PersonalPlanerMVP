@@ -10,6 +10,8 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["lib/**/*.test.ts", "server/**/*.test.ts"],
+    globalSetup: ["./vitest.global-setup.ts"],
+    pool: "forks",
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],
