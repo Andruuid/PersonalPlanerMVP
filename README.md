@@ -63,17 +63,62 @@ Admin landet nach dem Login auf `/dashboard`, Mitarbeitende auf `/my-week`.
 ## Phasen-Status
 
 - ✅ **Phase 1 (Foundation):** Scaffold, Auth, Datenmodell, App-Shell, Platzhalter-Seiten.
-- ⏳ Phase 2 (Admin-Stammdaten): Mitarbeitende, Dienstvorlagen, Standorte/Feiertage.
-- ⏳ Phase 3 (Wochenplanung): Drag-and-Drop-Raster, KPIs, Detailfenster, Veröffentlichen.
-- ⏳ Phase 4 (Mitarbeitersicht + Anträge): Meine Woche, Antrag stellen, Genehmigungs-Loop.
-- ⏳ Phase 5 (Zeitlogik + Konten): Sollzeit, Zeitsaldo, UEZ, Ferien, manuelle Buchungen.
-- ⏳ Phase 6 (Audit + Netlify + Polish): Audit-Log-UI, `netlify.toml`, mobile QA.
+- ✅ **Phase 2 (Admin-Stammdaten):** Mitarbeitende, Dienstvorlagen, Standorte/Feiertage.
+- ✅ **Phase 3 (Wochenplanung):** Drag-and-Drop-Raster, KPIs, Detailfenster, Veröffentlichen.
+- ✅ **Phase 4 (Mitarbeitersicht + Anträge):** Meine Woche, Antrag stellen, Genehmigungs-Loop.
+- ✅ **Phase 5 (Zeitlogik + Konten):** Sollzeit, Zeitsaldo, UEZ, Ferien, manuelle Buchungen, Jahreswechsel.
+- ✅ **Phase 6 (Audit + Netlify + Polish):** Audit-Log-UI, `netlify.toml`, README-Swap-Rezept, mobile QA.
 
 ## Deployment auf Netlify (Demo)
 
-Für den Kunden-Demo ohne lokale SQLite:
+Die App läuft lokal mit SQLite und auf Netlify mit einer gehosteten DB
+(Turso/libSQL ohne Code-Änderung, oder Neon/Postgres mit Provider-Wechsel).
 
-1. `DATABASE_URL` setzen (z.B. Turso `libsql://...` mit `@prisma/adapter-libsql`
-   oder Neon Postgres mit Provider-Wechsel auf `postgresql`).
-2. `netlify.toml` mit `@netlify/plugin-nextjs` (folgt in Phase 6).
-3. `npx prisma migrate deploy && npm run db:seed`.
+### Variante A — Turso (libSQL, empfohlen)
+
+Der Code nutzt bereits `@prisma/adapter-libsql`, daher braucht es keinen
+Provider-Wechsel.
+
+1. Turso-DB anlegen (`turso db create personalplaner-mvp`) und
+   `DATABASE_URL` (`libsql://...`) sowie `DATABASE_AUTH_TOKEN`
+   (`turso db tokens create personalplaner-mvp`) notieren.
+2. In Netlify (Site settings → Environment variables) setzen:
+   - `DATABASE_URL` = `libsql://...`
+   - `DATABASE_AUTH_TOKEN` = `<token>`
+   - `AUTH_SECRET` = `openssl rand -base64 32`
+3. Schema einmalig pushen (lokal mit gesetzten Env-Variablen):
+
+   ```powershell
+   $env:DATABASE_URL="libsql://..."
+   $env:DATABASE_AUTH_TOKEN="..."
+   npx prisma db push
+   npm run db:seed
+   ```
+4. Auf Netlify deployen — `netlify.toml` ruft automatisch
+   `npx prisma generate && next build` auf.
+
+### Variante B — Neon (Postgres)
+
+1. In `prisma/schema.prisma` den Datasource-Block ändern auf:
+
+   ```prisma
+   datasource db {
+     provider = "postgresql"
+     url      = env("DATABASE_URL")
+   }
+   ```
+2. `lib/db.ts` so anpassen, dass der libSQL-Adapter durch den
+   Standard-`PrismaClient` ersetzt wird (kein `adapter`-Argument mehr,
+   `DATABASE_AUTH_TOKEN` entfällt).
+3. `npm run db:migrate` lokal gegen die Neon-DB ausführen, dann auf
+   Netlify deployen.
+
+> Hinweis: Für die Demo ist Turso die schnellere Wahl, weil der Code
+> ohne Schema- oder Adapter-Änderungen funktioniert.
+
+## CI
+
+Der GitHub-Actions-Workflow (`.github/workflows/ci.yml`) führt bei jedem
+Push/PR auf `main` Lint, TypeScript, Vitest und Next-Build aus. Die
+SQLite-Test-DB wird via `vitest.global-setup.ts` einmalig pro Run
+vorbereitet.
