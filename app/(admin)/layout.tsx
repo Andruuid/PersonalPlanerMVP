@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/db";
 import { AppShell } from "@/components/shell/app-shell";
+import { QuickActionsProvider } from "@/components/admin/quick-actions-provider";
 
 export default async function AdminLayout({
   children,
@@ -15,13 +17,23 @@ export default async function AdminLayout({
     redirect("/my-week");
   }
 
+  const locations = await prisma.location.findMany({
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
+
   return (
-    <AppShell
-      variant="admin"
-      email={session.user.email ?? ""}
-      showRoleToggle
+    <QuickActionsProvider
+      locations={locations}
+      defaultLocationId={locations[0]?.id ?? ""}
     >
-      {children}
-    </AppShell>
+      <AppShell
+        variant="admin"
+        email={session.user.email ?? ""}
+        showRoleToggle
+      >
+        {children}
+      </AppShell>
+    </QuickActionsProvider>
   );
 }

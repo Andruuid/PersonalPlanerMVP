@@ -1,14 +1,59 @@
-import { PagePlaceholder } from "@/components/shell/page-placeholder";
+import { prisma } from "@/lib/db";
+import { PageHeader } from "@/components/admin/page-header";
+import {
+  EmployeesTable,
+  type EmployeeRow,
+} from "@/components/admin/employees/employees-table";
 
 export const metadata = { title: "Mitarbeitende · PersonalPlaner" };
 
-export default function EmployeesPage() {
+function dateForInput(d: Date | null | undefined): string {
+  if (!d) return "";
+  return d.toISOString().slice(0, 10);
+}
+
+export default async function EmployeesPage() {
+  const [employees, locations] = await Promise.all([
+    prisma.employee.findMany({
+      orderBy: [{ isActive: "desc" }, { lastName: "asc" }, { firstName: "asc" }],
+      include: {
+        user: { select: { email: true } },
+        location: { select: { id: true, name: true } },
+      },
+    }),
+    prisma.location.findMany({ orderBy: { name: "asc" } }),
+  ]);
+
+  const rows: EmployeeRow[] = employees.map((e) => ({
+    id: e.id,
+    email: e.user.email,
+    firstName: e.firstName,
+    lastName: e.lastName,
+    roleLabel: e.roleLabel,
+    pensum: e.pensum,
+    entryDate: dateForInput(e.entryDate),
+    exitDate: e.exitDate ? dateForInput(e.exitDate) : null,
+    locationId: e.locationId,
+    locationName: e.location.name,
+    vacationDaysPerYear: e.vacationDaysPerYear,
+    weeklyTargetMinutes: e.weeklyTargetMinutes,
+    hazMinutesPerWeek: e.hazMinutesPerWeek,
+    isActive: e.isActive,
+  }));
+
   return (
-    <PagePlaceholder
-      caption="Stammdaten"
-      title="Mitarbeitende"
-      description="Anlegen, bearbeiten und deaktivieren von Mitarbeitenden inklusive Pensum und Ferienanspruch."
-      phase="Phase 2"
-    />
+    <div className="space-y-6">
+      <PageHeader
+        caption="Stammdaten"
+        title="Mitarbeitende"
+        description="Anlegen, bearbeiten und deaktivieren von Mitarbeitenden inklusive Pensum, Standort und Ferienanspruch. Alle Änderungen werden im Audit-Log protokolliert."
+      />
+
+      <EmployeesTable
+        employees={rows}
+        locations={locations.map((l) => ({ id: l.id, name: l.name }))}
+        defaultLocationId={locations[0]?.id ?? ""}
+      />
+    </div>
   );
 }

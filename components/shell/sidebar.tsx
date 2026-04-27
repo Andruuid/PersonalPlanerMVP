@@ -9,6 +9,10 @@ import {
   EMPLOYEE_NAV,
   type NavItem,
 } from "@/lib/nav";
+import {
+  useQuickActions,
+  type QuickActionId,
+} from "@/components/admin/quick-actions-provider";
 
 interface SidebarProps {
   variant: "admin" | "employee";
@@ -19,6 +23,7 @@ export function Sidebar({ variant, className }: SidebarProps) {
   const pathname = usePathname();
   const items: NavItem[] = variant === "admin" ? ADMIN_NAV : EMPLOYEE_NAV;
   const heading = variant === "admin" ? "Planung" : "Mein Bereich";
+  const quickActions = useQuickActions();
 
   return (
     <nav
@@ -68,7 +73,9 @@ export function Sidebar({ variant, className }: SidebarProps) {
                 <li key={action.id}>
                   <button
                     type="button"
-                    data-quick-action={action.id}
+                    onClick={() =>
+                      quickActions.open(action.id as QuickActionId)
+                    }
                     className="flex w-full items-center gap-3 rounded-full border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
                   >
                     <Icon className="h-4 w-4" />

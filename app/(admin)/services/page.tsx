@@ -1,14 +1,37 @@
-import { PagePlaceholder } from "@/components/shell/page-placeholder";
+import { prisma } from "@/lib/db";
+import { PageHeader } from "@/components/admin/page-header";
+import {
+  ServicesTable,
+  type ServiceRow,
+} from "@/components/admin/services/services-table";
 
 export const metadata = { title: "Dienste · PersonalPlaner" };
 
-export default function ServicesPage() {
+export default async function ServicesPage() {
+  const services = await prisma.serviceTemplate.findMany({
+    orderBy: [{ isActive: "desc" }, { name: "asc" }],
+  });
+
+  const rows: ServiceRow[] = services.map((s) => ({
+    id: s.id,
+    name: s.name,
+    code: s.code,
+    startTime: s.startTime,
+    endTime: s.endTime,
+    breakMinutes: s.breakMinutes,
+    comment: s.comment,
+    isActive: s.isActive,
+  }));
+
   return (
-    <PagePlaceholder
-      caption="Stammdaten"
-      title="Dienste"
-      description="Dienstvorlagen pflegen — Frühdienst, Spätdienst, Samstagsdienst und mehr."
-      phase="Phase 2"
-    />
+    <div className="space-y-6">
+      <PageHeader
+        caption="Stammdaten"
+        title="Dienste"
+        description="Dienstvorlagen pflegen — Frühdienst, Spätdienst, Samstagsdienst und mehr. Vorlagen werden in der Wochenplanung als Drag-Chips angezeigt."
+      />
+
+      <ServicesTable services={rows} />
+    </div>
   );
 }
