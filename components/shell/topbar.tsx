@@ -36,7 +36,7 @@ export function Topbar({ variant, email, showRoleToggle }: TopbarProps) {
 
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="text-[11px] font-medium uppercase tracking-wide text-neutral-400">
-            Interaktives Mockup
+            Prototyp
           </span>
           <h1 className="truncate text-base font-semibold text-neutral-900 md:text-lg">
             Personalplanung – Admin und Mitarbeiter
