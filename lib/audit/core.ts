@@ -11,6 +11,23 @@
 
 import type { PrismaClient } from "@/lib/generated/prisma/client";
 
+async function ensureAuditLogAppendOnly(prisma: PrismaClient): Promise<void> {
+  await prisma.$executeRawUnsafe(`
+    CREATE TRIGGER IF NOT EXISTS auditlog_no_update
+    BEFORE UPDATE ON "AuditLog"
+    BEGIN
+      SELECT RAISE(ABORT, 'AuditLog is append-only');
+    END;
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE TRIGGER IF NOT EXISTS auditlog_no_delete
+    BEFORE DELETE ON "AuditLog"
+    BEGIN
+      SELECT RAISE(ABORT, 'AuditLog is append-only');
+    END;
+  `);
+}
+
 // ---------------------------------------------------------------------------
 // Write
 // ---------------------------------------------------------------------------
@@ -25,12 +42,15 @@ export interface AuditPayload {
   oldValue?: unknown;
   newValue?: unknown;
   comment?: string | null;
+  /** Optional explicit timestamp (primarily for deterministic tests). */
+  createdAt?: Date;
 }
 
 export async function writeAuditCore(
   prisma: PrismaClient,
   payload: AuditPayload,
 ): Promise<void> {
+  await ensureAuditLogAppendOnly(prisma);
   await prisma.auditLog.create({
     data: {
       tenantId: payload.tenantId ?? "default",
@@ -43,6 +63,7 @@ export async function writeAuditCore(
       newValue:
         payload.newValue === undefined ? null : JSON.stringify(payload.newValue),
       comment: payload.comment ?? null,
+      createdAt: payload.createdAt,
     },
   });
 }

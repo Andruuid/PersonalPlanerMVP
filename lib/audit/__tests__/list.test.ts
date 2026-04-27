@@ -11,6 +11,12 @@ import {
 let db: TestDb;
 let adminAId: string;
 let adminBId: string;
+const stamps = [
+  new Date(2026, 2, 10, 9, 0),
+  new Date(2026, 2, 12, 14, 30),
+  new Date(2026, 2, 15, 8, 15),
+  new Date(2026, 2, 20, 17, 45),
+];
 
 beforeAll(async () => {
   db = makeTestDb();
@@ -19,13 +25,6 @@ beforeAll(async () => {
 afterAll(async () => {
   await db.close();
 });
-
-async function backdate(id: string, when: Date): Promise<void> {
-  await db.prisma.auditLog.update({
-    where: { id },
-    data: { createdAt: when },
-  });
-}
 
 beforeEach(async () => {
   await db.reset();
@@ -40,6 +39,7 @@ beforeEach(async () => {
     entity: "Employee",
     entityId: "emp-1",
     newValue: { firstName: "Anna", pensum: 80 },
+    createdAt: stamps[0],
   });
   await writeAuditCore(db.prisma, {
     userId: adminAId,
@@ -49,6 +49,7 @@ beforeEach(async () => {
     oldValue: { firstName: "Anna", pensum: 80 },
     newValue: { firstName: "Anna", pensum: 100 },
     comment: "Aufstockung",
+    createdAt: stamps[1],
   });
   await writeAuditCore(db.prisma, {
     userId: adminBId,
@@ -56,27 +57,15 @@ beforeEach(async () => {
     entity: "PlanEntry",
     entityId: "pe-9",
     oldValue: { date: "2026-03-15", plannedMinutes: 480 },
+    createdAt: stamps[2],
   });
   await writeAuditCore(db.prisma, {
     userId: adminBId,
     action: "PUBLISH",
     entity: "Week",
     entityId: "w-2026-12",
+    createdAt: stamps[3],
   });
-
-  // Make timestamps deterministic for date-range tests.
-  const all = await db.prisma.auditLog.findMany({
-    orderBy: { createdAt: "asc" },
-  });
-  const stamps = [
-    new Date(2026, 2, 10, 9, 0),
-    new Date(2026, 2, 12, 14, 30),
-    new Date(2026, 2, 15, 8, 15),
-    new Date(2026, 2, 20, 17, 45),
-  ];
-  for (let i = 0; i < all.length; i++) {
-    await backdate(all[i].id, stamps[i]);
-  }
 });
 
 describe("listAuditLogs", () => {
@@ -224,5 +213,38 @@ describe("computeAuditDiff", () => {
       after: "Anna",
       changed: true,
     });
+  });
+});
+
+describe("AuditLog append-only", () => {
+  it("rejects direct UPDATE on AuditLog rows", async () => {
+    const row = await db.prisma.auditLog.findFirstOrThrow({
+      orderBy: { createdAt: "asc" },
+    });
+    await expect(
+      db.prisma.auditLog.update({
+        where: { id: row.id },
+        data: { comment: "manipulated" },
+      }),
+    ).rejects.toBeTruthy();
+    const unchanged = await db.prisma.auditLog.findUniqueOrThrow({
+      where: { id: row.id },
+    });
+    expect(unchanged.comment).toBe(row.comment);
+  });
+
+  it("rejects direct DELETE on AuditLog rows", async () => {
+    const row = await db.prisma.auditLog.findFirstOrThrow({
+      orderBy: { createdAt: "asc" },
+    });
+    await expect(
+      db.prisma.auditLog.delete({
+        where: { id: row.id },
+      }),
+    ).rejects.toBeTruthy();
+    const stillThere = await db.prisma.auditLog.findUnique({
+      where: { id: row.id },
+    });
+    expect(stillThere).not.toBeNull();
   });
 });

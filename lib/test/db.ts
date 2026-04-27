@@ -40,6 +40,13 @@ export function makeTestDb(): TestDb {
   return {
     prisma,
     async reset(): Promise<void> {
+      // Tests need a hard reset between cases; drop append-only triggers first.
+      await prisma.$executeRawUnsafe(
+        'DROP TRIGGER IF EXISTS auditlog_no_update;',
+      );
+      await prisma.$executeRawUnsafe(
+        'DROP TRIGGER IF EXISTS auditlog_no_delete;',
+      );
       // FK-safe order: leaves first.
       await prisma.auditLog.deleteMany();
       await prisma.ertCase.deleteMany();
