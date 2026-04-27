@@ -30,12 +30,24 @@ const DESCRIPTIONS: Record<RequestType, string> = {
   VACATION:
     "Ferienantrag — wird an die Geschäftsleitung übermittelt und nach Genehmigung im Ferienkonto verbucht.",
   FREE_REQUESTED:
-    "Frei verlangt — der Tag wird vom Zeitsaldo abgezogen, sobald die Bitte bestätigt ist.",
+    "Frei verlangt — Antrag nur möglich bei genügend Zeitsaldo. Bei Genehmigung wird der Tag vom Zeitsaldo abgezogen.",
   TZT: "TZT erfassen — geplante TZT-Tage zur Genehmigung beantragen.",
   FREE_DAY:
     "Freier Tag — unbezahlt freier Tag, sofern keine Sollzeit besteht.",
   PARENTAL_CARE:
     "Eltern-/Betreuungsurlaub — wird bei Genehmigung aus dem gleichnamigen Kontingentkonto bezogen.",
+};
+
+const ENTITLEMENT_HINTS: Record<RequestType, string | null> = {
+  VACATION:
+    "Antrag nur möglich mit genügend Ferienguthaben im betroffenen Jahr.",
+  FREE_REQUESTED:
+    "Antrag nur möglich mit genügend Zeitsaldo im betroffenen Jahr. Bei Genehmigung wird der Wert vom Zeitsaldo abgezogen.",
+  TZT:
+    "Antrag nur möglich mit genügend TZT-Guthaben (ausser bei Modell TARGET_REDUCTION).",
+  FREE_DAY: null,
+  PARENTAL_CARE:
+    "Antrag nur möglich mit genügend Guthaben im Eltern-/Betreuungsurlaub-Konto.",
 };
 
 export function RequestDialog({ open, type, onOpenChange }: RequestDialogProps) {
@@ -70,6 +82,7 @@ function RequestForm({ type, onClose }: RequestFormProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const entitlementHint = ENTITLEMENT_HINTS[type];
 
   function handleStartChange(value: string) {
     setStartDate(value);
@@ -102,6 +115,14 @@ function RequestForm({ type, onClose }: RequestFormProps) {
       <DialogHeader>
         <DialogTitle>{REQUEST_TYPE_LABELS[type]}</DialogTitle>
         <DialogDescription>{DESCRIPTIONS[type]}</DialogDescription>
+        {entitlementHint ? (
+          <div className="pt-1 text-xs text-neutral-600">
+            <span className="inline-flex items-center gap-1.5">
+              <span>Hinweis zur Anspruchspruefung</span>
+              <HelpIconTooltip text={entitlementHint} />
+            </span>
+          </div>
+        ) : null}
       </DialogHeader>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
