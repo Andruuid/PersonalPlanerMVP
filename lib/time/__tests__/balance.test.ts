@@ -48,7 +48,7 @@ describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
     expect(result.vacationDaysDebit).toBe(0);
   });
 
-  it("counts overwork against UEZ when weekly work exceeds the 45h HAZ", () => {
+  it("caps Zeitsaldo at HAZ and books only the excess into UEZ", () => {
     // 6 weekday shifts × 480 minutes = 2880 (above 2700). Note: we still only
     // have 5 weekdays — so we mix in a Saturday shift to reach the cap.
     const days = isoWeekDays(YEAR, WEEK);
@@ -67,10 +67,12 @@ describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
       noHolidays,
       FULL_PENSUM,
     );
-    // Soll = 5 × 504 = 2520 (Saturday Soll = 0). Ist = 5 × 600 + 360 = 3360.
-    expect(result.totalSollMinutes).toBe(2520);
+    // Weekend work now has normal daily Soll: 6 × 504 = 3024.
+    // Ist = 5 × 600 + 360 = 3360.
+    expect(result.totalSollMinutes).toBe(3024);
     expect(result.totalIstMinutes).toBe(3360);
-    expect(result.weeklyZeitsaldoDeltaMinutes).toBe(840);
+    // Zeitsaldo sees only work up to HAZ: 2700 - 3024 = -324
+    expect(result.weeklyZeitsaldoDeltaMinutes).toBe(-324);
     expect(result.weeklyWorkMinutes).toBe(3360);
     expect(result.weeklyUezDeltaMinutes).toBe(660); // 3360 - 2700
   });

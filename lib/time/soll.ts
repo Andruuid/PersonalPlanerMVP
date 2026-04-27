@@ -18,7 +18,8 @@ export function baseDailySollMinutes(
 /**
  * Tagessoll after applying the day priority. Holidays and weekends-off both
  * reduce Soll to 0; UNPAID also reduces to 0 (employee owes nothing for an
- * unpaid day). All other kinds keep the base Tagessoll.
+ * unpaid day). All other kinds (including weekend work) keep the base
+ * Tagessoll.
  */
 export function dailySollMinutes(
   kind: DayKind,
@@ -29,7 +30,6 @@ export function dailySollMinutes(
   if (
     kind === "HOLIDAY" ||
     kind === "WEEKEND_OFF" ||
-    kind === "WORK_ON_WEEKEND" ||
     kind === "UNPAID" ||
     (kind === "TZT_ABSENCE" && tztModel === "TARGET_REDUCTION")
   ) {

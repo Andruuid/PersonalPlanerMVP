@@ -163,8 +163,8 @@ describe("recalcWeekClose", () => {
     const byType = Object.fromEntries(
       bookings.map((b) => [b.accountType, b.value]),
     );
-    // Soll 2520, Ist 3000 → Zeitsaldo +480
-    expect(byType.ZEITSALDO).toBe(480);
+    // Zeitsaldo is capped at HAZ: min(3000,2700)-2520 = +180
+    expect(byType.ZEITSALDO).toBe(180);
     // Work 3000 > HAZ 2700 → UEZ +300
     expect(byType.UEZ).toBe(300);
   });

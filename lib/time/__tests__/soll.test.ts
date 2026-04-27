@@ -26,16 +26,16 @@ describe("baseDailySollMinutes", () => {
 });
 
 describe("dailySollMinutes", () => {
-  it("returns 0 for HOLIDAY, weekends, and UNPAID", () => {
+  it("returns 0 for HOLIDAY, weekend-off, and UNPAID", () => {
     expect(dailySollMinutes("HOLIDAY", 2520)).toBe(0);
     expect(dailySollMinutes("WEEKEND_OFF", 2520)).toBe(0);
-    expect(dailySollMinutes("WORK_ON_WEEKEND", 2520)).toBe(0);
     expect(dailySollMinutes("UNPAID", 2520)).toBe(0);
   });
 
-  it("returns base Soll for normal work, sick, accident, vacation, TZT, free-requested, empty weekday", () => {
+  it("returns base Soll for work (including weekend work), sick, accident, vacation, TZT, free-requested, empty weekday", () => {
     const base = 2520 / STANDARD_WORK_DAYS;
     expect(dailySollMinutes("WORK", 2520)).toBe(base);
+    expect(dailySollMinutes("WORK_ON_WEEKEND", 2520)).toBe(base);
     expect(dailySollMinutes("SICK", 2520)).toBe(base);
     expect(dailySollMinutes("ACCIDENT", 2520)).toBe(base);
     expect(dailySollMinutes("VACATION", 2520)).toBe(base);

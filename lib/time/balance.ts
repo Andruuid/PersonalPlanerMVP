@@ -106,8 +106,11 @@ export function computeWeeklyBalance(
 
   const totalSoll = days.reduce((acc, d) => acc + d.sollMinutes, 0);
   const totalIst = days.reduce((acc, d) => acc + d.istMinutes, 0);
-  const weeklyZeitsaldoDelta = totalIst - totalSoll;
   const weeklyWork = actualWorkMinutes(days);
+  const nonWorkAnrechenbarIst = totalIst - weeklyWork;
+  const cappedWorkForZeitsaldo = Math.min(weeklyWork, config.hazMinutesPerWeek);
+  const weeklyZeitsaldoDelta =
+    cappedWorkForZeitsaldo + nonWorkAnrechenbarIst - totalSoll;
   const weeklyUez = weeklyUezContribution(weeklyWork, config.hazMinutesPerWeek);
   const vacation = vacationDaysDebit(days);
 
