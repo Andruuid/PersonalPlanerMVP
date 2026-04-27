@@ -1,0 +1,122 @@
+"use client";
+
+import { GridCell } from "./grid-cell";
+import { entryKey, type DayView, type EmployeeView, type EntryMap } from "./types";
+
+interface WeekGridProps {
+  employees: EmployeeView[];
+  days: DayView[];
+  entries: EntryMap;
+  selectedKey: string | null;
+  locked: boolean;
+  onSelect: (employeeId: string, isoDate: string) => void;
+  onOpenAssign: (employeeId: string, isoDate: string) => void;
+}
+
+export function WeekGrid({
+  employees,
+  days,
+  entries,
+  selectedKey,
+  locked,
+  onSelect,
+  onOpenAssign,
+}: WeekGridProps) {
+  if (employees.length === 0) {
+    return (
+      <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-10 text-center text-sm text-neutral-500">
+        Keine aktiven Mitarbeitenden. Lege unter «Mitarbeitende» mindestens
+        eine:n Aktiven an, um die Wochenplanung zu nutzen.
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
+      <div
+        className="grid min-w-[820px] gap-3"
+        style={{
+          gridTemplateColumns: `200px repeat(${days.length}, minmax(110px, 1fr))`,
+        }}
+      >
+        <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+          Mitarbeitende
+        </div>
+        {days.map((d) => (
+          <div
+            key={d.iso}
+            className="text-center text-xs font-semibold uppercase tracking-wide text-neutral-500"
+          >
+            <div>{d.weekdayLabel}</div>
+            <div className="font-normal text-neutral-400">{d.shortDate}</div>
+          </div>
+        ))}
+
+        {employees.map((emp) => (
+          <RowFragment
+            key={emp.id}
+            employee={emp}
+            days={days}
+            entries={entries}
+            selectedKey={selectedKey}
+            locked={locked}
+            onSelect={onSelect}
+            onOpenAssign={onOpenAssign}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+interface RowFragmentProps {
+  employee: EmployeeView;
+  days: DayView[];
+  entries: EntryMap;
+  selectedKey: string | null;
+  locked: boolean;
+  onSelect: (employeeId: string, isoDate: string) => void;
+  onOpenAssign: (employeeId: string, isoDate: string) => void;
+}
+
+function RowFragment({
+  employee,
+  days,
+  entries,
+  selectedKey,
+  locked,
+  onSelect,
+  onOpenAssign,
+}: RowFragmentProps) {
+  return (
+    <>
+      <div className="flex min-w-0 flex-col justify-center">
+        <p className="truncate font-medium text-neutral-900">
+          {employee.firstName} {employee.lastName}
+        </p>
+        {employee.roleLabel ? (
+          <p className="truncate text-xs text-neutral-500">
+            {employee.roleLabel}
+          </p>
+        ) : null}
+      </div>
+      {days.map((day) => {
+        const key = entryKey(employee.id, day.iso);
+        const entry = entries[key] ?? null;
+        const selected = selectedKey === key;
+        return (
+          <GridCell
+            key={key}
+            employeeId={employee.id}
+            isoDate={day.iso}
+            entry={entry}
+            selected={selected}
+            locked={locked}
+            onSelect={() => onSelect(employee.id, day.iso)}
+            onOpenAssign={() => onOpenAssign(employee.id, day.iso)}
+          />
+        );
+      })}
+    </>
+  );
+}
