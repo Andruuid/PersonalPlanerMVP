@@ -69,7 +69,8 @@ export async function loadMyAccounts(
       | "FERIEN"
       | "UEZ"
       | "TZT"
-      | "SONNTAG_FEIERTAG_KOMPENSATION",
+      | "SONNTAG_FEIERTAG_KOMPENSATION"
+      | "PARENTAL_CARE",
   ): MyAccountValue | null => {
     const row = balances.find((b) => b.accountType === accountType);
     if (!row) return null;
