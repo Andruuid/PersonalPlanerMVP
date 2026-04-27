@@ -4,11 +4,12 @@
 # step is `prisma generate` to materialise the generated client before
 # `next build`.
 #
-# Required environment variables (set them in Site settings → Environment
-# variables, NOT in this file):
-#   DATABASE_URL          libsql://<your-db>.turso.io  (or postgres URL)
-#   DATABASE_AUTH_TOKEN   <Turso auth token>           (Turso only)
-#   AUTH_SECRET           openssl rand -base64 32
+# Required environment variables (Site settings → Environment variables,
+# scope “Production”, NOT in this file):
+#   DATABASE_URL          libsql://<your-db>.turso.io  (required in production)
+#   DATABASE_AUTH_TOKEN   Turso DB token (required with libsql://)
+#   AUTH_SECRET           random secret for Auth.js (required; e.g. openssl rand -base64 32)
+# If DATABASE_URL is missing, the app used to fall back to local file SQLite and crash on Netlify.
 #
 # After the first deploy, push the schema once:
 #   DATABASE_URL=... npx prisma db push

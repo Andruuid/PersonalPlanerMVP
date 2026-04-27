@@ -6,7 +6,26 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function makeClient(): PrismaClient {
-  const url = process.env.DATABASE_URL ?? "file:./prisma/dev.db";
+  const envUrl = process.env.DATABASE_URL?.trim();
+  const isProd = process.env.NODE_ENV === "production";
+
+  if (isProd && !envUrl) {
+    throw new Error(
+      "DATABASE_URL is not set. In production you must set it on the host (e.g. Netlify env) to your libsql:// URL.",
+    );
+  }
+
+  const url = envUrl ?? "file:./prisma/dev.db";
+
+  if (url.startsWith("libsql://")) {
+    const token = process.env.DATABASE_AUTH_TOKEN?.trim();
+    if (!token) {
+      throw new Error(
+        "DATABASE_AUTH_TOKEN is required when DATABASE_URL is a libsql:// URL (Turso).",
+      );
+    }
+  }
+
   const adapter = new PrismaLibSql({
     url,
     authToken: process.env.DATABASE_AUTH_TOKEN,
