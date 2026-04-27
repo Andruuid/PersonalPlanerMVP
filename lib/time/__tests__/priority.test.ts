@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveDay } from "../priority";
+import { resolveDay, resolveDayFromEntries } from "../priority";
 
 describe("resolveDay", () => {
   it("treats holidays as HOLIDAY when there is no holiday shift", () => {
@@ -83,5 +83,65 @@ describe("resolveDay", () => {
     const r = resolveDay({ kind: "VFT", plannedMinutes: 0 }, false, false);
     expect(r.kind).toBe("VFT");
     expect(r.plannedMinutes).toBe(0);
+  });
+
+  it("resolves SICK over TZT when both absences are present", () => {
+    const r = resolveDayFromEntries(
+      [
+        { kind: "ABSENCE", absenceType: "TZT", plannedMinutes: 0 },
+        { kind: "ABSENCE", absenceType: "SICK", plannedMinutes: 0 },
+      ],
+      false,
+      false,
+    );
+    expect(r.kind).toBe("SICK");
+  });
+
+  it("resolves ACCIDENT over TZT when both absences are present", () => {
+    const r = resolveDayFromEntries(
+      [
+        { kind: "ABSENCE", absenceType: "TZT", plannedMinutes: 0 },
+        { kind: "ABSENCE", absenceType: "ACCIDENT", plannedMinutes: 0 },
+      ],
+      false,
+      false,
+    );
+    expect(r.kind).toBe("ACCIDENT");
+  });
+
+  it("prioritizes VACATION over TZT on the same weekday", () => {
+    const r = resolveDayFromEntries(
+      [
+        { kind: "ABSENCE", absenceType: "TZT", plannedMinutes: 0 },
+        { kind: "ABSENCE", absenceType: "VACATION", plannedMinutes: 0 },
+      ],
+      false,
+      false,
+    );
+    expect(r.kind).toBe("VACATION");
+  });
+
+  it("prioritizes TZT over FREE_REQUESTED on the same weekday", () => {
+    const r = resolveDayFromEntries(
+      [
+        { kind: "ABSENCE", absenceType: "FREE_REQUESTED", plannedMinutes: 0 },
+        { kind: "ABSENCE", absenceType: "TZT", plannedMinutes: 0 },
+      ],
+      false,
+      false,
+    );
+    expect(r.kind).toBe("TZT_ABSENCE");
+  });
+
+  it("prioritizes FREE_REQUESTED over UNPAID on the same weekday", () => {
+    const r = resolveDayFromEntries(
+      [
+        { kind: "ABSENCE", absenceType: "UNPAID", plannedMinutes: 0 },
+        { kind: "ABSENCE", absenceType: "FREE_REQUESTED", plannedMinutes: 0 },
+      ],
+      false,
+      false,
+    );
+    expect(r.kind).toBe("FREE_REQUESTED");
   });
 });

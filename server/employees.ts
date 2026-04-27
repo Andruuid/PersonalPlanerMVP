@@ -198,6 +198,27 @@ export async function createEmployeeAction(
     },
   });
 
+  const openingValues = {
+    zeitsaldoMinutes: data.openingZeitsaldoMinutes,
+    uezMinutes: data.openingUezMinutes,
+    vacationDays: data.openingVacationDays,
+    tztDays: data.openingTztDays,
+  };
+  const hasOpeningValues = Object.values(openingValues).some((v) => v !== 0);
+  if (hasOpeningValues || openingBookingsCreated > 0) {
+    await writeAudit({
+      userId: admin.id,
+      action: "OPENING_BALANCES",
+      entity: "Employee",
+      entityId: employee.id,
+      newValue: {
+        ...openingValues,
+        bookingsCreated: openingBookingsCreated,
+        effectiveDate: data.entryDate.toISOString(),
+      },
+    });
+  }
+
   safeRevalidatePath("createEmployeeAction", "/employees");
   safeRevalidatePath("createEmployeeAction", "/accounts");
   safeRevalidatePath("createEmployeeAction", "/my-accounts");
@@ -224,7 +245,9 @@ export async function updateEmployeeAction(
 
   const before = await prisma.employee.findUnique({
     where: { id: data.id },
-    include: { user: { select: { id: true, email: true, isActive: true } } },
+    include: {
+      user: { select: { id: true, email: true, isActive: true, role: true } },
+    },
   });
   if (!before) {
     return { ok: false, error: "Mitarbeitende:r nicht gefunden." };
@@ -252,6 +275,7 @@ export async function updateEmployeeAction(
       data: {
         email: emailLower,
         isActive: data.isActive,
+        role: "EMPLOYEE",
         ...(passwordHash ? { passwordHash } : {}),
       },
     });
@@ -309,6 +333,18 @@ export async function updateEmployeeAction(
       passwordChanged: Boolean(passwordHash),
     },
   });
+
+  if (before.user.role !== "EMPLOYEE") {
+    await writeAudit({
+      userId: admin.id,
+      action: "ROLE_CHANGE",
+      entity: "User",
+      entityId: before.userId,
+      oldValue: { role: before.user.role },
+      newValue: { role: "EMPLOYEE" },
+      comment: "Rolle bei Mitarbeiter-Update auf EMPLOYEE normalisiert.",
+    });
+  }
 
   safeRevalidatePath("updateEmployeeAction", "/employees");
   safeRevalidatePath("updateEmployeeAction", "/", "layout");

@@ -354,7 +354,7 @@ describe("deleteBooking", () => {
       deleteBooking(db.prisma, auto!.id),
     ).rejects.toMatchObject({
       name: "DeleteBookingError",
-      code: "AUTO_WEEKLY_PROTECTED",
+      code: "WEEK_CLOSE_PROTECTED",
     });
 
     const stillThere = await db.prisma.booking.findUnique({

@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { makeTestDb, type TestDb } from "@/lib/test/db";
 import {
   seedAdmin,
+  seedAbsenceEntry,
   seedDraftWeek,
   seedEmployee,
   seedLocation,
@@ -78,6 +79,44 @@ describe("removeWeekClosingBookings", () => {
   it("is a no-op when no AUTO_WEEKLY bookings exist for the week", async () => {
     const result = await removeWeekClosingBookings(db.prisma, weekId);
     expect(result.bookingsRemoved).toBe(0);
+  });
+
+  it("removes FREE_REQUESTED week-close bookings too", async () => {
+    const employee = await seedEmployee(db.prisma, { locationId });
+    await seedAbsenceEntry(db.prisma, {
+      weekId,
+      employeeId: employee.id,
+      isoDate: weekDays[0],
+      absenceType: "FREE_REQUESTED",
+    });
+    for (let i = 1; i < 5; i++) {
+      await seedShiftEntry(db.prisma, {
+        weekId,
+        employeeId: employee.id,
+        isoDate: weekDays[i],
+        plannedMinutes: 504,
+      });
+    }
+    await recalcWeekClose(db.prisma, weekId, adminId);
+
+    const result = await removeWeekClosingBookings(db.prisma, weekId);
+    expect(result.bookingsRemoved).toBe(1);
+
+    const remaining = await db.prisma.booking.findMany({
+      where: { employeeId: employee.id },
+    });
+    expect(remaining).toHaveLength(0);
+
+    const balance = await db.prisma.accountBalance.findUnique({
+      where: {
+        employeeId_accountType_year: {
+          employeeId: employee.id,
+          accountType: "ZEITSALDO",
+          year: YEAR,
+        },
+      },
+    });
+    expect(balance?.currentValue).toBe(0);
   });
 
   it("preserves manual bookings that fall inside the week's date range", async () => {

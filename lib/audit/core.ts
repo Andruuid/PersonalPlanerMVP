@@ -16,6 +16,8 @@ import type { PrismaClient } from "@/lib/generated/prisma/client";
 // ---------------------------------------------------------------------------
 
 export interface AuditPayload {
+  /** Single-tenant default until multi-tenant is introduced. */
+  tenantId?: string;
   userId: string;
   action: string;
   entity: string;
@@ -31,6 +33,7 @@ export async function writeAuditCore(
 ): Promise<void> {
   await prisma.auditLog.create({
     data: {
+      tenantId: payload.tenantId ?? "default",
       userId: payload.userId,
       action: payload.action,
       entity: payload.entity,
@@ -49,6 +52,7 @@ export async function writeAuditCore(
 // ---------------------------------------------------------------------------
 
 export interface AuditFilter {
+  tenantId?: string;
   userId?: string;
   entity?: string;
   action?: string;
@@ -66,6 +70,7 @@ export interface AuditPageOpts {
 
 export interface AuditRow {
   id: string;
+  tenantId: string;
   userId: string;
   userEmail: string;
   action: string;
@@ -111,11 +116,13 @@ export async function listAuditLogs(
   const pageIndex = Math.max(1, Math.floor(page.page));
 
   const where: {
+    tenantId?: string;
     userId?: string;
     entity?: string;
     action?: string;
     createdAt?: { gte?: Date; lt?: Date };
   } = {};
+  if (filter.tenantId) where.tenantId = filter.tenantId;
   if (filter.userId) where.userId = filter.userId;
   if (filter.entity) where.entity = filter.entity;
   if (filter.action) where.action = filter.action;
@@ -146,6 +153,7 @@ export async function listAuditLogs(
   return {
     rows: rows.map((r) => ({
       id: r.id,
+      tenantId: r.tenantId,
       userId: r.userId,
       userEmail: r.user.email,
       action: r.action,
@@ -168,6 +176,7 @@ export async function listAuditLogs(
 // ---------------------------------------------------------------------------
 
 export interface AuditFacets {
+  tenantIds: string[];
   users: Array<{ id: string; email: string }>;
   entities: string[];
   actions: string[];
@@ -176,7 +185,12 @@ export interface AuditFacets {
 export async function loadAuditFacets(
   prisma: PrismaClient,
 ): Promise<AuditFacets> {
-  const [entityRows, actionRows, userRows] = await Promise.all([
+  const [tenantRows, entityRows, actionRows, userRows] = await Promise.all([
+    prisma.auditLog.findMany({
+      distinct: ["tenantId"],
+      select: { tenantId: true },
+      orderBy: { tenantId: "asc" },
+    }),
     prisma.auditLog.findMany({
       distinct: ["entity"],
       select: { entity: true },
@@ -195,6 +209,7 @@ export async function loadAuditFacets(
   ]);
 
   return {
+    tenantIds: tenantRows.map((r) => r.tenantId),
     users: userRows,
     entities: entityRows.map((r) => r.entity),
     actions: actionRows.map((r) => r.action),

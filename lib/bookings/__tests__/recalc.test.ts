@@ -202,6 +202,48 @@ describe("recalcWeekClose", () => {
     expect(byType.UEZ).toBe(300);
   });
 
+  it("creates a dedicated FREE_REQUESTED booking on ZEITSALDO", async () => {
+    const employee = await seedEmployee(db.prisma, { locationId });
+    await seedAbsenceEntry(db.prisma, {
+      weekId,
+      employeeId: employee.id,
+      isoDate: weekDays[0],
+      absenceType: "FREE_REQUESTED",
+    });
+    for (let i = 1; i < 5; i++) {
+      await seedShiftEntry(db.prisma, {
+        weekId,
+        employeeId: employee.id,
+        isoDate: weekDays[i],
+        plannedMinutes: 504,
+      });
+    }
+
+    const result = await recalcWeekClose(db.prisma, weekId, adminId);
+    expect(result.bookingsCreated).toBe(1);
+
+    const bookings = await db.prisma.booking.findMany({
+      where: { employeeId: employee.id },
+      orderBy: { bookingType: "asc" },
+    });
+    expect(bookings).toHaveLength(1);
+    expect(bookings[0].bookingType).toBe("FREE_REQUESTED");
+    expect(bookings[0].accountType).toBe("ZEITSALDO");
+    expect(bookings[0].value).toBe(-504);
+    expect(bookings[0].comment).toBe(`KW ${KW}/${YEAR}`);
+
+    const balance = await db.prisma.accountBalance.findUnique({
+      where: {
+        employeeId_accountType_year: {
+          employeeId: employee.id,
+          accountType: "ZEITSALDO",
+          year: YEAR,
+        },
+      },
+    });
+    expect(balance?.currentValue).toBe(-504);
+  });
+
   it("is idempotent: re-running yields identical balances and no duplicate bookings", async () => {
     const employee = await seedEmployee(db.prisma, { locationId });
     for (let i = 0; i < 5; i++) {

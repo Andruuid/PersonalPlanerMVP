@@ -326,9 +326,10 @@ export interface RecalcWeekCloseResult {
 }
 
 /**
- * Idempotently recompute all AUTO_WEEKLY bookings for one closed week.
+ * Idempotently recompute all week-close generated bookings for one closed week.
  *
- * - Drops any prior AUTO_WEEKLY bookings dated within Mo–So of the week.
+ * - Drops any prior week-close bookings (AUTO_WEEKLY/FREE_REQUESTED) dated
+ *   within Mo–So of the week.
  * - Computes new bookings for Zeitsaldo, Ferien, UEZ contributions per
  *   active employee using the pure Zeitlogik.
  * - Posts them dated to Sunday of the week.
@@ -411,22 +412,22 @@ export async function recalcWeekClose(
     const weekStart = monday;
     const weekEndExclusive = addDays(sunday, 1);
 
-    const priorAutoBookings = await tx.booking.findMany({
+    const priorWeekCloseBookings = await tx.booking.findMany({
       where: {
-        bookingType: "AUTO_WEEKLY",
+        bookingType: { in: ["AUTO_WEEKLY", "FREE_REQUESTED"] },
         date: { gte: weekStart, lt: weekEndExclusive },
       },
       select: { id: true, employeeId: true, accountType: true },
     });
     const touchedFromPrior = new Map<string, Set<AccountType>>();
-    for (const b of priorAutoBookings) {
+    for (const b of priorWeekCloseBookings) {
       const set = touchedFromPrior.get(b.employeeId) ?? new Set<AccountType>();
       set.add(b.accountType as AccountType);
       touchedFromPrior.set(b.employeeId, set);
     }
-    if (priorAutoBookings.length > 0) {
+    if (priorWeekCloseBookings.length > 0) {
       await tx.booking.deleteMany({
-        where: { id: { in: priorAutoBookings.map((b) => b.id) } },
+        where: { id: { in: priorWeekCloseBookings.map((b) => b.id) } },
       });
     }
 
@@ -452,35 +453,53 @@ export async function recalcWeekClose(
         touchedFromPrior.get(employee.id) ?? new Set<AccountType>();
       const bookingsToCreate: Array<{
         accountType: AccountType;
+        bookingType: BookingType;
         value: number;
       }> = [];
-      if (result.weeklyZeitsaldoDeltaMinutes !== 0) {
+      const freeRequestedMinutes = result.days.reduce((acc, day) => {
+        return day.kind === "FREE_REQUESTED" ? acc + day.sollMinutes : acc;
+      }, 0);
+      const weeklyZeitsaldoAutoDelta =
+        result.weeklyZeitsaldoDeltaMinutes + freeRequestedMinutes;
+      if (weeklyZeitsaldoAutoDelta !== 0) {
         bookingsToCreate.push({
           accountType: "ZEITSALDO",
-          value: result.weeklyZeitsaldoDeltaMinutes,
+          bookingType: "AUTO_WEEKLY",
+          value: weeklyZeitsaldoAutoDelta,
+        });
+      }
+      if (freeRequestedMinutes !== 0) {
+        bookingsToCreate.push({
+          accountType: "ZEITSALDO",
+          bookingType: "FREE_REQUESTED",
+          value: -freeRequestedMinutes,
         });
       }
       if (result.weeklyUezDeltaMinutes !== 0) {
         bookingsToCreate.push({
           accountType: "UEZ",
+          bookingType: "AUTO_WEEKLY",
           value: result.weeklyUezDeltaMinutes,
         });
       }
       if (result.vacationDaysDebit !== 0) {
         bookingsToCreate.push({
           accountType: "FERIEN",
+          bookingType: "AUTO_WEEKLY",
           value: -result.vacationDaysDebit,
         });
       }
       if (result.parentalCareDaysDebit !== 0) {
         bookingsToCreate.push({
           accountType: "PARENTAL_CARE",
+          bookingType: "AUTO_WEEKLY",
           value: -result.parentalCareDaysDebit,
         });
       }
       if (result.holidayCompensationMinutes !== 0) {
         bookingsToCreate.push({
           accountType: "SONNTAG_FEIERTAG_KOMPENSATION",
+          bookingType: "AUTO_WEEKLY",
           value: result.holidayCompensationMinutes,
         });
       }
@@ -499,7 +518,7 @@ export async function recalcWeekClose(
             accountType: b.accountType,
             date: sunday,
             value: b.value,
-            bookingType: "AUTO_WEEKLY",
+            bookingType: b.bookingType,
             comment: `KW ${week.weekNumber}/${week.year}`,
             createdByUserId: closedByUserId,
           },
@@ -532,7 +551,7 @@ export interface RemoveWeekClosingBookingsResult {
 }
 
 /**
- * Reverse the AUTO_WEEKLY bookings for a previously closed week (used when
+ * Reverse week-close bookings for a previously closed week (used when
  * the admin reopens a closed week back to draft). Manual / carryover
  * bookings within the same week are untouched.
  */
@@ -556,7 +575,7 @@ export async function removeWeekClosingBookings(
   await prisma.$transaction(async (tx) => {
     const bookings = await tx.booking.findMany({
       where: {
-        bookingType: "AUTO_WEEKLY",
+        bookingType: { in: ["AUTO_WEEKLY", "FREE_REQUESTED"] },
         date: { gte: weekStart, lt: weekEndExclusive },
       },
       select: { id: true, employeeId: true, accountType: true },
@@ -692,7 +711,7 @@ export interface DeleteBookingResult {
 export class DeleteBookingError extends Error {
   constructor(
     message: string,
-    readonly code: "NOT_FOUND" | "AUTO_WEEKLY_PROTECTED",
+    readonly code: "NOT_FOUND" | "WEEK_CLOSE_PROTECTED",
   ) {
     super(message);
     this.name = "DeleteBookingError";
@@ -707,10 +726,10 @@ export async function deleteBooking(
   if (!booking) {
     throw new DeleteBookingError("Buchung nicht gefunden", "NOT_FOUND");
   }
-  if (booking.bookingType === "AUTO_WEEKLY") {
+  if (booking.bookingType === "AUTO_WEEKLY" || booking.bookingType === "FREE_REQUESTED") {
     throw new DeleteBookingError(
-      "Wochenautomatik-Buchungen werden über die Wochenaktionen verwaltet.",
-      "AUTO_WEEKLY_PROTECTED",
+      "Wochenabschluss-Buchungen werden über die Wochenaktionen verwaltet.",
+      "WEEK_CLOSE_PROTECTED",
     );
   }
 

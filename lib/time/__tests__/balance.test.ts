@@ -146,6 +146,35 @@ describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
     expect(result.parentalCareDaysDebit).toBe(0);
   });
 
+  it("resolves SICK over TZT on the same day (no TZT effect)", () => {
+    const days = isoWeekDays(YEAR, WEEK);
+    const entries = asEntries({
+      [days[0].iso]: { kind: "ABSENCE", absenceType: "TZT", plannedMinutes: 0 },
+      [days[1].iso]: { kind: "SHIFT", plannedMinutes: 504 },
+      [days[2].iso]: { kind: "SHIFT", plannedMinutes: 504 },
+      [days[3].iso]: { kind: "SHIFT", plannedMinutes: 504 },
+      [days[4].iso]: { kind: "SHIFT", plannedMinutes: 504 },
+    });
+    entries.push({
+      date: days[0].iso,
+      kind: "ABSENCE",
+      absenceType: "SICK",
+      plannedMinutes: 0,
+    });
+
+    const result = computeWeeklyBalance(
+      YEAR,
+      WEEK,
+      entries,
+      noHolidays,
+      FULL_PENSUM,
+    );
+    expect(result.days[0].kind).toBe("SICK");
+    expect(result.weeklyZeitsaldoDeltaMinutes).toBe(0);
+    expect(result.vacationDaysDebit).toBe(0);
+    expect(result.parentalCareDaysDebit).toBe(0);
+  });
+
   it("parental/care leave is anrechenbar and debits its own day counter", () => {
     const days = isoWeekDays(YEAR, WEEK);
     const entries = asEntries({

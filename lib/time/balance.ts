@@ -1,5 +1,9 @@
 import { isoDateString, isoWeekDays } from "./week";
-import { resolveDay, type PlanEntryInput, type DayKind } from "./priority";
+import {
+  resolveDayFromEntries,
+  type PlanEntryInput,
+  type DayKind,
+} from "./priority";
 import {
   STANDARD_WORK_DAYS,
   anrechenbarIstMinutes,
@@ -67,9 +71,8 @@ function isWeekendIso(iso: string): boolean {
 /**
  * Compute the full weekly balance breakdown for one employee.
  *
- * `entries` may contain at most one plan entry per date — the caller is
- * responsible for that invariant (the DB has the (week, employee, date)
- * uniqueness enforced via the upsertPlanEntryAction).
+ * `entries` may contain multiple rows per date. Day resolution applies
+ * deterministic conflict priority (e.g. SICK/ACCIDENT win over TZT).
  */
 export function computeWeeklyBalance(
   year: number,
@@ -80,16 +83,20 @@ export function computeWeeklyBalance(
 ): WeeklyComputation {
   const standardWorkDays = config.standardWorkDays ?? STANDARD_WORK_DAYS;
   const tztModel = config.tztModel ?? "DAILY_QUOTA";
-  const byDate = new Map<string, PlanEntryByDate>();
-  for (const e of entries) byDate.set(e.date, e);
+  const byDate = new Map<string, PlanEntryByDate[]>();
+  for (const e of entries) {
+    const list = byDate.get(e.date) ?? [];
+    list.push(e);
+    byDate.set(e.date, list);
+  }
 
   const days = isoWeekDays(year, weekNumber).map((d) => {
     const iso = d.iso;
     const isWeekend = isWeekendIso(iso);
     const isHoliday = holidays.has(iso);
     const holidayName = holidays.nameOf(iso);
-    const entry = byDate.get(iso) ?? null;
-    const resolved = resolveDay(entry, isHoliday, isWeekend);
+    const dayEntries = byDate.get(iso) ?? [];
+    const resolved = resolveDayFromEntries(dayEntries, isHoliday, isWeekend);
     const sollMinutes = dailySollMinutes(
       resolved.kind,
       config.weeklyTargetMinutes,

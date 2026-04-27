@@ -60,6 +60,31 @@ const ANRECHENBAR_FALLBACK: Record<AbsenceType, DayKind> = {
   HOLIDAY_AUTO: "HOLIDAY",
 };
 
+const ABSENCE_PRIORITY_TIERS: AbsenceType[][] = [
+  // 4) Krankheit / Unfall / Dienstleistung / Eltern-Betreuungsurlaub
+  [
+    "SICK",
+    "ACCIDENT",
+    "MILITARY_SERVICE",
+    "CIVIL_PROTECTION_SERVICE",
+    "CIVIL_SERVICE",
+    "PARENTAL_CARE",
+  ],
+  // 5) Ferien
+  ["VACATION"],
+  // 6) TZT
+  ["TZT"],
+  // 7) Frei verlangt
+  ["FREE_REQUESTED"],
+  // 8) Urlaub unbezahlt
+  ["UNPAID"],
+  ["HOLIDAY_AUTO"],
+];
+
+function isShiftLike(entry: PlanEntryInput): boolean {
+  return entry.kind === "SHIFT" || entry.kind === "ONE_TIME_SHIFT";
+}
+
 /**
  * Resolve the canonical kind for a single day given the optional plan entry,
  * whether it's a holiday, and whether the day is a weekend day (Sa/So).
@@ -74,7 +99,7 @@ export function resolveDay(
   if (isHoliday) {
     if (
       entry &&
-      (entry.kind === "SHIFT" || entry.kind === "ONE_TIME_SHIFT") &&
+      isShiftLike(entry) &&
       entry.plannedMinutes > 0
     ) {
       return { kind: "HOLIDAY_WORK", plannedMinutes: entry.plannedMinutes };
@@ -85,7 +110,7 @@ export function resolveDay(
   if (isWeekend) {
     if (
       entry &&
-      (entry.kind === "SHIFT" || entry.kind === "ONE_TIME_SHIFT") &&
+      isShiftLike(entry) &&
       entry.plannedMinutes > 0
     ) {
       return {
@@ -116,4 +141,70 @@ export function resolveDay(
   }
 
   return { kind: "WORK", plannedMinutes: entry.plannedMinutes };
+}
+
+/**
+ * Resolve day kind from potentially multiple plan entries for the same date.
+ *
+ * 9-step priority (spec):
+ * 1) Holiday
+ * 2) Weekend without Soll
+ * 3) ERT (represented by HOLIDAY_WORK with >5h, evaluated downstream)
+ * 4) SICK / ACCIDENT / SERVICE / PARENTAL_CARE
+ * 5) VACATION
+ * 6) TZT
+ * 7) FREE_REQUESTED
+ * 8) UNPAID
+ * 9) normal WORK
+ */
+export function resolveDayFromEntries(
+  entries: PlanEntryInput[],
+  isHoliday: boolean,
+  isWeekend: boolean,
+): ResolvedDay {
+  if (entries.length === 0) return resolveDay(null, isHoliday, isWeekend);
+
+  if (isHoliday) {
+    const holidayShift = entries.find(
+      (entry) => isShiftLike(entry) && entry.plannedMinutes > 0,
+    );
+    if (holidayShift) {
+      return { kind: "HOLIDAY_WORK", plannedMinutes: holidayShift.plannedMinutes };
+    }
+    return { kind: "HOLIDAY", plannedMinutes: 0 };
+  }
+
+  if (isWeekend) {
+    const weekendShift = entries.find(
+      (entry) => isShiftLike(entry) && entry.plannedMinutes > 0,
+    );
+    if (weekendShift) {
+      return { kind: "WORK_ON_WEEKEND", plannedMinutes: weekendShift.plannedMinutes };
+    }
+    return { kind: "WEEKEND_OFF", plannedMinutes: 0 };
+  }
+
+  const absenceTypes = new Set<AbsenceType>();
+  for (const entry of entries) {
+    if (entry.kind === "ABSENCE" && entry.absenceType) {
+      absenceTypes.add(entry.absenceType);
+    }
+  }
+  for (const tier of ABSENCE_PRIORITY_TIERS) {
+    const matched = tier.find((type) => absenceTypes.has(type));
+    if (matched) {
+      return { kind: ANRECHENBAR_FALLBACK[matched], plannedMinutes: 0 };
+    }
+  }
+
+  if (entries.some((entry) => entry.kind === "VFT")) {
+    return { kind: "VFT", plannedMinutes: 0 };
+  }
+
+  const weekdayShift = entries.find((entry) => isShiftLike(entry));
+  if (weekdayShift) {
+    return { kind: "WORK", plannedMinutes: weekdayShift.plannedMinutes };
+  }
+
+  return { kind: "EMPTY_WEEKDAY", plannedMinutes: 0 };
 }

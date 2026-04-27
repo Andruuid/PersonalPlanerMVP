@@ -92,6 +92,7 @@ describe("listAuditLogs", () => {
     expect(result.rows[0].action).toBe("PUBLISH");
     expect(result.rows[3].action).toBe("CREATE");
     expect(result.rows[0].userEmail).toBe("bob@test.local");
+    expect(result.rows[0].tenantId).toBe("default");
   });
 
   it("paginates with the given pageSize", async () => {
@@ -106,6 +107,13 @@ describe("listAuditLogs", () => {
   });
 
   it("filters by user, entity, and action", async () => {
+    const byTenant = await listAuditLogs(
+      db.prisma,
+      { tenantId: "default" },
+      { page: 1, pageSize: 25 },
+    );
+    expect(byTenant.total).toBe(4);
+
     const byUser = await listAuditLogs(
       db.prisma,
       { userId: adminAId },
@@ -169,6 +177,7 @@ describe("listAuditLogs", () => {
 describe("loadAuditFacets", () => {
   it("returns distinct entities, actions, and users that have logs", async () => {
     const facets = await loadAuditFacets(db.prisma);
+    expect(facets.tenantIds).toEqual(["default"]);
     expect(facets.entities.sort()).toEqual([
       "Employee",
       "PlanEntry",

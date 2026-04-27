@@ -75,6 +75,7 @@ enum AccountUnit {
 enum BookingType {
   OPENING
   AUTO_WEEKLY
+  FREE_REQUESTED
   MANUAL_CREDIT
   MANUAL_DEBIT
   CORRECTION
@@ -264,6 +265,7 @@ model Booking {
 
 model AuditLog {
   id         String   @id @default(cuid())
+  tenantId   String   @default("default")
   userId     String
   user       User     @relation(fields: [userId], references: [id])
   action     String   // CREATE, UPDATE, DELETE, PUBLISH, CLOSE, ...
@@ -275,6 +277,7 @@ model AuditLog {
   createdAt  DateTime @default(now())
 
   @@index([entity, entityId])
+  @@index([tenantId, createdAt])
   @@index([createdAt])
 }
 
