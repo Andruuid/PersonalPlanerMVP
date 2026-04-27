@@ -53,9 +53,15 @@ export async function loadMyAccounts(
   employeeId: string,
   year: number,
 ): Promise<MyAccountsView> {
-  const balances = await prisma.accountBalance.findMany({
-    where: { employeeId, year },
-  });
+  const [balances, employee] = await Promise.all([
+    prisma.accountBalance.findMany({
+      where: { employeeId, year },
+    }),
+    prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: { vacationDaysPerYear: true },
+    }),
+  ]);
 
   const get = (
     accountType: "ZEITSALDO" | "FERIEN" | "UEZ" | "TZT",
@@ -68,9 +74,19 @@ export async function loadMyAccounts(
     };
   };
 
+  // FERIEN rows are only created on first week-close (or manual booking) for
+  // that year. Until then, show the same opening as `ensureBalanceRow` in
+  // lib/bookings/core — full annual allowance from Stammdaten.
+  const ferienFromDb = get("FERIEN");
+  const ferien: MyAccountValue | null =
+    ferienFromDb ??
+    (employee
+      ? { unit: "DAYS", value: employee.vacationDaysPerYear }
+      : null);
+
   return {
     zeitsaldo: get("ZEITSALDO"),
-    ferien: get("FERIEN"),
+    ferien,
     tzt: get("TZT"),
   };
 }
