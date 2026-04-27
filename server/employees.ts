@@ -13,6 +13,7 @@ import {
   type ActionResult,
 } from "./_shared";
 import { applyEmployeeOpeningBalances } from "@/lib/bookings/core";
+import { archiveUntil } from "@/lib/archive";
 
 function openingAmountSchema(maxAbs: number) {
   return z.preprocess((v) => {
@@ -372,7 +373,11 @@ export async function setEmployeeActiveAction(
     });
     await tx.employee.update({
       where: { id: employeeId },
-      data: { isActive },
+      data: {
+        isActive,
+        deletedAt: isActive ? null : new Date(),
+        archivedUntil: isActive ? null : archiveUntil(),
+      },
     });
   });
 
@@ -382,7 +387,11 @@ export async function setEmployeeActiveAction(
     entity: "Employee",
     entityId: employeeId,
     oldValue: { isActive: before.isActive },
-    newValue: { isActive },
+    newValue: {
+      isActive,
+      deletedAt: isActive ? null : "set",
+      archivedUntil: isActive ? null : "set",
+    },
   });
 
   safeRevalidatePath("setEmployeeActiveAction", "/employees");

@@ -31,7 +31,14 @@ export async function getOrCreateWeek(
   const existing = await prisma.week.findUnique({
     where: { year_weekNumber: { year, weekNumber } },
   });
-  if (existing) return existing as WeekIdentity;
+  if (existing && !existing.deletedAt) return existing as WeekIdentity;
+  if (existing && existing.deletedAt) {
+    const revived = await prisma.week.update({
+      where: { id: existing.id },
+      data: { deletedAt: null, archivedUntil: null },
+    });
+    return revived as WeekIdentity;
+  }
 
   const created = await prisma.week.create({
     data: { year, weekNumber, status: "DRAFT" },
@@ -74,12 +81,14 @@ export interface WeekSnapshot {
 }
 
 async function buildSnapshot(weekId: string): Promise<WeekSnapshot> {
-  const week = await prisma.week.findUnique({ where: { id: weekId } });
+  const week = await prisma.week.findFirst({
+    where: { id: weekId, deletedAt: null },
+  });
   if (!week) throw new Error("Week not found");
 
   const [employees, entries] = await Promise.all([
     prisma.employee.findMany({
-      where: { isActive: true },
+      where: { isActive: true, deletedAt: null },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
       select: {
         id: true,
@@ -89,7 +98,7 @@ async function buildSnapshot(weekId: string): Promise<WeekSnapshot> {
       },
     }),
     prisma.planEntry.findMany({
-      where: { weekId },
+      where: { weekId, deletedAt: null },
       include: {
         serviceTemplate: {
           select: {
@@ -142,7 +151,7 @@ export async function publishWeekAction(
   const admin = await requireAdmin();
 
   const week = await prisma.week.findUnique({ where: { id: weekId } });
-  if (!week) return { ok: false, error: "Woche nicht gefunden." };
+  if (!week || week.deletedAt) return { ok: false, error: "Woche nicht gefunden." };
   if (week.status === "CLOSED") {
     return {
       ok: false,
@@ -187,7 +196,7 @@ export async function resetWeekToDraftAction(
   const admin = await requireAdmin();
 
   const week = await prisma.week.findUnique({ where: { id: weekId } });
-  if (!week) return { ok: false, error: "Woche nicht gefunden." };
+  if (!week || week.deletedAt) return { ok: false, error: "Woche nicht gefunden." };
   if (week.status !== "PUBLISHED") {
     return { ok: false, error: "Nur veröffentlichte Wochen können zurückgesetzt werden." };
   }
@@ -214,7 +223,7 @@ export async function closeWeekAction(weekId: string): Promise<ActionResult> {
   const admin = await requireAdmin();
 
   const week = await prisma.week.findUnique({ where: { id: weekId } });
-  if (!week) return { ok: false, error: "Woche nicht gefunden." };
+  if (!week || week.deletedAt) return { ok: false, error: "Woche nicht gefunden." };
   if (week.status !== "PUBLISHED") {
     return {
       ok: false,
@@ -258,7 +267,7 @@ export async function reopenWeekAction(weekId: string): Promise<ActionResult> {
   const admin = await requireAdmin();
 
   const week = await prisma.week.findUnique({ where: { id: weekId } });
-  if (!week) return { ok: false, error: "Woche nicht gefunden." };
+  if (!week || week.deletedAt) return { ok: false, error: "Woche nicht gefunden." };
   if (week.status !== "CLOSED") {
     return {
       ok: false,

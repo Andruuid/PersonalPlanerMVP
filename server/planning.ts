@@ -18,6 +18,7 @@ import {
   safeRevalidatePath,
   type ActionResult,
 } from "./_shared";
+import { archiveUntil } from "@/lib/archive";
 
 function timeToMinutes(value: string): number {
   const [h, m] = value.split(":").map((p) => Number.parseInt(p, 10));
@@ -36,7 +37,9 @@ function shiftMinutes(
 }
 
 async function ensureWeekEditable(weekId: string): Promise<ActionResult | null> {
-  const week = await prisma.week.findUnique({ where: { id: weekId } });
+  const week = await prisma.week.findFirst({
+    where: { id: weekId, deletedAt: null },
+  });
   if (!week) return { ok: false, error: "Woche nicht gefunden." };
   if (week.status === "CLOSED") {
     return {
@@ -110,9 +113,12 @@ export async function upsertPlanEntryAction(
 
     const employee = await prisma.employee.findUnique({
       where: { id: data.employeeId },
-      select: { id: true, isActive: true },
+      select: { id: true, isActive: true, deletedAt: true },
     });
     if (!employee) return { ok: false, error: "Mitarbeitende:r nicht gefunden." };
+    if (employee.deletedAt) {
+      return { ok: false, error: "Mitarbeitende:r ist archiviert." };
+    }
 
     let plannedMinutes = 0;
     let serviceTemplateId: string | null = null;
@@ -166,29 +172,43 @@ export async function upsertPlanEntryAction(
           weekId: data.weekId,
           employeeId: data.employeeId,
           date,
+          deletedAt: null,
         },
       });
 
-      if (existing) {
-        await tx.planEntry.delete({ where: { id: existing.id } });
-      }
-
-      const created = await tx.planEntry.create({
-        data: {
-          weekId: data.weekId,
-          employeeId: data.employeeId,
-          date,
-          kind: data.kind,
-          serviceTemplateId,
-          oneTimeStart,
-          oneTimeEnd,
-          oneTimeBreakMinutes,
-          oneTimeLabel,
-          absenceType,
-          plannedMinutes,
-          comment: data.comment ?? null,
-        },
-      });
+      const created = existing
+        ? await tx.planEntry.update({
+            where: { id: existing.id },
+            data: {
+              kind: data.kind,
+              serviceTemplateId,
+              oneTimeStart,
+              oneTimeEnd,
+              oneTimeBreakMinutes,
+              oneTimeLabel,
+              absenceType,
+              plannedMinutes,
+              comment: data.comment ?? null,
+              deletedAt: null,
+              archivedUntil: null,
+            },
+          })
+        : await tx.planEntry.create({
+            data: {
+              weekId: data.weekId,
+              employeeId: data.employeeId,
+              date,
+              kind: data.kind,
+              serviceTemplateId,
+              oneTimeStart,
+              oneTimeEnd,
+              oneTimeBreakMinutes,
+              oneTimeLabel,
+              absenceType,
+              plannedMinutes,
+              comment: data.comment ?? null,
+            },
+          });
 
       return { created, replaced: existing };
     });
@@ -226,11 +246,17 @@ export async function deletePlanEntryAction(
     if (!date) return { ok: false, error: "Datum ungültig." };
 
     const existing = await prisma.planEntry.findFirst({
-      where: { weekId, employeeId, date },
+      where: { weekId, employeeId, date, deletedAt: null },
     });
     if (!existing) return { ok: true };
 
-    await prisma.planEntry.delete({ where: { id: existing.id } });
+    await prisma.planEntry.update({
+      where: { id: existing.id },
+      data: {
+        deletedAt: new Date(),
+        archivedUntil: archiveUntil(),
+      },
+    });
 
     await writeAudit({
       userId: admin.id,
@@ -309,6 +335,7 @@ export async function movePlanEntryAction(
       where: { id: entryId },
     });
     if (!entry) return { ok: false, error: "Eintrag nicht gefunden." };
+    if (entry.deletedAt) return { ok: false, error: "Eintrag ist archiviert." };
 
     const editable = await ensureWeekEditable(entry.weekId);
     if (editable) return editable;
@@ -327,10 +354,17 @@ export async function movePlanEntryAction(
           weekId: entry.weekId,
           employeeId: toEmployeeId,
           date: newDate,
+          deletedAt: null,
         },
       });
       if (target) {
-        await tx.planEntry.delete({ where: { id: target.id } });
+        await tx.planEntry.update({
+          where: { id: target.id },
+          data: {
+            deletedAt: new Date(),
+            archivedUntil: archiveUntil(),
+          },
+        });
       }
       const moved = await tx.planEntry.update({
         where: { id: entryId },

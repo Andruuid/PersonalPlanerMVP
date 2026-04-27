@@ -53,6 +53,7 @@ Admin landet nach dem Login auf `/dashboard`, Mitarbeitende auf `/my-week`.
 | `npm run db:studio`   | Prisma Studio                                      |
 | `npm run db:push:libsql` | Migrationen auf eine libSQL/Turso-DB anwenden  |
 | `npm run db:copy:turso`  | Optional: Daten zwischen zwei Turso-DBs kopieren (sonst neu + Seed) |
+| `npm run db:purge:archived` | Löscht archivierte Datensätze nach Ablauf der 10-Jahres-Frist (`-- --dry-run` für Vorschau) |
 
 ## Datenmodell-Highlights
 

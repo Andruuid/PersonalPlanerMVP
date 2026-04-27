@@ -101,6 +101,7 @@ export async function loadAdminAccountsTable(
   year: number,
 ): Promise<AdminAccountsRow[]> {
   const employees = await prisma.employee.findMany({
+    where: { deletedAt: null },
     orderBy: [{ isActive: "desc" }, { lastName: "asc" }, { firstName: "asc" }],
   });
   if (employees.length === 0) return [];
@@ -117,11 +118,11 @@ export async function loadAdminAccountsTable(
   }
 
   const closedWeeks = await prisma.week.findMany({
-    where: { year, status: "CLOSED" },
+    where: { year, status: "CLOSED", deletedAt: null },
     select: { id: true, year: true, weekNumber: true },
   });
   const planEntries = await prisma.planEntry.findMany({
-    where: { weekId: { in: closedWeeks.map((w) => w.id) } },
+    where: { weekId: { in: closedWeeks.map((w) => w.id) }, deletedAt: null },
     select: {
       weekId: true,
       employeeId: true,

@@ -19,6 +19,7 @@ import {
   safeRevalidatePath,
   type ActionResult,
 } from "./_shared";
+import { archiveUntil } from "@/lib/archive";
 
 const REQUEST_TO_ABSENCE: Record<
   "VACATION" | "FREE_REQUESTED" | "TZT" | "FREE_DAY" | "PARENTAL_CARE",
@@ -69,11 +70,16 @@ export async function approveRequestAction(
       const weekRow = await tx.week.findUnique({
         where: { year_weekNumber: { year, weekNumber } },
       });
-      const week =
-        weekRow ??
-        (await tx.week.create({
-          data: { year, weekNumber, status: "DRAFT" },
-        }));
+      const week = weekRow
+        ? weekRow.deletedAt
+          ? await tx.week.update({
+              where: { id: weekRow.id },
+              data: { deletedAt: null, archivedUntil: null },
+            })
+          : weekRow
+        : await tx.week.create({
+            data: { year, weekNumber, status: "DRAFT" },
+          });
 
       if (week.status === "CLOSED") {
         continue;
@@ -84,6 +90,7 @@ export async function approveRequestAction(
           weekId: week.id,
           employeeId: request.employeeId,
           date: day,
+          deletedAt: null,
         },
         select: {
           id: true,
@@ -101,7 +108,10 @@ export async function approveRequestAction(
             previousAbsenceType: existing.absenceType ?? null,
           });
         }
-        await tx.planEntry.delete({ where: { id: existing.id } });
+        await tx.planEntry.update({
+          where: { id: existing.id },
+          data: { deletedAt: new Date(), archivedUntil: archiveUntil() },
+        });
       }
       await tx.planEntry.create({
         data: {

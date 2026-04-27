@@ -112,6 +112,7 @@ async function computeErtFulfilled(
   const rows = await tx.planEntry.findMany({
     where: {
       employeeId,
+      deletedAt: null,
       date: { gte: windowStart, lt: windowEnd },
       kind: { in: ["SHIFT", "ONE_TIME_SHIFT"] },
       plannedMinutes: { gt: 0 },
@@ -342,7 +343,9 @@ export async function recalcWeekClose(
   weekId: string,
   closedByUserId: string,
 ): Promise<RecalcWeekCloseResult> {
-  const week = await prisma.week.findUnique({ where: { id: weekId } });
+  const week = await prisma.week.findFirst({
+    where: { id: weekId, deletedAt: null },
+  });
   if (!week) {
     return {
       weekId,
@@ -360,12 +363,12 @@ export async function recalcWeekClose(
 
   const employees = (
     await prisma.employee.findMany({
-      where: { isActive: true },
+      where: { isActive: true, deletedAt: null },
     })
   ).filter((employee) => isEmployeeActiveOnDate(employee, sunday));
 
   const planEntries = await prisma.planEntry.findMany({
-    where: { weekId },
+    where: { weekId, deletedAt: null },
   });
 
   const locationIds = Array.from(new Set(employees.map((e) => e.locationId)));
@@ -559,7 +562,9 @@ export async function removeWeekClosingBookings(
   prisma: PrismaClient,
   weekId: string,
 ): Promise<RemoveWeekClosingBookingsResult> {
-  const week = await prisma.week.findUnique({ where: { id: weekId } });
+  const week = await prisma.week.findFirst({
+    where: { id: weekId, deletedAt: null },
+  });
   if (!week) return { weekId, bookingsRemoved: 0 };
 
   const days = isoWeekDays(week.year, week.weekNumber);
@@ -783,7 +788,7 @@ export async function applyYearEndCarryover(
 
   const employees = (
     await prisma.employee.findMany({
-      where: { isActive: true },
+      where: { isActive: true, deletedAt: null },
     })
   ).filter((employee) => isEmployeeActiveOnDate(employee, carryDate));
 
