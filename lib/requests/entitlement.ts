@@ -58,12 +58,13 @@ function getAccountValue(
 export function evaluateRequestEntitlement(
   input: RequestEntitlementInput,
 ): RequestEntitlementResult {
-  if (input.type === "FREE_DAY") return { ok: true };
+  const effectiveType =
+    input.type === "FREE_DAY" ? "FREE_REQUESTED" : input.type;
 
   const weekdaysByYear = requestedWeekdaysByYear(input.startDate, input.endDate);
   if (weekdaysByYear.size === 0) return { ok: true };
 
-  if (input.type === "VACATION") {
+  if (effectiveType === "VACATION") {
     for (const [year, requestedDays] of weekdaysByYear) {
       const available = getAccountValue(input, year, "FERIEN");
       if (available < requestedDays) {
@@ -76,7 +77,7 @@ export function evaluateRequestEntitlement(
     return { ok: true };
   }
 
-  if (input.type === "TZT") {
+  if (effectiveType === "TZT") {
     for (const [year, requestedDays] of weekdaysByYear) {
       const available = getAccountValue(input, year, "TZT");
       if (available < requestedDays) {

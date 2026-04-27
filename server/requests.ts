@@ -27,7 +27,9 @@ const REQUEST_TO_ABSENCE: Record<
   VACATION: "VACATION",
   FREE_REQUESTED: "FREE_REQUESTED",
   TZT: "TZT",
-  FREE_DAY: "UNPAID",
+  // "Freier Tag" should behave like a regular free-requested day
+  // (Zeitsaldo impact), not like unpaid leave (Soll reduction).
+  FREE_DAY: "FREE_REQUESTED",
 };
 
 function* daysInRange(start: Date, end: Date): Generator<Date> {
@@ -52,6 +54,12 @@ export async function approveRequestAction(
   }
 
   const absenceType = REQUEST_TO_ABSENCE[request.type];
+  let replacedEntryCount = 0;
+  const replacedEntrySamples: Array<{
+    date: string;
+    previousKind: string;
+    previousAbsenceType: string | null;
+  }> = [];
 
   await prisma.$transaction(async (tx) => {
     for (const day of daysInRange(request.startDate, request.endDate)) {
@@ -76,8 +84,22 @@ export async function approveRequestAction(
           employeeId: request.employeeId,
           date: day,
         },
+        select: {
+          id: true,
+          kind: true,
+          absenceType: true,
+          date: true,
+        },
       });
       if (existing) {
+        replacedEntryCount += 1;
+        if (replacedEntrySamples.length < 20) {
+          replacedEntrySamples.push({
+            date: isoDateString(existing.date),
+            previousKind: existing.kind,
+            previousAbsenceType: existing.absenceType ?? null,
+          });
+        }
         await tx.planEntry.delete({ where: { id: existing.id } });
       }
       await tx.planEntry.create({
@@ -114,6 +136,8 @@ export async function approveRequestAction(
       absenceType,
       from: isoDateString(request.startDate),
       to: isoDateString(request.endDate),
+      replacedPlanEntries: replacedEntryCount,
+      replacedPlanEntrySamples: replacedEntrySamples,
     },
   });
 

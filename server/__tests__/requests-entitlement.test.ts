@@ -79,4 +79,31 @@ describe("evaluateRequestEntitlement", () => {
 
     expect(result.ok).toBe(true);
   });
+
+  it("treats free-day like free-requested and enforces zeitsaldo", () => {
+    const denied = evaluateRequestEntitlement({
+      type: "FREE_DAY",
+      startDate: parseIsoDate("2026-03-02")!,
+      endDate: parseIsoDate("2026-03-02")!,
+      weeklyTargetMinutes: 2520,
+      vacationDaysPerYear: 25,
+      balancesByYear: {
+        2026: { ZEITSALDO: 100 },
+      },
+    });
+    expect(denied.ok).toBe(false);
+    expect(denied.error).toContain("Zeitsaldo");
+
+    const allowed = evaluateRequestEntitlement({
+      type: "FREE_DAY",
+      startDate: parseIsoDate("2026-03-02")!,
+      endDate: parseIsoDate("2026-03-02")!,
+      weeklyTargetMinutes: 2520,
+      vacationDaysPerYear: 25,
+      balancesByYear: {
+        2026: { ZEITSALDO: 504 },
+      },
+    });
+    expect(allowed.ok).toBe(true);
+  });
 });
