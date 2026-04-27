@@ -1,8 +1,12 @@
-import "dotenv/config";
+import { config as loadDotenv } from "dotenv";
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "../lib/generated/prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 import { holidaysForRegion } from "../lib/holidays-ch";
+
+// Same order as `scripts/db-push-libsql.mts`: `.env.local` wins over `.env`.
+loadDotenv({ path: ".env.local" });
+loadDotenv({ path: ".env" });
 
 const adapter = new PrismaLibSql({
   url: process.env.DATABASE_URL ?? "file:./prisma/dev.db",
