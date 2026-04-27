@@ -1,4 +1,5 @@
 import { CalendarDays, FileClock, ShieldCheck, Users } from "lucide-react";
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
 import { listAuditLogs } from "@/lib/audit";
 import { currentIsoWeek } from "@/lib/time/week";
@@ -15,31 +16,56 @@ const WEEK_STATUS_LABEL: Record<WeekStatus, string> = {
   CLOSED: "Abgeschlossen",
 };
 
-function startOfToday(): Date {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+/** Calendar day in the server timezone (matches “Audit heute” bucket). */
+function calendarDayKey(d = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
+
+function startOfCalendarDay(dayKey: string): Date {
+  const [ys, ms, ds] = dayKey.split("-");
+  const y = Number(ys);
+  const mo = Number(ms) - 1;
+  const day = Number(ds);
+  return new Date(y, mo, day);
+}
+
+const getCachedDashboardData = unstable_cache(
+  async (weekYear: number, weekNumber: number, dayKey: string) => {
+    const today = startOfCalendarDay(dayKey);
+    const [openRequests, currentWeek, activeEmployees, auditToday, recentList] =
+      await Promise.all([
+        prisma.absenceRequest.count({ where: { status: "OPEN" } }),
+        prisma.week.findUnique({
+          where: {
+            year_weekNumber: { year: weekYear, weekNumber },
+          },
+          select: { status: true },
+        }),
+        prisma.employee.count({ where: { isActive: true } }),
+        prisma.auditLog.count({ where: { createdAt: { gte: today } } }),
+        listAuditLogs(prisma, {}, { page: 1, pageSize: 5 }),
+      ]);
+    return {
+      openRequests,
+      currentWeek,
+      activeEmployees,
+      auditToday,
+      recentList,
+    };
+  },
+  ["admin-dashboard-kpis"],
+  { revalidate: 30 },
+);
 
 export default async function DashboardPage() {
   const isoWeek = currentIsoWeek();
-  const today = startOfToday();
+  const dayKey = calendarDayKey();
 
-  const [openRequests, currentWeek, activeEmployees, auditToday, recentList] =
-    await Promise.all([
-      prisma.absenceRequest.count({ where: { status: "OPEN" } }),
-      prisma.week.findUnique({
-        where: {
-          year_weekNumber: {
-            year: isoWeek.year,
-            weekNumber: isoWeek.weekNumber,
-          },
-        },
-        select: { status: true },
-      }),
-      prisma.employee.count({ where: { isActive: true } }),
-      prisma.auditLog.count({ where: { createdAt: { gte: today } } }),
-      listAuditLogs(prisma, {}, { page: 1, pageSize: 5 }),
-    ]);
+  const { openRequests, currentWeek, activeEmployees, auditToday, recentList } =
+    await getCachedDashboardData(isoWeek.year, isoWeek.weekNumber, dayKey);
 
   const weekKw = String(isoWeek.weekNumber).padStart(2, "0");
   const weekValue = `KW ${weekKw}`;

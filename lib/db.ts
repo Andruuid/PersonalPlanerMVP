@@ -37,8 +37,6 @@ function makeClient(): PrismaClient {
   });
 }
 
+/** Reuse one client per runtime (dev HMR + warm serverless) to avoid extra Turso handshakes. */
 export const prisma = globalForPrisma.prisma ?? makeClient();
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-}
+globalForPrisma.prisma = prisma;
