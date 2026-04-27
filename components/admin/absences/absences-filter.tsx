@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { buildAbsenceFilterSearchParams } from "./filter-query";
 
 export type StatusFilter = "ALL" | "OPEN" | "APPROVED" | "REJECTED";
 export type TypeFilter =
@@ -46,12 +47,7 @@ export function AbsencesFilter({
   const searchParams = useSearchParams();
 
   function update(key: string, value: string) {
-    const params = new URLSearchParams(searchParams.toString());
-    if (value === "ALL" || value === "") {
-      params.delete(key);
-    } else {
-      params.set(key, value);
-    }
+    const params = buildAbsenceFilterSearchParams(searchParams, key, value);
     router.push(`${pathname}?${params.toString()}`);
   }
 
