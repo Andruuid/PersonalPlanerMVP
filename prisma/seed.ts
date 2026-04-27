@@ -22,7 +22,20 @@ interface DemoEmployee {
   roleLabel: string;
   pensum: number;
   vacationDaysPerYear: number;
+  /** Stable seed id from DEMO_LOCATIONS */
+  locationId: string;
 }
+
+const DEMO_LOCATIONS: Array<{
+  id: string;
+  name: string;
+  holidayRegionCode: string;
+}> = [
+  { id: "loc-luzern", name: "Standort Luzern", holidayRegionCode: "LU" },
+  { id: "loc-bern", name: "Standort Bern", holidayRegionCode: "BE" },
+  { id: "loc-zuerich", name: "Standort Zürich", holidayRegionCode: "ZH" },
+  { id: "loc-basel", name: "Standort Basel", holidayRegionCode: "BS" },
+];
 
 const DEMO_EMPLOYEES: DemoEmployee[] = [
   {
@@ -33,6 +46,7 @@ const DEMO_EMPLOYEES: DemoEmployee[] = [
     roleLabel: "Verkauf",
     pensum: 100,
     vacationDaysPerYear: 25,
+    locationId: "loc-luzern",
   },
   {
     email: "marco.huber@demo.ch",
@@ -42,6 +56,7 @@ const DEMO_EMPLOYEES: DemoEmployee[] = [
     roleLabel: "Backoffice",
     pensum: 80,
     vacationDaysPerYear: 25,
+    locationId: "loc-bern",
   },
   {
     email: "lina.meier@demo.ch",
@@ -51,6 +66,7 @@ const DEMO_EMPLOYEES: DemoEmployee[] = [
     roleLabel: "Aushilfe",
     pensum: 40,
     vacationDaysPerYear: 20,
+    locationId: "loc-zuerich",
   },
   {
     email: "noah.schmid@demo.ch",
@@ -60,30 +76,34 @@ const DEMO_EMPLOYEES: DemoEmployee[] = [
     roleLabel: "Bar",
     pensum: 60,
     vacationDaysPerYear: 22,
+    locationId: "loc-basel",
   },
 ];
 
 async function main() {
   console.log("Seeding database...");
 
-  const location = await prisma.location.upsert({
-    where: { id: "loc-luzern" },
-    update: { name: "Standort Luzern", holidayRegionCode: "LU" },
-    create: {
-      id: "loc-luzern",
-      name: "Standort Luzern",
-      holidayRegionCode: "LU",
-    },
-  });
-
-  // Holidays for current year (LU).
   const year = new Date().getFullYear();
-  for (const h of holidaysForRegion(location.holidayRegionCode, year)) {
-    await prisma.holiday.upsert({
-      where: { locationId_date: { locationId: location.id, date: h.date } },
-      update: { name: h.name },
-      create: { locationId: location.id, date: h.date, name: h.name },
+  for (const loc of DEMO_LOCATIONS) {
+    await prisma.location.upsert({
+      where: { id: loc.id },
+      update: { name: loc.name, holidayRegionCode: loc.holidayRegionCode },
+      create: {
+        id: loc.id,
+        name: loc.name,
+        holidayRegionCode: loc.holidayRegionCode,
+      },
     });
+  }
+
+  for (const loc of DEMO_LOCATIONS) {
+    for (const h of holidaysForRegion(loc.holidayRegionCode, year)) {
+      await prisma.holiday.upsert({
+        where: { locationId_date: { locationId: loc.id, date: h.date } },
+        update: { name: h.name },
+        create: { locationId: loc.id, date: h.date, name: h.name },
+      });
+    }
   }
 
   // Service templates.
@@ -157,7 +177,7 @@ async function main() {
         pensum: e.pensum,
         vacationDaysPerYear: e.vacationDaysPerYear,
         weeklyTargetMinutes: Math.round((42 * 60 * e.pensum) / 100),
-        locationId: location.id,
+        locationId: e.locationId,
       },
       create: {
         userId: user.id,
@@ -169,7 +189,7 @@ async function main() {
         vacationDaysPerYear: e.vacationDaysPerYear,
         weeklyTargetMinutes: Math.round((42 * 60 * e.pensum) / 100),
         hazMinutesPerWeek: 45 * 60,
-        locationId: location.id,
+        locationId: e.locationId,
       },
     });
   }

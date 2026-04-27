@@ -36,6 +36,70 @@ function offsetDays(base: Date, days: number): Date {
 }
 
 /**
+ * Simplified Kanton Zürich (ZH): eidgenössische / ZH-übliche Feiertage ohne
+ * die katholischen Extras (kein Fronleichnam, 15.8, 1.11, 8.12 in diesem Set).
+ */
+export function holidaysForZurich(year: number): HolidayDef[] {
+  const easter = easterSunday(year);
+  return [
+    { date: utc(year, 1, 1), name: "Neujahr" },
+    { date: utc(year, 1, 2), name: "Berchtoldstag" },
+    { date: offsetDays(easter, -2), name: "Karfreitag" },
+    { date: offsetDays(easter, 1), name: "Ostermontag" },
+    { date: utc(year, 5, 1), name: "Tag der Arbeit" },
+    { date: offsetDays(easter, 39), name: "Auffahrt" },
+    { date: offsetDays(easter, 50), name: "Pfingstmontag" },
+    { date: utc(year, 8, 1), name: "Bundesfeier" },
+    { date: utc(year, 12, 25), name: "Weihnachten" },
+    { date: utc(year, 12, 26), name: "Stephanstag" },
+  ];
+}
+
+/**
+ * Simplified Kanton Bern (BE): ZH-Basis zuzüglich gängiger katholisch geprägter
+ * kantonaler Tage (15.8, 1.11, 8.12) — Demo-Näherung, Gemeinden weichen ab.
+ */
+export function holidaysForBern(year: number): HolidayDef[] {
+  const easter = easterSunday(year);
+  return [
+    { date: utc(year, 1, 1), name: "Neujahr" },
+    { date: utc(year, 1, 2), name: "Berchtoldstag" },
+    { date: offsetDays(easter, -2), name: "Karfreitag" },
+    { date: offsetDays(easter, 1), name: "Ostermontag" },
+    { date: utc(year, 5, 1), name: "Tag der Arbeit" },
+    { date: offsetDays(easter, 39), name: "Auffahrt" },
+    { date: offsetDays(easter, 50), name: "Pfingstmontag" },
+    { date: utc(year, 8, 1), name: "Bundesfeier" },
+    { date: utc(year, 8, 15), name: "Mariä Himmelfahrt" },
+    { date: utc(year, 11, 1), name: "Allerheiligen" },
+    { date: utc(year, 12, 8), name: "Mariä Empfängnis" },
+    { date: utc(year, 12, 25), name: "Weihnachten" },
+    { date: utc(year, 12, 26), name: "Stephanstag" },
+  ];
+}
+
+/**
+ * Simplified Basel-Stadt (BS): ZH-ähnlich zuzüglich Fronleichnam
+ * (in BS gesetzlicher Feiertag).
+ */
+export function holidaysForBaselStadt(year: number): HolidayDef[] {
+  const easter = easterSunday(year);
+  return [
+    { date: utc(year, 1, 1), name: "Neujahr" },
+    { date: utc(year, 1, 2), name: "Berchtoldstag" },
+    { date: offsetDays(easter, -2), name: "Karfreitag" },
+    { date: offsetDays(easter, 1), name: "Ostermontag" },
+    { date: utc(year, 5, 1), name: "Tag der Arbeit" },
+    { date: offsetDays(easter, 39), name: "Auffahrt" },
+    { date: offsetDays(easter, 50), name: "Pfingstmontag" },
+    { date: offsetDays(easter, 60), name: "Fronleichnam" },
+    { date: utc(year, 8, 1), name: "Bundesfeier" },
+    { date: utc(year, 12, 25), name: "Weihnachten" },
+    { date: utc(year, 12, 26), name: "Stephanstag" },
+  ];
+}
+
+/**
  * Holidays for the Canton of Lucerne (LU) — Swiss federal holidays plus the
  * Catholic Lucerne-specific days. Used as the default in the MVP demo.
  */
@@ -59,12 +123,18 @@ export function holidaysForLucerne(year: number): HolidayDef[] {
   ];
 }
 
-/** Region-aware lookup. Currently only "LU" is implemented; falls back to LU. */
+/** Region codes with built-in rules: LU, ZH, BE, BS. Unknown → LU. */
 export function holidaysForRegion(
   region: string,
   year: number,
 ): HolidayDef[] {
   switch (region.toUpperCase()) {
+    case "ZH":
+      return holidaysForZurich(year);
+    case "BE":
+      return holidaysForBern(year);
+    case "BS":
+      return holidaysForBaselStadt(year);
     case "LU":
     default:
       return holidaysForLucerne(year);

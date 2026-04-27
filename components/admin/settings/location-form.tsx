@@ -105,8 +105,9 @@ export function LocationForm({ mode, defaults, onSuccess }: Props) {
           style={{ textTransform: "uppercase" }}
         />
         <p className="text-xs text-neutral-500">
-          Kantonskürzel (z. B. LU, ZH, BE). Aktuell ist LU vollständig
-          hinterlegt.
+          Kantonskürzel (z. B. LU, ZH, BE, BS). Für LU, ZH, BE und BS sind
+          Feiertagsregeln im Generator hinterlegt; sonst wird wie bei LU
+          gerechnet.
         </p>
         {fieldErr.holidayRegionCode ? (
           <p className="text-xs text-rose-700">{fieldErr.holidayRegionCode}</p>
