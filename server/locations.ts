@@ -51,6 +51,7 @@ export async function createLocationAction(
 
   const created = await prisma.location.create({
     data: {
+      tenantId: admin.tenantId,
       name: data.name,
       holidayRegionCode: data.holidayRegionCode,
     },
@@ -91,6 +92,9 @@ export async function updateLocationAction(
   const before = await prisma.location.findUnique({ where: { id: data.id } });
   if (!before) {
     return { ok: false, error: "Standort nicht gefunden." };
+  }
+  if (before.tenantId !== admin.tenantId) {
+    return { ok: false, error: "Kein Zugriff auf diesen Standort." };
   }
 
   const updated = await prisma.location.update({

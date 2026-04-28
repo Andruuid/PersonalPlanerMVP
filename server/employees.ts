@@ -121,7 +121,9 @@ export async function createEmployeeAction(
   const data = parsed.data;
   const emailLower = data.email.toLowerCase();
 
-  const existing = await prisma.user.findUnique({ where: { email: emailLower } });
+  const existing = await prisma.user.findUnique({
+    where: { tenantId_email: { tenantId: admin.tenantId, email: emailLower } },
+  });
   if (existing) {
     return {
       ok: false,
@@ -136,6 +138,7 @@ export async function createEmployeeAction(
     async (tx) => {
       const user = await tx.user.create({
         data: {
+          tenantId: admin.tenantId,
           email: emailLower,
           passwordHash,
           role: "EMPLOYEE",
@@ -145,6 +148,7 @@ export async function createEmployeeAction(
 
       const emp = await tx.employee.create({
         data: {
+          tenantId: admin.tenantId,
           userId: user.id,
           firstName: data.firstName,
           lastName: data.lastName,
@@ -253,9 +257,14 @@ export async function updateEmployeeAction(
   if (!before) {
     return { ok: false, error: "Mitarbeitende:r nicht gefunden." };
   }
+  if (before.tenantId !== admin.tenantId) {
+    return { ok: false, error: "Kein Zugriff auf diese:n Mitarbeitende:n." };
+  }
 
   if (emailLower !== before.user.email) {
-    const clash = await prisma.user.findUnique({ where: { email: emailLower } });
+    const clash = await prisma.user.findUnique({
+      where: { tenantId_email: { tenantId: admin.tenantId, email: emailLower } },
+    });
     if (clash && clash.id !== before.userId) {
       return {
         ok: false,
@@ -365,6 +374,9 @@ export async function setEmployeeActiveAction(
   if (!before) {
     return { ok: false, error: "Mitarbeitende:r nicht gefunden." };
   }
+  if (before.tenantId !== admin.tenantId) {
+    return { ok: false, error: "Kein Zugriff auf diese:n Mitarbeitende:n." };
+  }
 
   await prisma.$transaction(async (tx) => {
     await tx.user.update({
@@ -416,6 +428,9 @@ export async function setUserLockAction(
   });
   if (!before) {
     return { ok: false, error: "Mitarbeitende:r nicht gefunden." };
+  }
+  if (before.tenantId !== admin.tenantId) {
+    return { ok: false, error: "Kein Zugriff auf diese:n Mitarbeitende:n." };
   }
 
   const trimmedReason = reason?.trim();

@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/admin/page-header";
 import { AccountsTable } from "@/components/admin/accounts/accounts-table";
 import { YearEndButton } from "@/components/admin/accounts/year-end-button";
 import { loadAdminAccountsTable } from "@/server/accounts";
+import { requireAdmin } from "@/server/_shared";
 
 export const metadata = { title: "Zeitkonten · PersonalPlaner" };
 
@@ -20,9 +21,10 @@ function pickYear(raw: string | undefined): number {
 }
 
 export default async function AccountsPage({ searchParams }: PageProps) {
+  const admin = await requireAdmin();
   const raw = await searchParams;
   const year = pickYear(raw.year);
-  const rows = await loadAdminAccountsTable(year);
+  const rows = await loadAdminAccountsTable(admin, year);
   const todayIso = format(new Date(), "yyyy-MM-dd");
 
   const currentYear = new Date().getFullYear();

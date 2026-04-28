@@ -65,7 +65,7 @@ export async function createServiceAction(
   const data = parsed.data;
 
   const dup = await prisma.serviceTemplate.findUnique({
-    where: { code: data.code },
+    where: { tenantId_code: { tenantId: admin.tenantId, code: data.code } },
   });
   if (dup) {
     return {
@@ -78,6 +78,7 @@ export async function createServiceAction(
   const service = await prisma.serviceTemplate.create({
     data: {
       name: data.name,
+      tenantId: admin.tenantId,
       code: data.code,
       startTime: data.startTime,
       endTime: data.endTime,
@@ -130,10 +131,13 @@ export async function updateServiceAction(
   if (!before) {
     return { ok: false, error: "Dienstvorlage nicht gefunden." };
   }
+  if (before.tenantId !== admin.tenantId) {
+    return { ok: false, error: "Kein Zugriff auf diese Dienstvorlage." };
+  }
 
   if (before.code !== data.code) {
     const dup = await prisma.serviceTemplate.findUnique({
-      where: { code: data.code },
+      where: { tenantId_code: { tenantId: admin.tenantId, code: data.code } },
     });
     if (dup && dup.id !== data.id) {
       return {
@@ -198,6 +202,9 @@ export async function setServiceActiveAction(
   });
   if (!before) {
     return { ok: false, error: "Dienstvorlage nicht gefunden." };
+  }
+  if (before.tenantId !== admin.tenantId) {
+    return { ok: false, error: "Kein Zugriff auf diese Dienstvorlage." };
   }
 
   const updated = await prisma.serviceTemplate.update({

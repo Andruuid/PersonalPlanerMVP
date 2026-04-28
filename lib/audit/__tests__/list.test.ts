@@ -34,6 +34,7 @@ beforeEach(async () => {
   adminBId = b.id;
 
   await writeAuditCore(db.prisma, {
+    tenantId: "default",
     userId: adminAId,
     action: "CREATE",
     entity: "Employee",
@@ -42,6 +43,7 @@ beforeEach(async () => {
     createdAt: stamps[0],
   });
   await writeAuditCore(db.prisma, {
+    tenantId: "default",
     userId: adminAId,
     action: "UPDATE",
     entity: "Employee",
@@ -52,6 +54,7 @@ beforeEach(async () => {
     createdAt: stamps[1],
   });
   await writeAuditCore(db.prisma, {
+    tenantId: "default",
     userId: adminBId,
     action: "DELETE",
     entity: "PlanEntry",
@@ -60,6 +63,7 @@ beforeEach(async () => {
     createdAt: stamps[2],
   });
   await writeAuditCore(db.prisma, {
+    tenantId: "default",
     userId: adminBId,
     action: "PUBLISH",
     entity: "Week",

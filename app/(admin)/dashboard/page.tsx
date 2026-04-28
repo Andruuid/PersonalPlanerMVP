@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/admin/page-header";
 import { KpiCard } from "@/components/admin/dashboard/kpi-card";
 import { RecentActivity } from "@/components/admin/dashboard/recent-activity";
 import type { WeekStatus } from "@/lib/generated/prisma/enums";
+import { requireAdmin } from "@/server/_shared";
 
 export const metadata = { title: "Dashboard · PersonalPlaner" };
 
@@ -33,20 +34,20 @@ function startOfCalendarDay(dayKey: string): Date {
 }
 
 const getCachedDashboardData = unstable_cache(
-  async (weekYear: number, weekNumber: number, dayKey: string) => {
+  async (tenantId: string, weekYear: number, weekNumber: number, dayKey: string) => {
     const today = startOfCalendarDay(dayKey);
     const [openRequests, currentWeek, activeEmployees, auditToday, recentList] =
       await Promise.all([
-        prisma.absenceRequest.count({ where: { status: "OPEN" } }),
+        prisma.absenceRequest.count({ where: { tenantId, status: "OPEN" } }),
         prisma.week.findUnique({
           where: {
-            year_weekNumber: { year: weekYear, weekNumber },
+            tenantId_year_weekNumber: { tenantId, year: weekYear, weekNumber },
           },
           select: { status: true },
         }),
-        prisma.employee.count({ where: { isActive: true } }),
-        prisma.auditLog.count({ where: { createdAt: { gte: today } } }),
-        listAuditLogs(prisma, {}, { page: 1, pageSize: 5 }),
+        prisma.employee.count({ where: { tenantId, isActive: true } }),
+        prisma.auditLog.count({ where: { tenantId, createdAt: { gte: today } } }),
+        listAuditLogs(prisma, { tenantId }, { page: 1, pageSize: 5 }),
       ]);
     return {
       openRequests,
@@ -61,11 +62,12 @@ const getCachedDashboardData = unstable_cache(
 );
 
 export default async function DashboardPage() {
+  const admin = await requireAdmin();
   const isoWeek = currentIsoWeek();
   const dayKey = calendarDayKey();
 
   const { openRequests, currentWeek, activeEmployees, auditToday, recentList } =
-    await getCachedDashboardData(isoWeek.year, isoWeek.weekNumber, dayKey);
+    await getCachedDashboardData(admin.tenantId, isoWeek.year, isoWeek.weekNumber, dayKey);
 
   const weekKw = String(isoWeek.weekNumber).padStart(2, "0");
   const weekValue = `KW ${weekKw}`;

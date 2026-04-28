@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/server/_shared";
 import { isoDateString } from "@/lib/time/week";
 import { PageHeader } from "@/components/admin/page-header";
 import {
@@ -14,15 +15,17 @@ function dateForInput(d: Date | null | undefined): string {
 }
 
 export default async function EmployeesPage() {
+  const admin = await requireAdmin();
   const [employees, locations] = await Promise.all([
     prisma.employee.findMany({
+      where: { tenantId: admin.tenantId },
       orderBy: [{ isActive: "desc" }, { lastName: "asc" }, { firstName: "asc" }],
       include: {
         user: { select: { email: true, isActive: true } },
         location: { select: { id: true, name: true } },
       },
     }),
-    prisma.location.findMany({ orderBy: { name: "asc" } }),
+    prisma.location.findMany({ where: { tenantId: admin.tenantId }, orderBy: { name: "asc" } }),
   ]);
 
   const rows: EmployeeRow[] = employees.map((e) => ({

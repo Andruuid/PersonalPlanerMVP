@@ -8,6 +8,7 @@ import type {
   RequestStatus,
   RequestType,
 } from "@/components/employee/types";
+import type { SessionUser } from "@/server/_shared";
 
 function fmtRange(start: Date, end: Date): string {
   const sameDay = start.toDateString() === end.toDateString();
@@ -20,6 +21,7 @@ function fmtRange(start: Date, end: Date): string {
 }
 
 export async function loadMyRequests(
+  user: Pick<SessionUser, "tenantId">,
   employeeId: string,
   options: { limit?: number; statusFilter?: RequestStatus[] } = {},
 ): Promise<MyRequestView[]> {
@@ -31,7 +33,7 @@ export async function loadMyRequests(
   }
 
   const rows = await prisma.absenceRequest.findMany({
-    where,
+    where: { ...where, tenantId: user.tenantId },
     orderBy: { createdAt: "desc" },
     take: options.limit,
   });
@@ -50,15 +52,16 @@ export async function loadMyRequests(
 }
 
 export async function loadMyAccounts(
+  user: Pick<SessionUser, "tenantId">,
   employeeId: string,
   year: number,
 ): Promise<MyAccountsView> {
   const [balances, employee] = await Promise.all([
     prisma.accountBalance.findMany({
-      where: { employeeId, year },
+      where: { tenantId: user.tenantId, employeeId, year },
     }),
-    prisma.employee.findUnique({
-      where: { id: employeeId },
+    prisma.employee.findFirst({
+      where: { id: employeeId, tenantId: user.tenantId },
       select: { vacationDaysPerYear: true },
     }),
   ]);

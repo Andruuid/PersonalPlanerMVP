@@ -280,10 +280,13 @@ export async function quickSetPlanEntryAction(
   isoDate: string,
   pick: QuickPickKey,
 ): Promise<ActionResult> {
+  const admin = await requireAdmin();
   try {
     if (QUICK_SHIFT_CODES.includes(pick as (typeof QUICK_SHIFT_CODES)[number])) {
       const tpl = await prisma.serviceTemplate.findUnique({
-        where: { code: pick },
+        where: {
+          tenantId_code: { tenantId: admin.tenantId, code: pick },
+        },
         select: { id: true, isActive: true },
       });
       if (!tpl || !tpl.isActive) {

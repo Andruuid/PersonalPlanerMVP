@@ -42,6 +42,7 @@ export async function createPrivacyRequestAction(
   }
 
   const created = await createPrivacyRequest(prisma, {
+    tenantId: employeeUser.tenantId,
     employeeId: employeeUser.employeeId!,
     type: parsed.data.type,
     note: parsed.data.note ?? null,
@@ -90,6 +91,7 @@ export async function decidePrivacyRequestAction(
   }
 
   const decided = await decidePrivacyRequest(prisma, {
+    tenantId: admin.tenantId,
     requestId: parsed.data.requestId,
     status: parsed.data.status,
     decidedById: admin.id,

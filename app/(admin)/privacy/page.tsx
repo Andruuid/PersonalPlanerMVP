@@ -2,11 +2,14 @@ import { format } from "date-fns";
 import { prisma } from "@/lib/db";
 import { decidePrivacyRequestFormAction } from "@/server/privacy";
 import { PageHeader } from "@/components/admin/page-header";
+import { requireAdmin } from "@/server/_shared";
 
 export const metadata = { title: "Datenschutz-Anfragen · PersonalPlaner" };
 
 export default async function PrivacyAdminPage() {
+  const admin = await requireAdmin();
   const requests = await prisma.privacyRequest.findMany({
+    where: { tenantId: admin.tenantId },
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     include: {
       employee: { select: { firstName: true, lastName: true } },

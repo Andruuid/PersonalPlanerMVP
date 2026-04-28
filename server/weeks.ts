@@ -25,11 +25,12 @@ export interface WeekIdentity {
  * Read-only callers (page loads) can use this safely; it does not require admin.
  */
 export async function getOrCreateWeek(
+  tenantId: string,
   year: number,
   weekNumber: number,
 ): Promise<WeekIdentity> {
   const existing = await prisma.week.findUnique({
-    where: { year_weekNumber: { year, weekNumber } },
+    where: { tenantId_year_weekNumber: { tenantId, year, weekNumber } },
   });
   if (existing && !existing.deletedAt) return existing as WeekIdentity;
   if (existing && existing.deletedAt) {
@@ -41,7 +42,7 @@ export async function getOrCreateWeek(
   }
 
   const created = await prisma.week.create({
-    data: { year, weekNumber, status: "DRAFT" },
+    data: { tenantId, year, weekNumber, status: "DRAFT" },
   });
   return created as WeekIdentity;
 }

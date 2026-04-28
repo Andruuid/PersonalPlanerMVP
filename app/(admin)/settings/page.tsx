@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/server/_shared";
 import { isoDateString } from "@/lib/time/week";
 import { PageHeader } from "@/components/admin/page-header";
 import {
@@ -36,9 +37,11 @@ interface PageProps {
 }
 
 export default async function SettingsPage({ searchParams }: PageProps) {
+  const admin = await requireAdmin();
   const params = await searchParams;
 
   const locations = await prisma.location.findMany({
+    where: { tenantId: admin.tenantId },
     orderBy: { name: "asc" },
     include: {
       _count: { select: { employees: true, holidays: true } },
@@ -70,6 +73,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
     const yearEnd = new Date(Date.UTC(selectedYear + 1, 0, 1));
     const holidays = await prisma.holiday.findMany({
       where: {
+        tenantId: admin.tenantId,
         locationId: selectedLocationId,
         date: { gte: yearStart, lt: yearEnd },
       },

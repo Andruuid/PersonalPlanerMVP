@@ -33,13 +33,13 @@ export default async function MyRequestsPage() {
     );
   }
 
-  const employee = await prisma.employee.findUnique({
-    where: { id: session.user.employeeId },
+  const employee = await prisma.employee.findFirst({
+    where: { id: session.user.employeeId, tenantId: session.user.tenantId },
     select: { id: true, firstName: true, lastName: true },
   });
   if (!employee) redirect("/login");
 
-  const all = await loadMyRequests(employee.id);
+  const all = await loadMyRequests(session.user, employee.id);
   const groups = groupByStatus(all);
 
   return (
