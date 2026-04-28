@@ -55,6 +55,18 @@ export async function addHolidayAction(
     ),
   );
 
+  const location = await prisma.location.findUnique({
+    where: { id: data.locationId },
+    select: { tenantId: true },
+  });
+  if (!location || location.tenantId !== admin.tenantId) {
+    return {
+      ok: false,
+      error: "Standort nicht gefunden.",
+      fieldErrors: { locationId: "Standort nicht gefunden." },
+    };
+  }
+
   try {
     const created = await prisma.holiday.create({
       data: {

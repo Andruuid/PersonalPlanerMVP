@@ -36,9 +36,9 @@ function shiftMinutes(
   return Math.max(0, span - breakMinutes);
 }
 
-async function ensureWeekEditable(weekId: string): Promise<ActionResult | null> {
+async function ensureWeekEditable(weekId: string, tenantId: string): Promise<ActionResult | null> {
   const week = await prisma.week.findFirst({
-    where: { id: weekId, deletedAt: null },
+    where: { id: weekId, tenantId, deletedAt: null },
   });
   if (!week) return { ok: false, error: "Woche nicht gefunden." };
   if (week.status === "CLOSED") {
@@ -105,7 +105,7 @@ export async function upsertPlanEntryAction(
     }
     const data = parsed.data;
 
-    const editable = await ensureWeekEditable(data.weekId);
+    const editable = await ensureWeekEditable(data.weekId, admin.tenantId);
     if (editable) return editable;
 
     const date = parseIsoDate(data.date);
@@ -113,9 +113,11 @@ export async function upsertPlanEntryAction(
 
     const employee = await prisma.employee.findUnique({
       where: { id: data.employeeId },
-      select: { id: true, isActive: true, deletedAt: true },
+      select: { id: true, tenantId: true, isActive: true, deletedAt: true },
     });
-    if (!employee) return { ok: false, error: "Mitarbeitende:r nicht gefunden." };
+    if (!employee || employee.tenantId !== admin.tenantId) {
+      return { ok: false, error: "Mitarbeitende:r nicht gefunden." };
+    }
     if (employee.deletedAt) {
       return { ok: false, error: "Mitarbeitende:r ist archiviert." };
     }
@@ -144,7 +146,7 @@ export async function upsertPlanEntryAction(
       const tpl = await prisma.serviceTemplate.findUnique({
         where: { id: data.serviceTemplateId },
       });
-      if (!tpl || !tpl.isActive) {
+      if (!tpl || !tpl.isActive || tpl.tenantId !== admin.tenantId) {
         return {
           ok: false,
           error: "Dienstvorlage nicht gefunden oder inaktiv.",
@@ -239,7 +241,7 @@ export async function deletePlanEntryAction(
   const admin = await requireAdmin();
 
   try {
-    const editable = await ensureWeekEditable(weekId);
+    const editable = await ensureWeekEditable(weekId, admin.tenantId);
     if (editable) return editable;
 
     const date = parseIsoDate(isoDate);
@@ -336,11 +338,14 @@ export async function movePlanEntryAction(
 
     const entry = await prisma.planEntry.findUnique({
       where: { id: entryId },
+      include: { week: { select: { tenantId: true } } },
     });
-    if (!entry) return { ok: false, error: "Eintrag nicht gefunden." };
+    if (!entry || entry.week.tenantId !== admin.tenantId) {
+      return { ok: false, error: "Eintrag nicht gefunden." };
+    }
     if (entry.deletedAt) return { ok: false, error: "Eintrag ist archiviert." };
 
-    const editable = await ensureWeekEditable(entry.weekId);
+    const editable = await ensureWeekEditable(entry.weekId, admin.tenantId);
     if (editable) return editable;
 
     const newDate = parseIsoDate(toIsoDate);

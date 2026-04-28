@@ -20,6 +20,9 @@ const {
     employee: {
       findUnique: vi.fn(),
     },
+    location: {
+      findUnique: vi.fn(),
+    },
     $transaction: vi.fn(),
   },
 }));
@@ -95,10 +98,11 @@ function buildUpdateFormData(): FormData {
 describe("employees audit coverage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    requireAdminMock.mockResolvedValue({ id: "admin-1" });
+    requireAdminMock.mockResolvedValue({ id: "admin-1", tenantId: "tenant-a" });
     bcryptHashMock.mockResolvedValue("hashed");
     writeAuditMock.mockResolvedValue(undefined);
     applyEmployeeOpeningBalancesMock.mockResolvedValue(1);
+    prismaMock.location.findUnique.mockResolvedValue({ tenantId: "tenant-a" });
   });
 
   it("writes a dedicated OPENING_BALANCES audit on employee creation", async () => {
@@ -144,6 +148,7 @@ describe("employees audit coverage", () => {
   it("writes ROLE_CHANGE audit when user role is normalized on update", async () => {
     prismaMock.employee.findUnique.mockResolvedValue({
       id: "emp-1",
+      tenantId: "tenant-a",
       userId: "user-1",
       firstName: "Eva",
       lastName: "Example",

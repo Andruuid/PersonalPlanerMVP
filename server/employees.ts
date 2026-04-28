@@ -132,6 +132,18 @@ export async function createEmployeeAction(
     };
   }
 
+  const location = await prisma.location.findUnique({
+    where: { id: data.locationId },
+    select: { tenantId: true },
+  });
+  if (!location || location.tenantId !== admin.tenantId) {
+    return {
+      ok: false,
+      error: "Standort nicht gefunden.",
+      fieldErrors: { locationId: "Standort nicht gefunden." },
+    };
+  }
+
   const passwordHash = await bcrypt.hash(data.password, 10);
 
   const { openingBookingsCreated, employee } = await prisma.$transaction(
@@ -271,6 +283,20 @@ export async function updateEmployeeAction(
         ok: false,
         error: "E-Mail bereits vergeben.",
         fieldErrors: { email: "E-Mail bereits vergeben." },
+      };
+    }
+  }
+
+  if (data.locationId !== before.locationId) {
+    const location = await prisma.location.findUnique({
+      where: { id: data.locationId },
+      select: { tenantId: true },
+    });
+    if (!location || location.tenantId !== admin.tenantId) {
+      return {
+        ok: false,
+        error: "Standort nicht gefunden.",
+        fieldErrors: { locationId: "Standort nicht gefunden." },
       };
     }
   }

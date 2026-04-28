@@ -50,7 +50,9 @@ export async function approveRequestAction(
   const request = await prisma.absenceRequest.findUnique({
     where: { id: requestId },
   });
-  if (!request) return { ok: false, error: "Antrag nicht gefunden." };
+  if (!request || request.tenantId !== admin.tenantId) {
+    return { ok: false, error: "Antrag nicht gefunden." };
+  }
   if (request.status !== "OPEN") {
     return { ok: false, error: "Antrag wurde bereits bearbeitet." };
   }
@@ -172,7 +174,9 @@ export async function rejectRequestAction(
   const request = await prisma.absenceRequest.findUnique({
     where: { id: requestId },
   });
-  if (!request) return { ok: false, error: "Antrag nicht gefunden." };
+  if (!request || request.tenantId !== admin.tenantId) {
+    return { ok: false, error: "Antrag nicht gefunden." };
+  }
   if (request.status !== "OPEN") {
     return { ok: false, error: "Antrag wurde bereits bearbeitet." };
   }
@@ -268,6 +272,7 @@ export async function createAbsenceRequestAction(
 
   const balances = await prisma.accountBalance.findMany({
     where: {
+      tenantId: employee.tenantId,
       employeeId,
       year: { in: years.length > 0 ? years : [startDate.getFullYear()] },
       accountType: {
@@ -298,6 +303,7 @@ export async function createAbsenceRequestAction(
 
   const created = await prisma.absenceRequest.create({
     data: {
+      tenantId: employee.tenantId,
       employeeId,
       type: data.type,
       startDate,
@@ -336,7 +342,9 @@ export async function cancelOwnRequestAction(
   const request = await prisma.absenceRequest.findUnique({
     where: { id: requestId },
   });
-  if (!request) return { ok: false, error: "Antrag nicht gefunden." };
+  if (!request || request.tenantId !== employee.tenantId) {
+    return { ok: false, error: "Antrag nicht gefunden." };
+  }
   if (request.employeeId !== employee.employeeId) {
     return { ok: false, error: "Kein Zugriff auf diesen Antrag." };
   }
@@ -377,7 +385,9 @@ export async function reopenRequestAction(
   const request = await prisma.absenceRequest.findUnique({
     where: { id: requestId },
   });
-  if (!request) return { ok: false, error: "Antrag nicht gefunden." };
+  if (!request || request.tenantId !== admin.tenantId) {
+    return { ok: false, error: "Antrag nicht gefunden." };
+  }
 
   await prisma.absenceRequest.update({
     where: { id: requestId },

@@ -23,6 +23,7 @@ describe("privacy core", () => {
     const employee = await seedEmployee(db.prisma, { locationId });
 
     const request = await createPrivacyRequest(db.prisma, {
+      tenantId: employee.tenantId,
       employeeId: employee.id,
       type: "ERASURE",
       note: "Bitte löschen",
@@ -39,11 +40,13 @@ describe("privacy core", () => {
     const decider = await seedEmployee(db.prisma, { locationId });
 
     const request = await createPrivacyRequest(db.prisma, {
+      tenantId: employee.tenantId,
       employeeId: employee.id,
       type: "EXPORT",
     });
 
     const decided = await decidePrivacyRequest(db.prisma, {
+      tenantId: employee.tenantId,
       requestId: request.id,
       status: "APPROVED",
       decidedById: decider.userId,

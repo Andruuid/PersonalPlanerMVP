@@ -141,6 +141,7 @@ async function computeErtFulfilled(
 async function upsertAndAdvanceErtCases(
   tx: Tx,
   employeeId: string,
+  tenantId: string,
   weekDays: Array<{ iso: string; kind: string; plannedMinutes: number }>,
   referenceDate: Date,
 ): Promise<void> {
@@ -150,6 +151,7 @@ async function upsertAndAdvanceErtCases(
     await tx.ertCase.upsert({
       where: { employeeId_triggerDate: { employeeId, triggerDate } },
       create: {
+        tenantId,
         employeeId,
         triggerDate,
         holidayWorkMinutes: day.plannedMinutes,
@@ -361,6 +363,7 @@ export async function recalcWeekClose(
     };
   }
 
+  const tenantId = week.tenantId;
   const days = isoWeekDays(week.year, week.weekNumber);
   const monday = days[0].date;
   const sunday = days[6].date;
@@ -368,7 +371,7 @@ export async function recalcWeekClose(
 
   const employees = (
     await prisma.employee.findMany({
-      where: { isActive: true, deletedAt: null },
+      where: { tenantId, isActive: true, deletedAt: null },
     })
   ).filter((employee) => isEmployeeActiveOnDate(employee, sunday));
 
@@ -379,6 +382,7 @@ export async function recalcWeekClose(
   const locationIds = Array.from(new Set(employees.map((e) => e.locationId)));
   const holidayRows = await prisma.holiday.findMany({
     where: {
+      tenantId,
       locationId: { in: locationIds },
       date: {
         gte: new Date(week.year - 1, 11, 1),
@@ -422,6 +426,7 @@ export async function recalcWeekClose(
 
     const priorWeekCloseBookings = await tx.booking.findMany({
       where: {
+        tenantId,
         bookingType: { in: ["AUTO_WEEKLY", "FREE_REQUESTED"] },
         date: { gte: weekStart, lt: weekEndExclusive },
       },
@@ -455,7 +460,7 @@ export async function recalcWeekClose(
           tztModel: employee.tztModel,
         },
       );
-      await upsertAndAdvanceErtCases(tx, employee.id, result.days, sunday);
+      await upsertAndAdvanceErtCases(tx, employee.id, tenantId, result.days, sunday);
 
       const accountsToTouch: Set<AccountType> =
         touchedFromPrior.get(employee.id) ?? new Set<AccountType>();
@@ -574,6 +579,7 @@ export async function removeWeekClosingBookings(
   });
   if (!week) return { weekId, bookingsRemoved: 0 };
 
+  const tenantId = week.tenantId;
   const days = isoWeekDays(week.year, week.weekNumber);
   const monday = days[0].date;
   const sunday = days[6].date;
@@ -587,6 +593,7 @@ export async function removeWeekClosingBookings(
   await prisma.$transaction(async (tx) => {
     const bookings = await tx.booking.findMany({
       where: {
+        tenantId,
         bookingType: { in: ["AUTO_WEEKLY", "FREE_REQUESTED"] },
         date: { gte: weekStart, lt: weekEndExclusive },
       },
@@ -621,6 +628,7 @@ export async function removeWeekClosingBookings(
 
 export interface ApplyManualBookingInput {
   employeeId: string;
+  tenantId?: string;
   accountType: AccountType;
   /** Local-midnight date of the booking. */
   date: Date;
@@ -667,7 +675,7 @@ export async function applyManualBooking(
       exitDate: true,
     },
   });
-  if (!employee) {
+  if (!employee || (input.tenantId && employee.tenantId !== input.tenantId)) {
     throw new ManualBookingError(
       "Mitarbeitende:r nicht gefunden",
       "EMPLOYEE_NOT_FOUND",
@@ -736,9 +744,13 @@ export class DeleteBookingError extends Error {
 export async function deleteBooking(
   prisma: PrismaClient,
   bookingId: string,
+  tenantId?: string,
 ): Promise<DeleteBookingResult> {
   const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
   if (!booking) {
+    throw new DeleteBookingError("Buchung nicht gefunden", "NOT_FOUND");
+  }
+  if (tenantId && booking.tenantId !== tenantId) {
     throw new DeleteBookingError("Buchung nicht gefunden", "NOT_FOUND");
   }
   if (booking.bookingType === "AUTO_WEEKLY" || booking.bookingType === "FREE_REQUESTED") {
@@ -791,15 +803,20 @@ export async function applyYearEndCarryover(
   prisma: PrismaClient,
   fromYear: number,
   initiatedByUserId: string,
+  tenantId?: string,
 ): Promise<YearEndCarryoverResult> {
   const toYear = fromYear + 1;
   const carryDate = new Date(toYear, 0, 1);
   const carryDateNext = addDays(carryDate, 1);
 
+  const employeeWhere: { isActive: boolean; deletedAt: null; tenantId?: string } = {
+    isActive: true,
+    deletedAt: null,
+  };
+  if (tenantId) employeeWhere.tenantId = tenantId;
+
   const employees = (
-    await prisma.employee.findMany({
-      where: { isActive: true, deletedAt: null },
-    })
+    await prisma.employee.findMany({ where: employeeWhere })
   ).filter((employee) => isEmployeeActiveOnDate(employee, carryDate));
 
   let bookingsCreated = 0;

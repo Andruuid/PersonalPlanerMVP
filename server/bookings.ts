@@ -114,6 +114,7 @@ export async function manualBookingAction(
   try {
     const result = await applyManualBooking(prisma, {
       employeeId: data.employeeId,
+      tenantId: admin.tenantId,
       accountType: data.accountType,
       date,
       value: data.value,
@@ -154,7 +155,7 @@ export async function deleteBookingAction(
   const admin = await requireAdmin();
 
   try {
-    const result = await deleteBooking(prisma, bookingId);
+    const result = await deleteBooking(prisma, bookingId, admin.tenantId);
 
     await writeAudit({
       userId: admin.id,
@@ -206,6 +207,7 @@ export async function runYearEndCarryoverAction(
     prisma,
     parsed.data.fromYear,
     admin.id,
+    admin.tenantId,
   );
 
   await writeAudit({
