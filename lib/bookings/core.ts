@@ -673,9 +673,14 @@ export async function applyManualBooking(
       vacationDaysPerYear: true,
       entryDate: true,
       exitDate: true,
+      deletedAt: true,
     },
   });
-  if (!employee || (input.tenantId && employee.tenantId !== input.tenantId)) {
+  if (
+    !employee ||
+    employee.deletedAt ||
+    (input.tenantId && employee.tenantId !== input.tenantId)
+  ) {
     throw new ManualBookingError(
       "Mitarbeitende:r nicht gefunden",
       "EMPLOYEE_NOT_FOUND",

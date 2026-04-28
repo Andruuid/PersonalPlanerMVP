@@ -201,4 +201,61 @@ describe("employees audit coverage", () => {
       ),
     ).toBe(true);
   });
+
+  it("clears archive fields when an employee is reactivated through edit", async () => {
+    const employeeUpdate = vi.fn().mockResolvedValue({
+      id: "emp-1",
+      firstName: "Eva",
+      lastName: "Example",
+      roleLabel: "Service",
+      pensum: 80,
+      locationId: "loc-1",
+      vacationDaysPerYear: 25,
+      weeklyTargetMinutes: 2016,
+      hazMinutesPerWeek: 2700,
+      tztModel: "DAILY_QUOTA",
+      isActive: true,
+    });
+    prismaMock.employee.findUnique.mockResolvedValue({
+      id: "emp-1",
+      tenantId: "tenant-a",
+      userId: "user-1",
+      firstName: "Eva",
+      lastName: "Example",
+      roleLabel: "Service",
+      pensum: 80,
+      locationId: "loc-1",
+      vacationDaysPerYear: 25,
+      weeklyTargetMinutes: 2016,
+      hazMinutesPerWeek: 2700,
+      tztModel: "DAILY_QUOTA",
+      isActive: false,
+      deletedAt: new Date("2026-01-01T00:00:00.000Z"),
+      archivedUntil: new Date("2036-01-01T00:00:00.000Z"),
+      user: { id: "user-1", email: "employee@example.com", isActive: false, role: "EMPLOYEE" },
+    });
+    prismaMock.$transaction.mockImplementation(async (cb) =>
+      cb({
+        user: {
+          update: vi.fn().mockResolvedValue({ id: "user-1" }),
+        },
+        employee: {
+          update: employeeUpdate,
+        },
+      }),
+    );
+
+    const result = await updateEmployeeAction(undefined, buildUpdateFormData());
+
+    expect(result.ok).toBe(true);
+    expect(employeeUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          isActive: true,
+          deletedAt: null,
+          archivedUntil: null,
+        }),
+      }),
+    );
+  });
 });

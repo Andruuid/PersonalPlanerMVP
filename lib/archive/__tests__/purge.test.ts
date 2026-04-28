@@ -236,4 +236,37 @@ describe("purgeArchivedData", () => {
     expect(await db.prisma.location.findUnique({ where: { id: tenantALocation } })).toBeNull();
     expect(await db.prisma.location.findUnique({ where: { id: tenantBLocation } })).not.toBeNull();
   });
+
+  it("does not purge an archived week while active plan entries still reference it", async () => {
+    const locationId = await seedLocation(db.prisma, "Active Child Loc");
+    const employee = await seedEmployee(db.prisma, { locationId });
+    const week = await db.prisma.week.create({
+      data: {
+        year: 2025,
+        weekNumber: 12,
+        status: "DRAFT",
+        deletedAt: new Date("2025-01-01T00:00:00.000Z"),
+        archivedUntil: new Date("2026-01-01T00:00:00.000Z"),
+      },
+    });
+    const entry = await db.prisma.planEntry.create({
+      data: {
+        weekId: week.id,
+        employeeId: employee.id,
+        date: new Date("2025-03-17T00:00:00.000Z"),
+        kind: "ABSENCE",
+        absenceType: "VACATION",
+        plannedMinutes: 0,
+      },
+    });
+
+    const result = await purgeArchivedData(db.prisma, {
+      allTenants: true,
+      now: new Date("2037-01-01T00:00:00.000Z"),
+    });
+
+    expect(result.deleted.weeks).toBe(0);
+    expect(await db.prisma.week.findUnique({ where: { id: week.id } })).not.toBeNull();
+    expect(await db.prisma.planEntry.findUnique({ where: { id: entry.id } })).not.toBeNull();
+  });
 });

@@ -19,12 +19,12 @@ export default async function AdminLayout({
 
   const [locations, employees] = await Promise.all([
     prisma.location.findMany({
-      where: { tenantId: session.user.tenantId },
+      where: { tenantId: session.user.tenantId, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
     prisma.employee.findMany({
-      where: { tenantId: session.user.tenantId, isActive: true },
+      where: { tenantId: session.user.tenantId, isActive: true, deletedAt: null },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
       select: { id: true, firstName: true, lastName: true, roleLabel: true },
     }),

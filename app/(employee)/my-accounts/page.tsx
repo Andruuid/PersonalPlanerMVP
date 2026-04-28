@@ -32,8 +32,8 @@ export default async function MyAccountsPage({ searchParams }: PageProps) {
 
   const employee = await prisma.employee.findFirst({
     where: isAdminPreview
-      ? { id: params.employee, tenantId: session.user.tenantId }
-      : { userId: session.user.id, tenantId: session.user.tenantId },
+      ? { id: params.employee, tenantId: session.user.tenantId, deletedAt: null }
+      : { userId: session.user.id, tenantId: session.user.tenantId, deletedAt: null },
     select: { id: true, firstName: true, lastName: true, roleLabel: true },
   });
 

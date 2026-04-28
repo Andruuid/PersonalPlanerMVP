@@ -41,7 +41,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   const params = await searchParams;
 
   const locations = await prisma.location.findMany({
-    where: { tenantId: admin.tenantId },
+    where: { tenantId: admin.tenantId, deletedAt: null },
     orderBy: { name: "asc" },
     include: {
       _count: { select: { employees: true, holidays: true } },

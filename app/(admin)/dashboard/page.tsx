@@ -43,15 +43,15 @@ const getCachedDashboardData = unstable_cache(
           where: {
             tenantId_year_weekNumber: { tenantId, year: weekYear, weekNumber },
           },
-          select: { status: true },
+          select: { status: true, deletedAt: true },
         }),
-        prisma.employee.count({ where: { tenantId, isActive: true } }),
+        prisma.employee.count({ where: { tenantId, isActive: true, deletedAt: null } }),
         prisma.auditLog.count({ where: { tenantId, createdAt: { gte: today } } }),
         listAuditLogs(prisma, { tenantId }, { page: 1, pageSize: 5 }),
       ]);
     return {
       openRequests,
-      currentWeek,
+      currentWeek: currentWeek?.deletedAt ? null : currentWeek,
       activeEmployees,
       auditToday,
       recentList,

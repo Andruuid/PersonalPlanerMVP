@@ -34,7 +34,11 @@ export default async function MyRequestsPage() {
   }
 
   const employee = await prisma.employee.findFirst({
-    where: { id: session.user.employeeId, tenantId: session.user.tenantId },
+    where: {
+      id: session.user.employeeId,
+      tenantId: session.user.tenantId,
+      deletedAt: null,
+    },
     select: { id: true, firstName: true, lastName: true },
   });
   if (!employee) redirect("/login");

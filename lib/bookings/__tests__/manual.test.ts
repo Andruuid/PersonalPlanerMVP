@@ -220,6 +220,32 @@ describe("applyManualBooking", () => {
     ).rejects.toBeInstanceOf(ManualBookingError);
   });
 
+  it("rejects a soft-deleted employee", async () => {
+    const employee = await seedEmployee(db.prisma, { locationId, isActive: false });
+    await db.prisma.employee.update({
+      where: { id: employee.id },
+      data: {
+        deletedAt: new Date("2026-01-01T00:00:00.000Z"),
+        archivedUntil: new Date("2036-01-01T00:00:00.000Z"),
+      },
+    });
+
+    await expect(
+      applyManualBooking(db.prisma, {
+        employeeId: employee.id,
+        accountType: "ZEITSALDO",
+        date: parseIsoDate("2026-03-15")!,
+        value: 60,
+        bookingType: "MANUAL_CREDIT",
+        comment: "archiviert",
+        createdByUserId: adminId,
+      }),
+    ).rejects.toMatchObject({
+      name: "ManualBookingError",
+      code: "EMPLOYEE_NOT_FOUND",
+    });
+  });
+
   it("rejects a booking date before entryDate", async () => {
     const employee = await seedEmployee(db.prisma, {
       locationId,

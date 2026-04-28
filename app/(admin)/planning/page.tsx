@@ -168,7 +168,7 @@ export default async function PlanningPage({ searchParams }: PageProps) {
   const [employees, services, planEntries, openRequests, locations] =
     await Promise.all([
       prisma.employee.findMany({
-        where: { tenantId: admin.tenantId, isActive: true },
+        where: { tenantId: admin.tenantId, isActive: true, deletedAt: null },
         orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
         include: {
           location: { select: { name: true } },
@@ -182,7 +182,7 @@ export default async function PlanningPage({ searchParams }: PageProps) {
         where: {
           weekId: week.id,
           deletedAt: null,
-          employee: { tenantId: admin.tenantId },
+          employee: { tenantId: admin.tenantId, deletedAt: null },
         },
         include: {
           serviceTemplate: {
@@ -218,7 +218,11 @@ export default async function PlanningPage({ searchParams }: PageProps) {
           employee: { select: { firstName: true, lastName: true } },
         },
       }),
-      prisma.location.findMany({ where: { tenantId: admin.tenantId }, orderBy: { name: "asc" }, take: 1 }),
+      prisma.location.findMany({
+        where: { tenantId: admin.tenantId, deletedAt: null },
+        orderBy: { name: "asc" },
+        take: 1,
+      }),
     ]);
 
   const entries: EntryMap = {};

@@ -48,8 +48,8 @@ export default async function MyWeekPage({ searchParams }: PageProps) {
 
   const employee = await prisma.employee.findFirst({
     where: isAdminPreview
-      ? { id: params.employee, tenantId: session.user.tenantId }
-      : { userId: session.user.id, tenantId: session.user.tenantId },
+      ? { id: params.employee, tenantId: session.user.tenantId, deletedAt: null }
+      : { userId: session.user.id, tenantId: session.user.tenantId, deletedAt: null },
     include: {
       location: { select: { id: true, name: true } },
     },

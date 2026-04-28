@@ -67,8 +67,8 @@ export async function loadMyWeek(
   const year = options.year ?? current.year;
   const weekNumber = options.weekNumber ?? current.weekNumber;
 
-  const week = await prisma.week.findUnique({
-    where: { tenantId_year_weekNumber: { tenantId: user.tenantId, year, weekNumber } },
+  const week = await prisma.week.findFirst({
+    where: { tenantId: user.tenantId, year, weekNumber, deletedAt: null },
     include: {
       snapshots: {
         orderBy: { publishedAt: "desc" },

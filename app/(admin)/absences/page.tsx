@@ -84,7 +84,7 @@ export default async function AbsencesPage({ searchParams }: PageProps) {
       },
     }),
     prisma.employee.findMany({
-      where: { tenantId: admin.tenantId, isActive: true },
+      where: { tenantId: admin.tenantId, isActive: true, deletedAt: null },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
       select: { id: true, firstName: true, lastName: true },
     }),

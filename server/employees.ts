@@ -134,9 +134,9 @@ export async function createEmployeeAction(
 
   const location = await prisma.location.findUnique({
     where: { id: data.locationId },
-    select: { tenantId: true },
+    select: { tenantId: true, deletedAt: true },
   });
-  if (!location || location.tenantId !== admin.tenantId) {
+  if (!location || location.tenantId !== admin.tenantId || location.deletedAt) {
     return {
       ok: false,
       error: "Standort nicht gefunden.",
@@ -145,6 +145,7 @@ export async function createEmployeeAction(
   }
 
   const passwordHash = await bcrypt.hash(data.password, 10);
+  const archivedAt = new Date();
 
   const { openingBookingsCreated, employee } = await prisma.$transaction(
     async (tx) => {
@@ -174,6 +175,8 @@ export async function createEmployeeAction(
           hazMinutesPerWeek: data.hazMinutesPerWeek,
           tztModel: data.tztModel,
           isActive: data.isActive,
+          deletedAt: data.isActive ? null : archivedAt,
+          archivedUntil: data.isActive ? null : archiveUntil(archivedAt),
         },
       });
 
@@ -287,24 +290,23 @@ export async function updateEmployeeAction(
     }
   }
 
-  if (data.locationId !== before.locationId) {
-    const location = await prisma.location.findUnique({
-      where: { id: data.locationId },
-      select: { tenantId: true },
-    });
-    if (!location || location.tenantId !== admin.tenantId) {
-      return {
-        ok: false,
-        error: "Standort nicht gefunden.",
-        fieldErrors: { locationId: "Standort nicht gefunden." },
-      };
-    }
+  const location = await prisma.location.findUnique({
+    where: { id: data.locationId },
+    select: { tenantId: true, deletedAt: true },
+  });
+  if (!location || location.tenantId !== admin.tenantId || location.deletedAt) {
+    return {
+      ok: false,
+      error: "Standort nicht gefunden.",
+      fieldErrors: { locationId: "Standort nicht gefunden." },
+    };
   }
 
   const passwordHash =
     data.password && data.password.length > 0
       ? await bcrypt.hash(data.password, 10)
       : undefined;
+  const archivedAt = new Date();
 
   const updated = await prisma.$transaction(async (tx) => {
     await tx.user.update({
@@ -332,6 +334,10 @@ export async function updateEmployeeAction(
         hazMinutesPerWeek: data.hazMinutesPerWeek,
         tztModel: data.tztModel,
         isActive: data.isActive,
+        deletedAt: data.isActive ? null : (before.deletedAt ?? archivedAt),
+        archivedUntil: data.isActive
+          ? null
+          : (before.archivedUntil ?? archiveUntil(archivedAt)),
       },
     });
   });

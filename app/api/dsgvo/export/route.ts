@@ -11,12 +11,17 @@ export async function GET() {
 
   const employeeId = session.user.employeeId;
   const employee = await prisma.employee.findFirst({
-    where: { id: employeeId, tenantId: session.user.tenantId },
+    where: { id: employeeId, tenantId: session.user.tenantId, deletedAt: null },
     include: {
       user: { select: { id: true, email: true, role: true, isActive: true } },
       accountBalances: { where: { tenantId: session.user.tenantId } },
       bookings: { where: { tenantId: session.user.tenantId } },
-      planEntries: { where: { week: { tenantId: session.user.tenantId } } },
+      planEntries: {
+        where: {
+          deletedAt: null,
+          week: { tenantId: session.user.tenantId, deletedAt: null },
+        },
+      },
       absenceRequests: { where: { tenantId: session.user.tenantId } },
       privacyRequests: { where: { tenantId: session.user.tenantId } },
     },

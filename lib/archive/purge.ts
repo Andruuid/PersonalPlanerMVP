@@ -52,6 +52,12 @@ export async function purgeArchivedData(
       where: {
         deletedAt: { not: null },
         archivedUntil: { lte: asOf },
+        planEntries: {
+          every: {
+            deletedAt: { not: null },
+            archivedUntil: { lte: asOf },
+          },
+        },
         ...(tenantId ? { tenantId } : {}),
       },
       select: { id: true },
@@ -60,6 +66,12 @@ export async function purgeArchivedData(
       where: {
         deletedAt: { not: null },
         archivedUntil: { lte: asOf },
+        planEntries: {
+          every: {
+            deletedAt: { not: null },
+            archivedUntil: { lte: asOf },
+          },
+        },
         ...(tenantId ? { tenantId } : {}),
       },
       select: { id: true },
@@ -68,6 +80,12 @@ export async function purgeArchivedData(
       where: {
         deletedAt: { not: null },
         archivedUntil: { lte: asOf },
+        employees: {
+          every: {
+            deletedAt: { not: null },
+            archivedUntil: { lte: asOf },
+          },
+        },
         ...(tenantId ? { tenantId } : {}),
       },
       select: { id: true },

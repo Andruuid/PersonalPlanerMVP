@@ -61,7 +61,7 @@ export async function loadMyAccounts(
       where: { tenantId: user.tenantId, employeeId, year },
     }),
     prisma.employee.findFirst({
-      where: { id: employeeId, tenantId: user.tenantId },
+      where: { id: employeeId, tenantId: user.tenantId, deletedAt: null },
       select: { vacationDaysPerYear: true },
     }),
   ]);

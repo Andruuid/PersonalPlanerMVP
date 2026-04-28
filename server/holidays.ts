@@ -57,9 +57,9 @@ export async function addHolidayAction(
 
   const location = await prisma.location.findUnique({
     where: { id: data.locationId },
-    select: { tenantId: true },
+    select: { tenantId: true, deletedAt: true },
   });
-  if (!location || location.tenantId !== admin.tenantId) {
+  if (!location || location.tenantId !== admin.tenantId || location.deletedAt) {
     return {
       ok: false,
       error: "Standort nicht gefunden.",
@@ -153,7 +153,7 @@ export async function generateRegionHolidaysAction(
   const location = await prisma.location.findUnique({
     where: { id: locationId },
   });
-  if (!location) {
+  if (!location || location.deletedAt) {
     return { ok: false, error: "Standort nicht gefunden." };
   }
   if (location.tenantId !== admin.tenantId) {

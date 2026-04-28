@@ -56,6 +56,18 @@ export async function approveRequestAction(
   if (request.status !== "OPEN") {
     return { ok: false, error: "Antrag wurde bereits bearbeitet." };
   }
+  const employee = await prisma.employee.findFirst({
+    where: {
+      id: request.employeeId,
+      tenantId: admin.tenantId,
+      isActive: true,
+      deletedAt: null,
+    },
+    select: { id: true },
+  });
+  if (!employee) {
+    return { ok: false, error: "Mitarbeitende:r ist archiviert." };
+  }
 
   const absenceType = REQUEST_TO_ABSENCE[request.type];
   let replacedEntryCount = 0;
@@ -259,7 +271,12 @@ export async function createAbsenceRequestAction(
     new Set(Array.from(requestedWeekdaysByYear(startDate, endDate).keys())),
   );
   const employeeRow = await prisma.employee.findFirst({
-    where: { id: employeeId, tenantId: employee.tenantId },
+    where: {
+      id: employeeId,
+      tenantId: employee.tenantId,
+      isActive: true,
+      deletedAt: null,
+    },
     select: {
       weeklyTargetMinutes: true,
       vacationDaysPerYear: true,

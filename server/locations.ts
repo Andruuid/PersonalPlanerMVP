@@ -90,7 +90,7 @@ export async function updateLocationAction(
   const data = parsed.data;
 
   const before = await prisma.location.findUnique({ where: { id: data.id } });
-  if (!before) {
+  if (!before || before.deletedAt) {
     return { ok: false, error: "Standort nicht gefunden." };
   }
   if (before.tenantId !== admin.tenantId) {

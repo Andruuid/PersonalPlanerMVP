@@ -25,7 +25,10 @@ export default async function EmployeesPage() {
         location: { select: { id: true, name: true } },
       },
     }),
-    prisma.location.findMany({ where: { tenantId: admin.tenantId }, orderBy: { name: "asc" } }),
+    prisma.location.findMany({
+      where: { tenantId: admin.tenantId, deletedAt: null },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   const rows: EmployeeRow[] = employees.map((e) => ({
