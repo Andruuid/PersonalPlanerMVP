@@ -9,43 +9,10 @@ import {
   safeRevalidatePath,
   type ActionResult,
 } from "./_shared";
-import { recalcWeekClose, removeWeekClosingBookings } from "./bookings";
-
-export interface WeekIdentity {
-  id: string;
-  year: number;
-  weekNumber: number;
-  status: "DRAFT" | "PUBLISHED" | "CLOSED";
-  publishedAt: Date | null;
-  closedAt: Date | null;
-}
-
-/**
- * Returns the Week row for (year, weekNumber), creating it as DRAFT if missing.
- * Read-only callers (page loads) can use this safely; it does not require admin.
- */
-export async function getOrCreateWeek(
-  tenantId: string,
-  year: number,
-  weekNumber: number,
-): Promise<WeekIdentity> {
-  const existing = await prisma.week.findUnique({
-    where: { tenantId_year_weekNumber: { tenantId, year, weekNumber } },
-  });
-  if (existing && !existing.deletedAt) return existing as WeekIdentity;
-  if (existing && existing.deletedAt) {
-    const revived = await prisma.week.update({
-      where: { id: existing.id },
-      data: { deletedAt: null, archivedUntil: null },
-    });
-    return revived as WeekIdentity;
-  }
-
-  const created = await prisma.week.create({
-    data: { tenantId, year, weekNumber, status: "DRAFT" },
-  });
-  return created as WeekIdentity;
-}
+import {
+  recalcWeekCloseForAdmin,
+  removeWeekClosingBookingsForAdmin,
+} from "./week-booking-helpers";
 
 interface SnapshotEntry {
   id: string;
@@ -99,7 +66,7 @@ async function buildSnapshot(weekId: string, tenantId: string): Promise<WeekSnap
       },
     }),
     prisma.planEntry.findMany({
-      where: { weekId, deletedAt: null },
+      where: { weekId, deletedAt: null, employee: { tenantId } },
       include: {
         serviceTemplate: {
           select: {
@@ -243,7 +210,7 @@ export async function closeWeekAction(weekId: string): Promise<ActionResult> {
   }
 
   try {
-    await recalcWeekClose(weekId, admin.id);
+    await recalcWeekCloseForAdmin(weekId, admin.id);
   } catch (err) {
     return { ok: false, error: actionErrorFromDatabase(err) };
   }
@@ -290,7 +257,7 @@ export async function reopenWeekAction(weekId: string): Promise<ActionResult> {
   }
 
   try {
-    await removeWeekClosingBookings(weekId, admin.id);
+    await removeWeekClosingBookingsForAdmin(weekId, admin.id);
   } catch (err) {
     return { ok: false, error: actionErrorFromDatabase(err) };
   }

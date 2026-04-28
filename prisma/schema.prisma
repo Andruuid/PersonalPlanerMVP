@@ -112,7 +112,7 @@ model User {
   id           String     @id @default(cuid())
   tenantId     String     @default("default")
   tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  email        String
+  email        String     @unique
   passwordHash String
   role         Role
   isActive     Boolean    @default(true)

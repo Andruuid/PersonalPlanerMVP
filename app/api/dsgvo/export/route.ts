@@ -14,11 +14,11 @@ export async function GET() {
     where: { id: employeeId, tenantId: session.user.tenantId },
     include: {
       user: { select: { id: true, email: true, role: true, isActive: true } },
-      accountBalances: true,
-      bookings: true,
-      planEntries: true,
-      absenceRequests: true,
-      privacyRequests: true,
+      accountBalances: { where: { tenantId: session.user.tenantId } },
+      bookings: { where: { tenantId: session.user.tenantId } },
+      planEntries: { where: { week: { tenantId: session.user.tenantId } } },
+      absenceRequests: { where: { tenantId: session.user.tenantId } },
+      privacyRequests: { where: { tenantId: session.user.tenantId } },
     },
   });
   if (!employee) {

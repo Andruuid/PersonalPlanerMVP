@@ -376,7 +376,7 @@ export async function recalcWeekClose(
   ).filter((employee) => isEmployeeActiveOnDate(employee, sunday));
 
   const planEntries = await prisma.planEntry.findMany({
-    where: { weekId, deletedAt: null },
+    where: { weekId, deletedAt: null, employee: { tenantId } },
   });
 
   const locationIds = Array.from(new Set(employees.map((e) => e.locationId)));

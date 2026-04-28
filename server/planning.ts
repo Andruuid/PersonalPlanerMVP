@@ -351,6 +351,18 @@ export async function movePlanEntryAction(
     const newDate = parseIsoDate(toIsoDate);
     if (!newDate) return { ok: false, error: "Datum ungültig." };
 
+    const targetEmployee = await prisma.employee.findUnique({
+      where: { id: toEmployeeId },
+      select: { tenantId: true, deletedAt: true },
+    });
+    if (
+      !targetEmployee ||
+      targetEmployee.tenantId !== admin.tenantId ||
+      targetEmployee.deletedAt
+    ) {
+      return { ok: false, error: "Mitarbeitende:r nicht gefunden." };
+    }
+
     const sameSlot =
       entry.employeeId === toEmployeeId &&
       isoDateString(entry.date) === toIsoDate;

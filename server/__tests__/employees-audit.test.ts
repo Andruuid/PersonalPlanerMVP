@@ -16,6 +16,7 @@ const {
   prismaMock: {
     user: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
     },
     employee: {
       findUnique: vi.fn(),

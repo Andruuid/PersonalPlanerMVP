@@ -5,6 +5,10 @@ export interface PurgeArchivedOptions {
   now?: Date;
   /** When true, only computes candidates without deleting anything. */
   dryRun?: boolean;
+  /** Restrict purge to one tenant. Prefer this for production operations. */
+  tenantId?: string;
+  /** Explicit opt-in for database-wide purge. */
+  allTenants?: boolean;
 }
 
 export interface PurgeArchivedResult {
@@ -30,12 +34,17 @@ export async function purgeArchivedData(
 ): Promise<PurgeArchivedResult> {
   const asOf = options.now ?? new Date();
   const dryRun = options.dryRun ?? false;
+  if (!options.tenantId && !options.allTenants) {
+    throw new Error("purgeArchivedData requires tenantId or allTenants: true");
+  }
+  const tenantId = options.tenantId;
 
   const [planEntries, weeks, employees, locations] = await Promise.all([
     prisma.planEntry.findMany({
       where: {
         deletedAt: { not: null },
         archivedUntil: { lte: asOf },
+        ...(tenantId ? { week: { tenantId } } : {}),
       },
       select: { id: true },
     }),
@@ -43,6 +52,7 @@ export async function purgeArchivedData(
       where: {
         deletedAt: { not: null },
         archivedUntil: { lte: asOf },
+        ...(tenantId ? { tenantId } : {}),
       },
       select: { id: true },
     }),
@@ -50,6 +60,7 @@ export async function purgeArchivedData(
       where: {
         deletedAt: { not: null },
         archivedUntil: { lte: asOf },
+        ...(tenantId ? { tenantId } : {}),
       },
       select: { id: true },
     }),
@@ -57,6 +68,7 @@ export async function purgeArchivedData(
       where: {
         deletedAt: { not: null },
         archivedUntil: { lte: asOf },
+        ...(tenantId ? { tenantId } : {}),
       },
       select: { id: true },
     }),

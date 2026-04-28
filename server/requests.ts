@@ -258,8 +258,8 @@ export async function createAbsenceRequestAction(
   const years = Array.from(
     new Set(Array.from(requestedWeekdaysByYear(startDate, endDate).keys())),
   );
-  const employeeRow = await prisma.employee.findUnique({
-    where: { id: employeeId },
+  const employeeRow = await prisma.employee.findFirst({
+    where: { id: employeeId, tenantId: employee.tenantId },
     select: {
       weeklyTargetMinutes: true,
       vacationDaysPerYear: true,

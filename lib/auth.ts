@@ -47,13 +47,8 @@ export const {
         if (!parsed.success) return null;
         const { email, password } = parsed.data;
 
-        const tenant = await prisma.tenant.findUnique({
-          where: { slug: "default" },
-        });
-        if (!tenant) return null;
-
-        const user = await prisma.user.findUnique({
-          where: { tenantId_email: { tenantId: tenant.id, email: email.toLowerCase() } },
+        const user = await prisma.user.findFirst({
+          where: { email: email.toLowerCase() },
           include: { employee: { select: { id: true } } },
         });
         if (!user || !user.isActive) return null;
@@ -87,7 +82,8 @@ export const {
         const t = token as Record<string, unknown>;
         session.user.id = (token.sub as string) ?? "";
         session.user.role = t.role as Role;
-        session.user.tenantId = (t.tenantId as string | undefined) ?? "default";
+        session.user.tenantId =
+          typeof t.tenantId === "string" ? t.tenantId : "";
         session.user.employeeId = (t.employeeId as string | null | undefined) ?? null;
       }
       return session;

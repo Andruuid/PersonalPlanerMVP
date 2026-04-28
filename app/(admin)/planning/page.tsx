@@ -6,7 +6,7 @@ import {
   isoWeekDays,
   startOfIsoWeek,
 } from "@/lib/time/week";
-import { getOrCreateWeek } from "@/server/weeks";
+import { getOrCreateWeekForTenant } from "@/server/week-helpers";
 import { PlanningBoard } from "@/components/planning/planning-board";
 import {
   entryKey,
@@ -160,7 +160,7 @@ export default async function PlanningPage({ searchParams }: PageProps) {
   const raw = await searchParams;
   const { year, weekNumber } = pickWeek(raw);
 
-  const week = await getOrCreateWeek(admin.tenantId, year, weekNumber);
+  const week = await getOrCreateWeekForTenant(admin.tenantId, year, weekNumber);
   const days = isoWeekDays(year, weekNumber);
   const startDate = startOfIsoWeek(year, weekNumber);
   const endDate = days[6].date;

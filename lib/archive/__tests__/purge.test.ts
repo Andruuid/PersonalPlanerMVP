@@ -62,6 +62,7 @@ describe("purgeArchivedData", () => {
 
     const result = await purgeArchivedData(db.prisma, {
       dryRun: true,
+      allTenants: true,
       now: new Date("2037-01-01T00:00:00.000Z"),
     });
 
@@ -184,6 +185,7 @@ describe("purgeArchivedData", () => {
     });
 
     const result = await purgeArchivedData(db.prisma, {
+      allTenants: true,
       now: new Date("2037-01-01T00:00:00.000Z"),
     });
 
@@ -201,5 +203,37 @@ describe("purgeArchivedData", () => {
     expect(await db.prisma.location.findUnique({ where: { id: expiredLocation } })).toBeNull();
     expect(await db.prisma.location.findUnique({ where: { id: keptLocation } })).not.toBeNull();
     expect(await db.prisma.auditLog.count()).toBe(1);
+  });
+
+  it("can purge one tenant without deleting another tenant's expired archive", async () => {
+    const tenantB = await db.prisma.tenant.create({
+      data: { id: "tenant-b", name: "Tenant B", slug: "tenant-b" },
+    });
+    const tenantALocation = await seedLocation(db.prisma, "Tenant A Loc", "ZH", "default");
+    const tenantBLocation = await seedLocation(db.prisma, "Tenant B Loc", "BE", tenantB.id);
+
+    await db.prisma.location.update({
+      where: { id: tenantALocation },
+      data: {
+        deletedAt: new Date("2025-01-01T00:00:00.000Z"),
+        archivedUntil: new Date("2026-01-01T00:00:00.000Z"),
+      },
+    });
+    await db.prisma.location.update({
+      where: { id: tenantBLocation },
+      data: {
+        deletedAt: new Date("2025-01-01T00:00:00.000Z"),
+        archivedUntil: new Date("2026-01-01T00:00:00.000Z"),
+      },
+    });
+
+    const result = await purgeArchivedData(db.prisma, {
+      tenantId: "default",
+      now: new Date("2037-01-01T00:00:00.000Z"),
+    });
+
+    expect(result.deleted.locations).toBe(1);
+    expect(await db.prisma.location.findUnique({ where: { id: tenantALocation } })).toBeNull();
+    expect(await db.prisma.location.findUnique({ where: { id: tenantBLocation } })).not.toBeNull();
   });
 });

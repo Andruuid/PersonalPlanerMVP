@@ -161,37 +161,51 @@ async function main() {
 
   // Admin user.
   const adminPwd = await bcrypt.hash("admin123", 10);
-  await prisma.user.upsert({
-    where: { tenantId_email: { tenantId, email: "admin@demo.ch" } },
-    update: { tenantId, passwordHash: adminPwd, role: "ADMIN", isActive: true },
-    create: {
-      tenantId,
-      email: "admin@demo.ch",
-      passwordHash: adminPwd,
-      role: "ADMIN",
-      isActive: true,
-    },
+  const existingAdmin = await prisma.user.findFirst({
+    where: { email: "admin@demo.ch" },
   });
+  if (existingAdmin) {
+    await prisma.user.update({
+      where: { id: existingAdmin.id },
+      data: { tenantId, passwordHash: adminPwd, role: "ADMIN", isActive: true },
+    });
+  } else {
+    await prisma.user.create({
+      data: {
+        tenantId,
+        email: "admin@demo.ch",
+        passwordHash: adminPwd,
+        role: "ADMIN",
+        isActive: true,
+      },
+    });
+  }
 
   // Demo employees + their User accounts.
   for (const e of DEMO_EMPLOYEES) {
     const pwd = await bcrypt.hash(e.password, 10);
-    const user = await prisma.user.upsert({
-      where: { tenantId_email: { tenantId, email: e.email } },
-      update: { tenantId, passwordHash: pwd, role: "EMPLOYEE", isActive: true },
-      create: {
-        tenantId,
-        email: e.email,
-        passwordHash: pwd,
-        role: "EMPLOYEE",
-        isActive: true,
-      },
+    const existingUser = await prisma.user.findFirst({
+      where: { email: e.email },
     });
+    const user = existingUser
+      ? await prisma.user.update({
+          where: { id: existingUser.id },
+          data: { tenantId, passwordHash: pwd, role: "EMPLOYEE", isActive: true },
+        })
+      : await prisma.user.create({
+          data: {
+            tenantId,
+            email: e.email,
+            passwordHash: pwd,
+            role: "EMPLOYEE",
+            isActive: true,
+          },
+        });
 
     await prisma.employee.upsert({
       where: { userId: user.id },
       update: {
-        tenantId,
+      tenantId,
         firstName: e.firstName,
         lastName: e.lastName,
         roleLabel: e.roleLabel,

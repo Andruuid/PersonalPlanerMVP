@@ -2,8 +2,9 @@
  * Purge soft-deleted archived data whose retention window has expired.
  *
  * Usage:
- *   npm run db:purge:archived
- *   npm run db:purge:archived -- --dry-run
+ *   npm run db:purge:archived -- --tenant-id=<tenant-id>
+ *   npm run db:purge:archived -- --tenant-id=<tenant-id> --dry-run
+ *   npm run db:purge:archived -- --all-tenants --dry-run
  */
 import { config as loadDotenv } from "dotenv";
 import { PrismaClient } from "../lib/generated/prisma/client";
@@ -14,6 +15,9 @@ loadDotenv({ path: ".env.local" });
 loadDotenv({ path: ".env" });
 
 const dryRun = process.argv.includes("--dry-run");
+const allTenants = process.argv.includes("--all-tenants");
+const tenantIdArg = process.argv.find((arg) => arg.startsWith("--tenant-id="));
+const tenantId = tenantIdArg?.slice("--tenant-id=".length);
 
 const adapter = new PrismaLibSql({
   url: process.env.DATABASE_URL ?? "file:./prisma/dev.db",
@@ -22,11 +26,15 @@ const adapter = new PrismaLibSql({
 const prisma = new PrismaClient({ adapter, log: ["error"] });
 
 async function main() {
-  const result = await purgeArchivedData(prisma, { dryRun });
+  if (!tenantId && !allTenants) {
+    throw new Error("Pass --tenant-id=<tenant-id> or --all-tenants.");
+  }
+  const result = await purgeArchivedData(prisma, { dryRun, tenantId, allTenants });
   console.log(
     JSON.stringify(
       {
         mode: result.dryRun ? "dry-run" : "delete",
+        scope: tenantId ? { tenantId } : { allTenants: true },
         asOf: result.asOf.toISOString(),
         candidates: result.candidates,
         deleted: result.deleted,
