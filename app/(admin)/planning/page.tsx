@@ -179,7 +179,11 @@ export default async function PlanningPage({ searchParams }: PageProps) {
         orderBy: { name: "asc" },
       }),
       prisma.planEntry.findMany({
-        where: { weekId: week.id, employee: { tenantId: admin.tenantId } },
+        where: {
+          weekId: week.id,
+          deletedAt: null,
+          employee: { tenantId: admin.tenantId },
+        },
         include: {
           serviceTemplate: {
             select: {
