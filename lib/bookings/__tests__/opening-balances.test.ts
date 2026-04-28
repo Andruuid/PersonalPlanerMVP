@@ -34,6 +34,7 @@ describe("applyEmployeeOpeningBalances", () => {
     const created = await db.prisma.$transaction(async (tx) =>
       applyEmployeeOpeningBalances(tx, {
         employeeId: employee.id,
+        tenantId: employee.tenantId,
         vacationDaysPerYear: 25,
         entryDate,
         createdByUserId: adminId,
@@ -98,6 +99,7 @@ describe("applyEmployeeOpeningBalances", () => {
     const created = await db.prisma.$transaction(async (tx) =>
       applyEmployeeOpeningBalances(tx, {
         employeeId: employee.id,
+        tenantId: employee.tenantId,
         vacationDaysPerYear: 25,
         entryDate,
         createdByUserId: adminId,

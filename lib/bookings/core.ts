@@ -216,6 +216,7 @@ function isEmployeeActiveOnDate(
 async function ensureBalanceRow(
   tx: Tx,
   employeeId: string,
+  tenantId: string,
   accountType: AccountType,
   year: number,
   vacationDaysPerYear: number,
@@ -228,6 +229,7 @@ async function ensureBalanceRow(
   const opening = accountType === "FERIEN" ? vacationDaysPerYear : 0;
   await tx.accountBalance.create({
     data: {
+      tenantId,
       employeeId,
       accountType,
       year,
@@ -269,6 +271,7 @@ async function recomputeBalance(
 
 export interface EmployeeOpeningBalancesInput {
   employeeId: string;
+  tenantId: string;
   vacationDaysPerYear: number;
   entryDate: Date;
   createdByUserId: string;
@@ -293,12 +296,14 @@ export async function applyEmployeeOpeningBalances(
     await ensureBalanceRow(
       tx,
       input.employeeId,
+      input.tenantId,
       accountType,
       year,
       input.vacationDaysPerYear,
     );
     await tx.booking.create({
       data: {
+        tenantId: input.tenantId,
         employeeId: input.employeeId,
         accountType,
         date: input.entryDate,
@@ -511,12 +516,14 @@ export async function recalcWeekClose(
         await ensureBalanceRow(
           tx,
           employee.id,
+          employee.tenantId,
           b.accountType,
           yearForBookings,
           employee.vacationDaysPerYear,
         );
         await tx.booking.create({
           data: {
+            tenantId: employee.tenantId,
             employeeId: employee.id,
             accountType: b.accountType,
             date: sunday,
@@ -654,6 +661,7 @@ export async function applyManualBooking(
     where: { id: input.employeeId },
     select: {
       id: true,
+      tenantId: true,
       vacationDaysPerYear: true,
       entryDate: true,
       exitDate: true,
@@ -682,12 +690,14 @@ export async function applyManualBooking(
     await ensureBalanceRow(
       tx,
       employee.id,
+      employee.tenantId,
       input.accountType,
       year,
       employee.vacationDaysPerYear,
     );
     const created = await tx.booking.create({
       data: {
+        tenantId: employee.tenantId,
         employeeId: employee.id,
         accountType: input.accountType,
         date: input.date,
@@ -829,6 +839,7 @@ export async function applyYearEndCarryover(
         if (!existing) {
           await tx.accountBalance.create({
             data: {
+              tenantId: employee.tenantId,
               employeeId: employee.id,
               accountType,
               year: toYear,
@@ -862,6 +873,7 @@ export async function applyYearEndCarryover(
         if (plan.carryoverBooking !== 0) {
           await tx.booking.create({
             data: {
+              tenantId: employee.tenantId,
               employeeId: employee.id,
               accountType,
               date: carryDate,

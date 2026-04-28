@@ -167,6 +167,7 @@ export async function createEmployeeAction(
 
       const openingBookingsCreated = await applyEmployeeOpeningBalances(tx, {
         employeeId: emp.id,
+        tenantId: admin.tenantId,
         vacationDaysPerYear: data.vacationDaysPerYear,
         entryDate: data.entryDate,
         createdByUserId: admin.id,

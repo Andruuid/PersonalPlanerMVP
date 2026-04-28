@@ -93,8 +93,8 @@ async function main() {
     update: { name: "Demo Tenant" },
     create: { name: "Demo Tenant", slug: "demo" },
   });
-  // Keep one canonical tenant for demo records in this seed.
-  const tenantId = demoTenant.id;
+  // Use the default tenant so auth lookups (tenantId: "default") match.
+  const tenantId = defaultTenant.id;
 
   const year = new Date().getFullYear();
   for (const loc of DEMO_LOCATIONS) {
@@ -216,8 +216,8 @@ async function main() {
     });
   }
 
-  console.log(`Seeded demo data for tenant "${demoTenant.slug}".`);
-  console.log(`Ensured fallback tenant "${defaultTenant.slug}" exists for migrations/backfills.`);
+  console.log(`Seeded demo data for tenant "${defaultTenant.slug}".`);
+  console.log(`Ensured fallback tenant "${demoTenant.slug}" exists.`);
   console.log("Seed complete.");
 }
 

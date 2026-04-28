@@ -67,6 +67,7 @@ export interface SeedEmployeeOpts {
 
 export interface SeededEmployee {
   id: string;
+  tenantId: string;
   userId: string;
   locationId: string;
 }
@@ -102,7 +103,7 @@ export async function seedEmployee(
       isActive: opts.isActive ?? true,
     },
   });
-  return { id: employee.id, userId: user.id, locationId };
+  return { id: employee.id, tenantId, userId: user.id, locationId };
 }
 
 export async function seedHoliday(

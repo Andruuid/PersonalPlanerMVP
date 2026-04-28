@@ -47,8 +47,13 @@ export const {
         if (!parsed.success) return null;
         const { email, password } = parsed.data;
 
+        const tenant = await prisma.tenant.findUnique({
+          where: { slug: "default" },
+        });
+        if (!tenant) return null;
+
         const user = await prisma.user.findUnique({
-          where: { tenantId_email: { tenantId: "default", email: email.toLowerCase() } },
+          where: { tenantId_email: { tenantId: tenant.id, email: email.toLowerCase() } },
           include: { employee: { select: { id: true } } },
         });
         if (!user || !user.isActive) return null;
