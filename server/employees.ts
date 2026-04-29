@@ -107,6 +107,7 @@ const createSchema = employeeCoreSchema.extend({
   openingUezMinutes: openingAmountSchema(500_000),
   openingVacationDays: openingAmountSchema(366),
   openingTztDays: openingAmountSchema(366),
+  openingParentalCareDays: openingAmountSchema(366),
 });
 
 const updateSchema = employeeCoreSchema.extend({
@@ -142,6 +143,7 @@ function rawFromForm(formData: FormData): Record<string, unknown> {
     openingUezMinutes: formData.get("openingUezMinutes"),
     openingVacationDays: formData.get("openingVacationDays"),
     openingTztDays: formData.get("openingTztDays"),
+    openingParentalCareDays: formData.get("openingParentalCareDays"),
   };
 }
 
@@ -249,6 +251,7 @@ export async function createEmployeeAction(
           UEZ: data.openingUezMinutes,
           FERIEN: data.openingVacationDays,
           TZT: data.openingTztDays,
+          PARENTAL_CARE: data.openingParentalCareDays,
         },
       });
 
@@ -283,6 +286,7 @@ export async function createEmployeeAction(
     uezMinutes: data.openingUezMinutes,
     vacationDays: data.openingVacationDays,
     tztDays: data.openingTztDays,
+    parentalCareDays: data.openingParentalCareDays,
   };
   const hasOpeningValues = Object.values(openingValues).some((v) => v !== 0);
   if (hasOpeningValues || openingBookingsCreated > 0) {

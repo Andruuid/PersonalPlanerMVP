@@ -308,6 +308,15 @@ export function EmployeeForm({
               tooltip="Startwert für das TZT-Konto in Tagen."
               error={fieldErr.openingTztDays}
             />
+            <Field
+              label="Eltern-/Betreuung (Tage)"
+              name="openingParentalCareDays"
+              type="number"
+              step={0.5}
+              defaultValue={0}
+              tooltip="Anfangsbestand für das Eltern-/Betreuungskonto in Arbeitstagen (Vortrag)."
+              error={fieldErr.openingParentalCareDays}
+            />
           </div>
         </div>
       ) : null}

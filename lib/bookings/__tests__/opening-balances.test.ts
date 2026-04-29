@@ -97,6 +97,45 @@ describe("applyEmployeeOpeningBalances", () => {
     expect(tzt?.currentValue).toBe(1);
   });
 
+  it("creates OPENING for PARENTAL_CARE in days", async () => {
+    const employee = await seedEmployee(db.prisma, { locationId });
+    const entryDate = parseIsoDate("2026-06-01")!;
+
+    const created = await db.prisma.$transaction(async (tx) =>
+      applyEmployeeOpeningBalances(tx, {
+        employeeId: employee.id,
+        tenantId: employee.tenantId,
+        vacationDaysPerYear: 25,
+        entryDate,
+        createdByUserId: adminId,
+        openings: { PARENTAL_CARE: 5 },
+      }),
+    );
+
+    expect(created).toBe(1);
+
+    const booking = await db.prisma.booking.findFirst({
+      where: {
+        employeeId: employee.id,
+        accountType: "PARENTAL_CARE",
+        bookingType: "OPENING",
+      },
+    });
+    expect(booking?.value).toBe(5);
+
+    const row = await db.prisma.accountBalance.findUnique({
+      where: {
+        employeeId_accountType_year: {
+          employeeId: employee.id,
+          accountType: "PARENTAL_CARE",
+          year: 2026,
+        },
+      },
+    });
+    expect(row?.openingValue).toBe(5);
+    expect(row?.currentValue).toBe(5);
+  });
+
   it("skips all-zero openings", async () => {
     const employee = await seedEmployee(db.prisma, { locationId });
     const entryDate = parseIsoDate("2026-01-10")!;

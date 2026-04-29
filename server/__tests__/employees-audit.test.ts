@@ -101,6 +101,7 @@ function buildCreateFormData(): FormData {
   fd.set("openingUezMinutes", "0");
   fd.set("openingVacationDays", "0");
   fd.set("openingTztDays", "0");
+  fd.set("openingParentalCareDays", "0");
   return fd;
 }
 
