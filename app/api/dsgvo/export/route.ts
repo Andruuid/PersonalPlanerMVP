@@ -2,6 +2,35 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
+import type { AuditLog } from "@/lib/generated/prisma/client";
+
+function parseAuditStored(raw: string | null): unknown {
+  if (raw === null) return null;
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    return raw;
+  }
+}
+
+/** Redacts old/new payloads when the row refers to another employee record (DSGVO export). */
+function sanitizeAuditPayloadsForExport(
+  row: Pick<AuditLog, "entity" | "entityId" | "oldValue" | "newValue">,
+  selfEmployeeId: string,
+): { oldValue: unknown; newValue: unknown } {
+  const aboutOtherEmployee =
+    row.entity === "Employee" &&
+    row.entityId != null &&
+    row.entityId !== selfEmployeeId;
+
+  if (aboutOtherEmployee) {
+    return { oldValue: null, newValue: null };
+  }
+  return {
+    oldValue: parseAuditStored(row.oldValue),
+    newValue: parseAuditStored(row.newValue),
+  };
+}
 
 export async function GET() {
   const session = await auth();
@@ -30,6 +59,35 @@ export async function GET() {
     return NextResponse.json({ error: "Employee not found" }, { status: 404 });
   }
 
+  const auditRows = await prisma.auditLog.findMany({
+    where: {
+      tenantId: session.user.tenantId,
+      OR: [
+        { userId: session.user.id },
+        { entity: "Employee", entityId: employee.id },
+      ],
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const auditLog = auditRows.map((row) => {
+    const { oldValue, newValue } = sanitizeAuditPayloadsForExport(
+      row,
+      employee.id,
+    );
+    return {
+      id: row.id,
+      createdAt: row.createdAt.toISOString(),
+      action: row.action,
+      entity: row.entity,
+      entityId: row.entityId,
+      userId: row.userId,
+      comment: row.comment,
+      oldValue,
+      newValue,
+    };
+  });
+
   const exportPayload = {
     exportedAt: new Date().toISOString(),
     employee: {
@@ -53,6 +111,7 @@ export async function GET() {
     planEntries: employee.planEntries,
     absenceRequests: employee.absenceRequests,
     privacyRequests: employee.privacyRequests,
+    auditLog,
   };
 
   await writeAudit({
@@ -67,6 +126,7 @@ export async function GET() {
         bookings: employee.bookings.length,
         planEntries: employee.planEntries.length,
         absenceRequests: employee.absenceRequests.length,
+        auditLog: auditLog.length,
       },
     },
   });
