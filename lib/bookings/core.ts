@@ -55,6 +55,9 @@ const HEAVY_INTERACTIVE_TX: { timeout: number; maxWait: number } = {
 const ERT_MIN_REST_MINUTES = 35 * 60;
 const ERT_DUE_DAYS = 28;
 
+/** Kalendertage bis zur Wahrung Ausgleich bez. Sonntags-/Feiertagsarbeit (Spec: typ. 6 Mt., Default 180 Tage). */
+const COMPENSATION_DUE_DAYS = 180;
+
 function dateAtMidnight(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
@@ -193,6 +196,77 @@ async function upsertAndAdvanceErtCases(
         fulfilledAt: null,
       },
     });
+  }
+}
+
+async function sumCompensationRedemptionMinutesSince(
+  tx: Tx,
+  employeeId: string,
+  triggerDate: Date,
+): Promise<number> {
+  const agg = await tx.booking.aggregate({
+    where: {
+      employeeId,
+      bookingType: "COMPENSATION_REDEMPTION",
+      accountType: "SONNTAG_FEIERTAG_KOMPENSATION",
+      date: { gte: dateAtMidnight(triggerDate) },
+    },
+    _sum: { value: true },
+  });
+  const sum = agg._sum.value ?? 0;
+  return sum < 0 ? -sum : 0;
+}
+
+async function upsertAndAdvanceCompensationCases(
+  tx: Tx,
+  employeeId: string,
+  tenantId: string,
+  weekDays: Array<{ iso: string; kind: string; plannedMinutes: number }>,
+  referenceDate: Date,
+): Promise<void> {
+  for (const day of weekDays) {
+    if (day.kind !== "HOLIDAY_WORK") continue;
+    if (day.plannedMinutes <= 0 || day.plannedMinutes > 300) continue;
+    const triggerDate = new Date(`${day.iso}T00:00:00`);
+    await tx.compensationCase.upsert({
+      where: { employeeId_triggerDate: { employeeId, triggerDate } },
+      create: {
+        tenantId,
+        employeeId,
+        triggerDate,
+        holidayWorkMinutes: day.plannedMinutes,
+        status: "OPEN",
+        dueAt: addDays(triggerDate, COMPENSATION_DUE_DAYS),
+      },
+      update: {
+        holidayWorkMinutes: day.plannedMinutes,
+        dueAt: addDays(triggerDate, COMPENSATION_DUE_DAYS),
+      },
+    });
+  }
+
+  const openCases = await tx.compensationCase.findMany({
+    where: { employeeId, status: "OPEN" },
+  });
+  for (const c of openCases) {
+    const redeemed = await sumCompensationRedemptionMinutesSince(
+      tx,
+      employeeId,
+      c.triggerDate,
+    );
+    if (redeemed >= c.holidayWorkMinutes) {
+      await tx.compensationCase.update({
+        where: { id: c.id },
+        data: { status: "REDEEMED", redeemedAt: referenceDate },
+      });
+      continue;
+    }
+    if (referenceDate > c.dueAt) {
+      await tx.compensationCase.update({
+        where: { id: c.id },
+        data: { status: "EXPIRED" },
+      });
+    }
   }
 }
 
@@ -479,6 +553,13 @@ export async function recalcWeekClose(
         },
       );
       await upsertAndAdvanceErtCases(tx, employee.id, tenantId, result.days, sunday);
+      await upsertAndAdvanceCompensationCases(
+        tx,
+        employee.id,
+        tenantId,
+        result.days,
+        sunday,
+      );
 
       const accountsToTouch: Set<AccountType> =
         touchedFromPrior.get(employee.id) ?? new Set<AccountType>();

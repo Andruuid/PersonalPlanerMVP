@@ -50,6 +50,7 @@ export function makeTestDb(): TestDb {
       // FK-safe order: leaves first.
       await prisma.auditLog.deleteMany();
       await prisma.ertCase.deleteMany();
+      await prisma.compensationCase.deleteMany();
       await prisma.booking.deleteMany();
       await prisma.accountBalance.deleteMany();
       await prisma.publishedSnapshot.deleteMany();
