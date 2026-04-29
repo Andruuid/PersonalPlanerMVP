@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Suspense } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   ADMIN_NAV,
@@ -17,6 +18,82 @@ import {
 interface SidebarProps {
   variant: "admin" | "employee";
   className?: string;
+}
+
+function employeeNavHref(href: string, employeeId: string | null): string {
+  if (!employeeId || !href.startsWith("/my-")) return href;
+  return `${href}?employee=${encodeURIComponent(employeeId)}`;
+}
+
+function EmployeeNavLinks({
+  className,
+  pathname,
+}: {
+  className?: string;
+  pathname: string;
+}) {
+  const searchParams = useSearchParams();
+  const previewEmployeeId = searchParams.get("employee");
+  return (
+    <ul className={cn("mt-2 space-y-1", className)}>
+      {EMPLOYEE_NAV.map((item) => {
+        const Icon = item.icon;
+        const href = employeeNavHref(item.href, previewEmployeeId);
+        const active =
+          pathname === item.href || pathname.startsWith(`${item.href}/`);
+        return (
+          <li key={item.href}>
+            <Link
+              href={href}
+              className={cn(
+                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                active
+                  ? "bg-neutral-900 text-white"
+                  : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900",
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {item.label}
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function EmployeeNavLinksFallback({
+  className,
+  pathname,
+}: {
+  className?: string;
+  pathname: string;
+}) {
+  return (
+    <ul className={cn("mt-2 space-y-1", className)}>
+      {EMPLOYEE_NAV.map((item) => {
+        const Icon = item.icon;
+        const active =
+          pathname === item.href || pathname.startsWith(`${item.href}/`);
+        return (
+          <li key={item.href}>
+            <Link
+              href={item.href}
+              className={cn(
+                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                active
+                  ? "bg-neutral-900 text-white"
+                  : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900",
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {item.label}
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
+  );
 }
 
 export function Sidebar({ variant, className }: SidebarProps) {
@@ -36,29 +113,36 @@ export function Sidebar({ variant, className }: SidebarProps) {
         <p className="px-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">
           {heading}
         </p>
-        <ul className="mt-2 space-y-1">
-          {items.map((item) => {
-            const Icon = item.icon;
-            const active =
-              pathname === item.href || pathname.startsWith(`${item.href}/`);
-            return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                    active
-                      ? "bg-neutral-900 text-white"
-                      : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900",
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                  {item.label}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+        {variant === "employee" ? (
+          <Suspense fallback={<EmployeeNavLinksFallback pathname={pathname} />}>
+            <EmployeeNavLinks pathname={pathname} />
+          </Suspense>
+        ) : (
+          <ul className="mt-2 space-y-1">
+            {items.map((item) => {
+              const Icon = item.icon;
+              const active =
+                pathname === item.href ||
+                pathname.startsWith(`${item.href}/`);
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    className={cn(
+                      "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                      active
+                        ? "bg-neutral-900 text-white"
+                        : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900",
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {item.label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
 
       {variant === "admin" ? (

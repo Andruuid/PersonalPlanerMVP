@@ -11,6 +11,8 @@ import { DayCard } from "@/components/employee/day-card";
 import { AccountsPanel } from "@/components/employee/accounts-panel";
 import { RequestStack } from "@/components/employee/request-stack";
 import { StatusList } from "@/components/employee/status-list";
+import { AdminEmployeePreviewPicker } from "@/components/employee/admin-employee-preview-picker";
+import { loadEmployeesForPreviewPicker } from "@/lib/employee/admin-preview-picker";
 
 export const metadata = { title: "Meine Woche · PersonalPlaner" };
 
@@ -43,8 +45,25 @@ export default async function MyWeekPage({ searchParams }: PageProps) {
   if (!session?.user) redirect("/login");
 
   const params = await searchParams;
+  const pickedEarly = pickWeek(params);
   const isAdminPreview =
     session.user.role === "ADMIN" && Boolean(params.employee);
+
+  if (session.user.role === "ADMIN" && !params.employee) {
+    const employees = await loadEmployeesForPreviewPicker(session.user.tenantId);
+    return (
+      <AdminEmployeePreviewPicker
+        title="Mitarbeiter:in für die Vorschau wählen"
+        description="Du siehst die Oberfläche wie die ausgewählte Person — ohne schreibende Aktionen in ihrem Namen."
+        employees={employees}
+        route="/my-week"
+        preserveParams={{
+          year: String(pickedEarly.year),
+          week: String(pickedEarly.weekNumber),
+        }}
+      />
+    );
+  }
 
   const employee = await prisma.employee.findFirst({
     where: isAdminPreview
@@ -56,6 +75,14 @@ export default async function MyWeekPage({ searchParams }: PageProps) {
   });
 
   if (!employee) {
+    if (isAdminPreview) {
+      return (
+        <EmptyState
+          title="Mitarbeiter:in nicht gefunden"
+          description="Die gewählte Person gehört nicht zu diesem Betrieb oder ist nicht mehr aktiv. Bitte wähle erneut aus der Liste."
+        />
+      );
+    }
     return (
       <EmptyState
         title="Kein Mitarbeitenden-Profil verknüpft"
@@ -159,7 +186,11 @@ export default async function MyWeekPage({ searchParams }: PageProps) {
               Statusübersicht
             </h2>
             <Link
-              href="/my-requests"
+              href={
+                isAdminPreview
+                  ? `/my-requests?employee=${employee.id}`
+                  : "/my-requests"
+              }
               className="text-xs font-medium text-neutral-600 hover:text-neutral-900"
             >
               Alle Anträge ansehen →

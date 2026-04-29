@@ -1,53 +1,64 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 interface RoleToggleProps {
   active: "admin" | "employee";
 }
 
+const tabBase =
+  "inline-flex items-center justify-center rounded-full px-3 py-1.5 transition-colors";
+
 export function RoleToggle({ active }: RoleToggleProps) {
-  const router = useRouter();
-
-  const switchTo = (target: "admin" | "employee") => {
-    if (target === active) return;
-    router.push(target === "admin" ? "/dashboard" : "/my-week");
-  };
-
   return (
     <div
       role="tablist"
       className="inline-flex rounded-full bg-neutral-100 p-1 text-xs font-medium"
     >
-      <button
-        type="button"
-        role="tab"
-        aria-selected={active === "admin"}
-        onClick={() => switchTo("admin")}
-        className={cn(
-          "rounded-full px-3 py-1.5 transition-colors",
-          active === "admin"
-            ? "bg-neutral-900 text-white shadow-sm"
-            : "text-neutral-600 hover:text-neutral-900",
-        )}
-      >
-        Admin-Ansicht
-      </button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={active === "employee"}
-        onClick={() => switchTo("employee")}
-        className={cn(
-          "rounded-full px-3 py-1.5 transition-colors",
-          active === "employee"
-            ? "bg-neutral-900 text-white shadow-sm"
-            : "text-neutral-600 hover:text-neutral-900",
-        )}
-      >
-        Mitarbeiter-Ansicht
-      </button>
+      {active === "admin" ? (
+        <span
+          role="tab"
+          aria-selected
+          className={cn(tabBase, "bg-neutral-900 text-white shadow-sm")}
+        >
+          Admin-Ansicht
+        </span>
+      ) : (
+        <Link
+          href="/dashboard"
+          role="tab"
+          aria-selected={false}
+          className={cn(
+            tabBase,
+            "text-neutral-600 hover:text-neutral-900",
+          )}
+        >
+          Admin-Ansicht
+        </Link>
+      )}
+      {active === "employee" ? (
+        <span
+          role="tab"
+          aria-selected
+          className={cn(tabBase, "bg-neutral-900 text-white shadow-sm")}
+        >
+          Mitarbeiter-Ansicht
+        </span>
+      ) : (
+        <Link
+          href="/my-week"
+          role="tab"
+          aria-selected={false}
+          className={cn(
+            tabBase,
+            "text-neutral-600 hover:text-neutral-900",
+          )}
+          title="Zur Mitarbeiter-Vorschau (Mitarbeiter:in wählen)"
+        >
+          Mitarbeiter-Ansicht
+        </Link>
+      )}
     </div>
   );
 }

@@ -6,6 +6,8 @@ import { AccountsPanel } from "@/components/employee/accounts-panel";
 import { BookingHistory } from "@/components/employee/booking-history";
 import { loadMyAccounts } from "@/lib/employee/data";
 import { loadBookingHistory } from "@/server/accounts";
+import { AdminEmployeePreviewPicker } from "@/components/employee/admin-employee-preview-picker";
+import { loadEmployeesForPreviewPicker } from "@/lib/employee/admin-preview-picker";
 
 export const metadata = { title: "Meine Konten · PersonalPlaner" };
 
@@ -30,6 +32,19 @@ export default async function MyAccountsPage({ searchParams }: PageProps) {
   const isAdminPreview =
     session.user.role === "ADMIN" && Boolean(params.employee);
 
+  if (session.user.role === "ADMIN" && !params.employee) {
+    const employees = await loadEmployeesForPreviewPicker(session.user.tenantId);
+    return (
+      <AdminEmployeePreviewPicker
+        title="Mitarbeiter:in für die Konten-Vorschau wählen"
+        description="Du siehst die Konten der ausgewählten Person — nur zur Ansicht."
+        employees={employees}
+        route="/my-accounts"
+        preserveParams={{ year: String(year) }}
+      />
+    );
+  }
+
   const employee = await prisma.employee.findFirst({
     where: isAdminPreview
       ? { id: params.employee, tenantId: session.user.tenantId, deletedAt: null }
@@ -38,6 +53,19 @@ export default async function MyAccountsPage({ searchParams }: PageProps) {
   });
 
   if (!employee) {
+    if (isAdminPreview) {
+      return (
+        <section className="space-y-3 rounded-2xl border border-neutral-200 bg-white p-8 text-center shadow-sm">
+          <h1 className="text-xl font-semibold text-neutral-900">
+            Mitarbeiter:in nicht gefunden
+          </h1>
+          <p className="mx-auto max-w-md text-sm text-neutral-600">
+            Die gewählte Person gehört nicht zu diesem Betrieb oder ist nicht
+            mehr aktiv.
+          </p>
+        </section>
+      );
+    }
     return (
       <section className="space-y-3 rounded-2xl border border-neutral-200 bg-white p-8 text-center shadow-sm">
         <h1 className="text-xl font-semibold text-neutral-900">

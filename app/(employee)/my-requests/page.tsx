@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 import { loadMyRequests } from "@/lib/employee/data";
 import { RequestStack } from "@/components/employee/request-stack";
 import { StatusList } from "@/components/employee/status-list";
+import { AdminEmployeePreviewPicker } from "@/components/employee/admin-employee-preview-picker";
+import { loadEmployeesForPreviewPicker } from "@/lib/employee/admin-preview-picker";
 import {
   REQUEST_STATUS_LABELS,
   type MyRequestView,
@@ -14,13 +16,64 @@ import { PrivacyErasureButton } from "@/components/employee/privacy-erasure-butt
 
 export const metadata = { title: "Meine Anträge · PersonalPlaner" };
 
+interface PageProps {
+  searchParams: Promise<{ employee?: string }>;
+}
+
 const STATUS_ORDER: RequestStatus[] = ["OPEN", "APPROVED", "REJECTED"];
 
-export default async function MyRequestsPage() {
+export default async function MyRequestsPage({ searchParams }: PageProps) {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  if (!session.user.employeeId) {
+  const params = await searchParams;
+  const isAdminPreview =
+    session.user.role === "ADMIN" && Boolean(params.employee);
+
+  if (session.user.role === "ADMIN" && !params.employee) {
+    const employees = await loadEmployeesForPreviewPicker(session.user.tenantId);
+    return (
+      <AdminEmployeePreviewPicker
+        title="Mitarbeiter:in für die Anträge-Vorschau wählen"
+        description="Du siehst eingereichte Wünsche und Anträge der ausgewählten Person — nur zur Ansicht."
+        employees={employees}
+        route="/my-requests"
+      />
+    );
+  }
+
+  const employee = isAdminPreview
+    ? await prisma.employee.findFirst({
+        where: {
+          id: params.employee,
+          tenantId: session.user.tenantId,
+          deletedAt: null,
+        },
+        select: { id: true, firstName: true, lastName: true },
+      })
+    : await prisma.employee.findFirst({
+        where: {
+          id: session.user.employeeId ?? "",
+          tenantId: session.user.tenantId,
+          deletedAt: null,
+        },
+        select: { id: true, firstName: true, lastName: true },
+      });
+
+  if (!employee) {
+    if (isAdminPreview) {
+      return (
+        <section className="rounded-2xl border border-neutral-200 bg-white p-8 text-center shadow-sm">
+          <h1 className="text-xl font-semibold text-neutral-900">
+            Mitarbeiter:in nicht gefunden
+          </h1>
+          <p className="mx-auto mt-2 max-w-md text-sm text-neutral-600">
+            Die gewählte Person gehört nicht zu diesem Betrieb oder ist nicht
+            mehr aktiv.
+          </p>
+        </section>
+      );
+    }
     return (
       <section className="rounded-2xl border border-neutral-200 bg-white p-8 text-center shadow-sm">
         <h1 className="text-xl font-semibold text-neutral-900">
@@ -34,25 +87,15 @@ export default async function MyRequestsPage() {
     );
   }
 
-  const employee = await prisma.employee.findFirst({
-    where: {
-      id: session.user.employeeId,
-      tenantId: session.user.tenantId,
-      deletedAt: null,
-    },
-    select: { id: true, firstName: true, lastName: true },
-  });
-  if (!employee) redirect("/login");
-
-  const [all, privacyRequests] = await Promise.all([
-    loadMyRequests(session.user, employee.id),
-    prisma.privacyRequest.findMany({
-      where: { employeeId: employee.id, tenantId: session.user.tenantId },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-      select: { id: true, type: true, status: true, createdAt: true },
-    }),
-  ]);
+  const all = await loadMyRequests(session.user, employee.id);
+  const privacyRequests = isAdminPreview
+    ? []
+    : await prisma.privacyRequest.findMany({
+        where: { employeeId: employee.id, tenantId: session.user.tenantId },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        select: { id: true, type: true, status: true, createdAt: true },
+      });
   const groups = groupByStatus(all);
 
   return (
@@ -63,73 +106,80 @@ export default async function MyRequestsPage() {
             Meine Wünsche und Anträge
           </p>
           <h1 className="text-2xl font-semibold text-neutral-900 md:text-3xl">
-            Meine Anträge
+            {isAdminPreview
+              ? `Anträge von ${employee.firstName} ${employee.lastName}`
+              : "Meine Anträge"}
           </h1>
           <p className="max-w-2xl text-sm text-neutral-600">
-            Alle eingereichten Wünsche im Überblick. Offene Anträge kannst du
-            jederzeit zurückziehen, solange sie noch nicht entschieden wurden.
+            {isAdminPreview
+              ? "Vorschau: eingereichte Wünsche und Status — ohne Aktionen im Namen dieser Person."
+              : "Alle eingereichten Wünsche im Überblick. Offene Anträge kannst du jederzeit zurückziehen, solange sie noch nicht entschieden wurden."}
           </p>
         </header>
 
-        <section className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
-          <header className="mb-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-700">
-              Schnell beantragen
-            </h2>
-            <p className="text-xs text-neutral-500">
-              Antrag wählen — die Geschäftsleitung erhält ihn umgehend zur
-              Prüfung.
-            </p>
-          </header>
-          <RequestStack variant="inline" />
-        </section>
-
-        <section className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
-          <header className="mb-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-700">
-              Datenschutz (DSGVO/DSG)
-            </h2>
-            <p className="text-xs text-neutral-500">
-              Exportiere deine gespeicherten Daten oder stelle einen Löschantrag.
-            </p>
-          </header>
-          <div className="flex flex-wrap gap-2">
-            <a
-              href="/api/dsgvo/export"
-              className="inline-flex items-center rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50"
-            >
-              Daten-Auskunft exportieren
-            </a>
-            <PrivacyErasureButton />
-          </div>
-          {privacyRequests.length > 0 ? (
-            <ul className="mt-4 space-y-2 border-t border-neutral-100 pt-3">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-neutral-500">
-                Deine Datenschutz-Anfragen
+        {!isAdminPreview ? (
+          <section className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
+            <header className="mb-3">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-700">
+                Schnell beantragen
+              </h2>
+              <p className="text-xs text-neutral-500">
+                Antrag wählen — die Geschäftsleitung erhält ihn umgehend zur
+                Prüfung.
               </p>
-              {privacyRequests.map((pr) => (
-                <li
-                  key={pr.id}
-                  className="flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-700"
-                >
-                  <span>
-                    {pr.type === "ERASURE"
-                      ? "Löschantrag"
-                      : "Auskunfts-Anfrage"}{" "}
-                    · {privacyStatusLabel(pr.status)}
-                  </span>
-                  <span className="text-neutral-500">
-                    {pr.createdAt.toLocaleDateString("de-CH", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                    })}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </section>
+            </header>
+            <RequestStack variant="inline" />
+          </section>
+        ) : null}
+
+        {!isAdminPreview ? (
+          <section className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
+            <header className="mb-3">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-700">
+                Datenschutz (DSGVO/DSG)
+              </h2>
+              <p className="text-xs text-neutral-500">
+                Exportiere deine gespeicherten Daten oder stelle einen Löschantrag.
+              </p>
+            </header>
+            <div className="flex flex-wrap gap-2">
+              <a
+                href="/api/dsgvo/export"
+                className="inline-flex items-center rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50"
+              >
+                Daten-Auskunft exportieren
+              </a>
+              <PrivacyErasureButton />
+            </div>
+            {privacyRequests.length > 0 ? (
+              <ul className="mt-4 space-y-2 border-t border-neutral-100 pt-3">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-neutral-500">
+                  Deine Datenschutz-Anfragen
+                </p>
+                {privacyRequests.map((pr) => (
+                  <li
+                    key={pr.id}
+                    className="flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-700"
+                  >
+                    <span>
+                      {pr.type === "ERASURE"
+                        ? "Löschantrag"
+                        : "Auskunfts-Anfrage"}{" "}
+                      · {privacyStatusLabel(pr.status)}
+                    </span>
+                    <span className="text-neutral-500">
+                      {pr.createdAt.toLocaleDateString("de-CH", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                      })}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </section>
+        ) : null}
 
         <div className="space-y-6">
           {STATUS_ORDER.map((status) => (
@@ -144,7 +194,8 @@ export default async function MyRequestsPage() {
               </header>
               <StatusList
                 requests={groups[status]}
-                emptyHint={emptyHintFor(status)}
+                emptyHint={emptyHintFor(status, isAdminPreview)}
+                showCancel={!isAdminPreview}
               />
             </section>
           ))}
@@ -166,7 +217,20 @@ function groupByStatus(
   return out;
 }
 
-function emptyHintFor(status: RequestStatus): string {
+function emptyHintFor(
+  status: RequestStatus,
+  preview: boolean,
+): string {
+  if (preview) {
+    switch (status) {
+      case "OPEN":
+        return "Keine offenen Anträge für diese Person.";
+      case "APPROVED":
+        return "Keine genehmigten Anträge.";
+      case "REJECTED":
+        return "Keine abgelehnten Anträge.";
+    }
+  }
   switch (status) {
     case "OPEN":
       return "Aktuell sind keine Anträge offen.";

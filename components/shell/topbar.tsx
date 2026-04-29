@@ -1,11 +1,13 @@
 "use client";
 
+import { Suspense } from "react";
 import { Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "./sidebar";
 import { RoleToggle } from "./role-toggle";
 import { UserMenu } from "./user-menu";
+import { AdminPreviewEmployeeBadge } from "./admin-preview-employee-badge";
 
 interface TopbarProps {
   variant: "admin" | "employee";
@@ -44,8 +46,13 @@ export function Topbar({ variant, email, showRoleToggle }: TopbarProps) {
         </div>
 
         {showRoleToggle ? (
-          <div className="hidden md:block">
+          <div className="hidden items-center gap-2 md:flex">
             <RoleToggle active={variant} />
+            {variant === "employee" ? (
+              <Suspense fallback={null}>
+                <AdminPreviewEmployeeBadge />
+              </Suspense>
+            ) : null}
           </div>
         ) : null}
 
@@ -53,7 +60,7 @@ export function Topbar({ variant, email, showRoleToggle }: TopbarProps) {
       </div>
 
       {showRoleToggle ? (
-        <div className="border-t border-neutral-100 px-4 py-2 md:hidden">
+        <div className="flex items-center justify-end border-t border-neutral-100 px-4 py-2 md:hidden">
           <RoleToggle active={variant} />
         </div>
       ) : null}
