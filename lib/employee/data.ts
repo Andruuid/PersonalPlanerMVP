@@ -2,12 +2,12 @@ import "server-only";
 import { format } from "date-fns";
 import { prisma } from "@/lib/db";
 import type {
-  MyAccountValue,
   MyAccountsView,
   MyRequestView,
   RequestStatus,
   RequestType,
 } from "@/components/employee/types";
+import { buildMyAccountsView } from "@/lib/employee/accounts-transform";
 import type { SessionUser } from "@/server/_shared";
 
 function fmtRange(start: Date, end: Date): string {
@@ -66,37 +66,5 @@ export async function loadMyAccounts(
     }),
   ]);
 
-  const get = (
-    accountType:
-      | "ZEITSALDO"
-      | "FERIEN"
-      | "UEZ"
-      | "TZT"
-      | "SONNTAG_FEIERTAG_KOMPENSATION"
-      | "PARENTAL_CARE",
-  ): MyAccountValue | null => {
-    const row = balances.find((b) => b.accountType === accountType);
-    if (!row) return null;
-    return {
-      unit: row.unit as MyAccountValue["unit"],
-      value: row.currentValue,
-    };
-  };
-
-  // FERIEN rows are only created on first week-close (or manual booking) for
-  // that year. Until then, show the same opening as `ensureBalanceRow` in
-  // lib/bookings/core — full annual allowance from Stammdaten.
-  const ferienFromDb = get("FERIEN");
-  const ferien: MyAccountValue | null =
-    ferienFromDb ??
-    (employee
-      ? { unit: "DAYS", value: employee.vacationDaysPerYear }
-      : null);
-
-  return {
-    zeitsaldo: get("ZEITSALDO"),
-    ferien,
-    tzt: get("TZT"),
-    parentalCare: get("PARENTAL_CARE"),
-  };
+  return buildMyAccountsView(balances, employee);
 }

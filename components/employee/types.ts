@@ -38,6 +38,8 @@ export interface MyAccountsView {
   zeitsaldo: MyAccountValue | null;
   ferien: MyAccountValue | null;
   tzt: MyAccountValue | null;
+  uez: MyAccountValue | null;
+  sonntagFeiertagKompensation: MyAccountValue | null;
   parentalCare: MyAccountValue | null;
 }
 
