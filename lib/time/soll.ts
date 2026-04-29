@@ -27,8 +27,6 @@ export function dailySollMinutes(
   tztModel: TztModel,
   standardWorkDays: number,
 ): number {
-  // TZT_ABSENCE + TARGET_REDUCTION: keine gültige Neueingabe mehr; Legacy-Zeilen
-  // werden wie EMPTY_WEEKDAY mit vollem Tagessoll behandelt (nicht zusätzlich auf 0).
   if (
     kind === "HOLIDAY" ||
     kind === "HOLIDAY_WORK" ||
@@ -40,6 +38,11 @@ export function dailySollMinutes(
   }
   if (kind === "HALF_DAY_OFF") {
     return baseDailySollMinutes(weeklyTargetMinutes, standardWorkDays) / 2;
+  }
+  // Modell 2 (TARGET_REDUCTION): keine neuen TZT-Planungen; Legacy-Zeilen werten
+  // Soll 0 / Ist 0 — neutral für Zeitsaldo (Soll-Reduktion statt Ist-Gutschrift).
+  if (kind === "TZT_ABSENCE" && tztModel === "TARGET_REDUCTION") {
+    return 0;
   }
   return baseDailySollMinutes(weeklyTargetMinutes, standardWorkDays);
 }

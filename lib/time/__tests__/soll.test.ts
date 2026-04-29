@@ -70,10 +70,9 @@ describe("dailySollMinutes", () => {
     expect(dailySollMinutes("WORK", 2520, "DAILY_QUOTA", 4)).toBe(630);
   });
 
-  it("TZT_ABSENCE + TARGET_REDUCTION (Legacy): Tagessoll wie EMPTY_WEEKDAY, nicht zusätzliche Reduktion auf 0", () => {
-    const base = 2520 / STD_DAYS;
+  it("TZT_ABSENCE + TARGET_REDUCTION (Legacy): Tagessoll 0 für Zeitsaldo-Neutralität", () => {
     expect(dailySollMinutes("TZT_ABSENCE", 2520, "TARGET_REDUCTION", STD_DAYS)).toBe(
-      base,
+      0,
     );
   });
 });
