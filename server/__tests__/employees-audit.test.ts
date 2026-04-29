@@ -54,6 +54,29 @@ vi.mock("@/server/_shared", () => ({
     v === "true" || v === "on" || v === "1",
 }));
 
+function txEmployeeUpdate(employeeResult: Record<string, unknown>) {
+  return {
+    user: {
+      update: vi.fn().mockResolvedValue({ id: "user-1" }),
+    },
+    employee: {
+      update: vi.fn().mockResolvedValue(employeeResult),
+    },
+    employeeExitSnapshot: {
+      findUnique: vi.fn().mockResolvedValue(null),
+    },
+    accountBalance: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+    ertCase: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+    compensationCase: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+  };
+}
+
 import { createEmployeeAction, updateEmployeeAction } from "@/server/employees";
 
 function buildCreateFormData(): FormData {
@@ -161,30 +184,26 @@ describe("employees audit coverage", () => {
       hazMinutesPerWeek: 2700,
       tztModel: "DAILY_QUOTA",
       isActive: true,
+      exitDate: null,
       user: { id: "user-1", email: "employee@example.com", isActive: true, role: "ADMIN" },
     });
     prismaMock.user.findUnique.mockResolvedValue(null);
     prismaMock.$transaction.mockImplementation(async (cb) =>
-      cb({
-        user: {
-          update: vi.fn().mockResolvedValue({ id: "user-1" }),
-        },
-        employee: {
-          update: vi.fn().mockResolvedValue({
-            id: "emp-1",
-            firstName: "Eva",
-            lastName: "Example",
-            roleLabel: "Service",
-            pensum: 80,
-            locationId: "loc-1",
-            vacationDaysPerYear: 25,
-            weeklyTargetMinutes: 2016,
-            hazMinutesPerWeek: 2700,
-            tztModel: "DAILY_QUOTA",
-            isActive: true,
-          }),
-        },
-      }),
+      cb(
+        txEmployeeUpdate({
+          id: "emp-1",
+          firstName: "Eva",
+          lastName: "Example",
+          roleLabel: "Service",
+          pensum: 80,
+          locationId: "loc-1",
+          vacationDaysPerYear: 25,
+          weeklyTargetMinutes: 2016,
+          hazMinutesPerWeek: 2700,
+          tztModel: "DAILY_QUOTA",
+          isActive: true,
+        }),
+      ),
     );
 
     const result = await updateEmployeeAction(undefined, buildUpdateFormData());
@@ -232,6 +251,7 @@ describe("employees audit coverage", () => {
       isActive: false,
       deletedAt: new Date("2026-01-01T00:00:00.000Z"),
       archivedUntil: new Date("2036-01-01T00:00:00.000Z"),
+      exitDate: null,
       user: { id: "user-1", email: "employee@example.com", isActive: false, role: "EMPLOYEE" },
     });
     prismaMock.$transaction.mockImplementation(async (cb) =>
@@ -241,6 +261,18 @@ describe("employees audit coverage", () => {
         },
         employee: {
           update: employeeUpdate,
+        },
+        employeeExitSnapshot: {
+          findUnique: vi.fn().mockResolvedValue(null),
+        },
+        accountBalance: {
+          findMany: vi.fn().mockResolvedValue([]),
+        },
+        ertCase: {
+          findMany: vi.fn().mockResolvedValue([]),
+        },
+        compensationCase: {
+          findMany: vi.fn().mockResolvedValue([]),
         },
       }),
     );

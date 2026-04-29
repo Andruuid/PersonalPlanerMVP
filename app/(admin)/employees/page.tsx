@@ -23,6 +23,7 @@ export default async function EmployeesPage() {
       include: {
         user: { select: { email: true, isActive: true } },
         location: { select: { id: true, name: true } },
+        exitSnapshot: true,
       },
     }),
     prisma.location.findMany({
@@ -48,6 +49,12 @@ export default async function EmployeesPage() {
     tztModel: e.tztModel,
     isActive: e.isActive,
     userIsActive: e.user.isActive,
+    exitSnapshot: e.exitSnapshot
+      ? {
+          exitDate: e.exitSnapshot.exitDate.toISOString(),
+          snapshotJson: e.exitSnapshot.snapshotJson,
+        }
+      : null,
   }));
 
   return (

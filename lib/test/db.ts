@@ -59,6 +59,7 @@ export function makeTestDb(): TestDb {
       await prisma.week.deleteMany();
       await prisma.holiday.deleteMany();
       await prisma.serviceTemplate.deleteMany();
+      await prisma.employeeExitSnapshot.deleteMany();
       await prisma.employee.deleteMany();
       await prisma.location.deleteMany();
       await prisma.user.deleteMany();

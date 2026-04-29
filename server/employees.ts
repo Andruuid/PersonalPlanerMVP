@@ -14,6 +14,11 @@ import {
 } from "./_shared";
 import { applyEmployeeOpeningBalances } from "@/lib/bookings/core";
 import { archiveUntil } from "@/lib/archive";
+import {
+  buildExitSnapshot,
+  exitDateChangeTriggersSnapshot,
+  isExitDateInPast,
+} from "@/lib/employee/exit-snapshot";
 
 function openingAmountSchema(maxAbs: number) {
   return z.preprocess((v) => {
@@ -308,7 +313,7 @@ export async function updateEmployeeAction(
       : undefined;
   const archivedAt = new Date();
 
-  const updated = await prisma.$transaction(async (tx) => {
+  const { updated, exitSnapshotId } = await prisma.$transaction(async (tx) => {
     await tx.user.update({
       where: { id: before.userId },
       data: {
@@ -319,7 +324,7 @@ export async function updateEmployeeAction(
       },
     });
 
-    return tx.employee.update({
+    const updatedEmployee = await tx.employee.update({
       where: { id: data.id },
       data: {
         firstName: data.firstName,
@@ -340,6 +345,32 @@ export async function updateEmployeeAction(
           : (before.archivedUntil ?? archiveUntil(archivedAt)),
       },
     });
+
+    const nextExit = data.exitDate ?? null;
+    const existingSnap = await tx.employeeExitSnapshot.findUnique({
+      where: { employeeId: data.id },
+      select: { id: true },
+    });
+    let createdSnapshotId: string | undefined;
+    if (
+      !existingSnap &&
+      nextExit &&
+      isExitDateInPast(nextExit) &&
+      exitDateChangeTriggersSnapshot(before.exitDate, nextExit)
+    ) {
+      const { snapshotJson } = await buildExitSnapshot(tx, data.id);
+      const snap = await tx.employeeExitSnapshot.create({
+        data: {
+          tenantId: admin.tenantId,
+          employeeId: data.id,
+          exitDate: nextExit,
+          snapshotJson,
+        },
+      });
+      createdSnapshotId = snap.id;
+    }
+
+    return { updated: updatedEmployee, exitSnapshotId: createdSnapshotId };
   });
 
   await writeAudit({
@@ -386,6 +417,19 @@ export async function updateEmployeeAction(
       oldValue: { role: before.user.role },
       newValue: { role: "EMPLOYEE" },
       comment: "Rolle bei Mitarbeiter-Update auf EMPLOYEE normalisiert.",
+    });
+  }
+
+  if (exitSnapshotId) {
+    await writeAudit({
+      userId: admin.id,
+      action: "EXIT_SNAPSHOT",
+      entity: "Employee",
+      entityId: updated.id,
+      newValue: {
+        employeeExitSnapshotId: exitSnapshotId,
+        exitDate: updated.exitDate!.toISOString(),
+      },
     });
   }
 

@@ -5,7 +5,12 @@ import { Lock, LockOpen, Pencil, Plus, UserCheck, UserMinus } from "lucide-react
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   EmployeeForm,
   type EmployeeFormDefaults,
@@ -14,6 +19,10 @@ import {
 } from "./employee-form";
 import { setEmployeeActiveAction, setUserLockAction } from "@/server/employees";
 import { isoDateString } from "@/lib/time/week";
+import {
+  parseExitSnapshotJson,
+  type ExitSnapshotData,
+} from "@/lib/employee/exit-snapshot";
 
 export interface EmployeeRow {
   id: string;
@@ -32,6 +41,11 @@ export interface EmployeeRow {
   tztModel: TztModelValue;
   isActive: boolean;
   userIsActive: boolean;
+  /** Kontenabschluss-Snapshot nach gesetztem Austritt (Vergangenheit). */
+  exitSnapshot?: {
+    exitDate: string;
+    snapshotJson: string;
+  } | null;
 }
 
 interface Props {
@@ -51,6 +65,10 @@ export function EmployeesTable({
   defaultLocationId,
 }: Props) {
   const [dialog, setDialog] = useState<DialogState>({ mode: "closed" });
+  const [snapshotPanel, setSnapshotPanel] = useState<
+    | { mode: "closed" }
+    | { mode: "open"; employeeLabel: string; exitSnapshot: NonNullable<EmployeeRow["exitSnapshot"]> }
+  >({ mode: "closed" });
   const [pendingId, startTransition] = usePendingId();
 
   const close = () => setDialog({ mode: "closed" });
@@ -150,6 +168,35 @@ export function EmployeesTable({
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">
+                      {e.exitSnapshot &&
+                      exitSnapshotBadgeEligible(e.exitSnapshot.exitDate) ? (
+                        <Badge
+                          variant="outline"
+                          className="cursor-pointer border-violet-300 bg-violet-50 text-violet-900 hover:bg-violet-100"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() =>
+                            setSnapshotPanel({
+                              mode: "open",
+                              employeeLabel: `${e.firstName} ${e.lastName}`,
+                              exitSnapshot: e.exitSnapshot!,
+                            })
+                          }
+                          onKeyDown={(ev) => {
+                            if (ev.key === "Enter" || ev.key === " ") {
+                              ev.preventDefault();
+                              setSnapshotPanel({
+                                mode: "open",
+                                employeeLabel: `${e.firstName} ${e.lastName}`,
+                                exitSnapshot: e.exitSnapshot!,
+                              });
+                            }
+                          }}
+                        >
+                          Konten abgeschlossen am{" "}
+                          {formatDeShort(e.exitSnapshot.exitDate)}
+                        </Badge>
+                      ) : null}
                       {e.isActive ? (
                         <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
                           Mitarbeit aktiv
@@ -242,7 +289,135 @@ export function EmployeesTable({
           ) : null}
         </DialogContent>
       </Dialog>
+
+      <Dialog
+        open={snapshotPanel.mode === "open"}
+        onOpenChange={(open) => !open && setSnapshotPanel({ mode: "closed" })}
+      >
+        <DialogContent className="sm:max-w-lg">
+          {snapshotPanel.mode === "open" ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Kontenabschluss</DialogTitle>
+              </DialogHeader>
+              <ExitSnapshotDetailBody
+                employeeLabel={snapshotPanel.employeeLabel}
+                exitSnapshot={snapshotPanel.exitSnapshot}
+              />
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </section>
+  );
+}
+
+function formatDeShort(isoDateTime: string): string {
+  const d = isoDateTime.slice(0, 10);
+  const [y, m, day] = d.split("-");
+  if (!y || !m || !day) return isoDateTime;
+  return `${day}.${m}.${y}`;
+}
+
+/** Badge nur anzeigen, wenn Austritt in der Vergangenheit liegt. */
+function exitSnapshotBadgeEligible(snapshotExitIso: string): boolean {
+  const snapDay = snapshotExitIso.slice(0, 10);
+  const today = new Date().toISOString().slice(0, 10);
+  return snapDay < today;
+}
+
+function ExitSnapshotDetailBody({
+  employeeLabel,
+  exitSnapshot,
+}: {
+  employeeLabel: string;
+  exitSnapshot: NonNullable<EmployeeRow["exitSnapshot"]>;
+}) {
+  const parsed = parseExitSnapshotJson(exitSnapshot.snapshotJson);
+  return (
+    <div className="space-y-4 text-sm">
+      <p className="text-neutral-600">
+        <span className="font-medium text-neutral-900">{employeeLabel}</span>
+        {" · "}
+        Stand zum Austritt{" "}
+        <span className="font-medium">{formatDeShort(exitSnapshot.exitDate)}</span>
+      </p>
+      {parsed ? (
+        <ExitSnapshotTables data={parsed} />
+      ) : (
+        <pre className="max-h-64 overflow-auto rounded-md bg-neutral-50 p-3 text-xs">
+          {exitSnapshot.snapshotJson}
+        </pre>
+      )}
+    </div>
+  );
+}
+
+function ExitSnapshotTables({ data }: { data: ExitSnapshotData }) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <h4 className="mb-2 font-medium text-neutral-900">Konten</h4>
+        {data.accounts.length === 0 ? (
+          <p className="text-neutral-500">Keine Kontensätze erfasst.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-lg border border-neutral-200">
+            <table className="min-w-full text-xs">
+              <thead className="bg-neutral-50 text-left text-neutral-600">
+                <tr>
+                  <th className="px-2 py-1.5 font-medium">Konto</th>
+                  <th className="px-2 py-1.5 font-medium">Jahr</th>
+                  <th className="px-2 py-1.5 font-medium">aktuell</th>
+                  <th className="px-2 py-1.5 font-medium">Einheit</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-100">
+                {data.accounts.map((a, i) => (
+                  <tr key={`${a.accountType}-${a.year}-${i}`}>
+                    <td className="px-2 py-1.5">{a.accountType}</td>
+                    <td className="px-2 py-1.5">{a.year}</td>
+                    <td className="px-2 py-1.5 font-mono">{a.currentValue}</td>
+                    <td className="px-2 py-1.5">{a.unit}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+      <div>
+        <h4 className="mb-2 font-medium text-neutral-900">Offene ERT-Pflichten</h4>
+        {data.openErtCases.length === 0 ? (
+          <p className="text-neutral-500">Keine offenen ERT-Vorgänge.</p>
+        ) : (
+          <ul className="list-inside list-disc space-y-1 text-neutral-700">
+            {data.openErtCases.map((c) => (
+              <li key={c.id}>
+                Fällig {formatDeShort(c.dueAt)} · {c.holidayWorkMinutes} Min. ·{" "}
+                {c.status}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <div>
+        <h4 className="mb-2 font-medium text-neutral-900">
+          Offene Feiertags-Kompensationen
+        </h4>
+        {data.openCompensationCases.length === 0 ? (
+          <p className="text-neutral-500">Keine offenen Kompensationsfälle.</p>
+        ) : (
+          <ul className="list-inside list-disc space-y-1 text-neutral-700">
+            {data.openCompensationCases.map((c) => (
+              <li key={c.id}>
+                Fällig {formatDeShort(c.dueAt)} · {c.holidayWorkMinutes} Min. ·{" "}
+                {c.status}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
   );
 }
 
