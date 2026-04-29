@@ -1,6 +1,57 @@
 import { describe, expect, it } from "vitest";
-import { evaluateRequestEntitlement } from "@/lib/requests/entitlement";
+import {
+  evaluateRequestEntitlement,
+  requestedSollDaysByYear,
+} from "@/lib/requests/entitlement";
 import { parseIsoDate } from "@/lib/time/week";
+
+describe("requestedSollDaysByYear", () => {
+  it("Mo–So Fenster: 5-Tage-Modell zählt Mo–Fr (5 Soll-Tage)", () => {
+    const m = requestedSollDaysByYear(
+      parseIsoDate("2026-03-02")!,
+      parseIsoDate("2026-03-08")!,
+      5,
+      new Map(),
+    );
+    expect(m.get(2026)).toBe(5);
+  });
+
+  it("Mo–So Fenster: 6-Tage-Modell zählt Mo–Sa (6 Soll-Tage)", () => {
+    const m = requestedSollDaysByYear(
+      parseIsoDate("2026-03-02")!,
+      parseIsoDate("2026-03-08")!,
+      6,
+      new Map(),
+    );
+    expect(m.get(2026)).toBe(6);
+  });
+
+  it("Mo–Fr: Montag feiertagsfrei ⇒ 4 Soll-Tage", () => {
+    const holidays = new Map<number, Set<string>>([
+      [2026, new Set(["2026-01-05"])],
+    ]);
+    const m = requestedSollDaysByYear(
+      parseIsoDate("2026-01-05")!,
+      parseIsoDate("2026-01-09")!,
+      5,
+      holidays,
+    );
+    expect(m.get(2026)).toBe(4);
+  });
+
+  it("Antrag liegt nur auf Feiertagen ⇒ 0 Soll-Tage (no-op)", () => {
+    const holidays = new Map<number, Set<string>>([
+      [2026, new Set(["2026-01-08"])],
+    ]);
+    const m = requestedSollDaysByYear(
+      parseIsoDate("2026-01-08")!,
+      parseIsoDate("2026-01-08")!,
+      5,
+      holidays,
+    );
+    expect(m.size).toBe(0);
+  });
+});
 
 describe("evaluateRequestEntitlement", () => {
   it("rejects vacation requests when yearly ferie balance is too low", () => {
@@ -117,6 +168,49 @@ describe("evaluateRequestEntitlement", () => {
     });
 
     expect(result.ok).toBe(true);
+  });
+
+  it("Ferien gegen Feiertags-Montag: nur Arbeitstage zählen; 4 Tage reichen bei einem Feiertag in der gleichen KW", () => {
+    const withHolidayExcluded = evaluateRequestEntitlement({
+      type: "VACATION",
+      startDate: parseIsoDate("2026-01-05")!,
+      endDate: parseIsoDate("2026-01-09")!,
+      weeklyTargetMinutes: 2520,
+      standardWorkDays: 5,
+      vacationDaysPerYear: 25,
+      holidayIsosByYear: new Map([[2026, new Set(["2026-01-05"])]]),
+      balancesByYear: {
+        2026: { FERIEN: 4 },
+      },
+    });
+    expect(withHolidayExcluded.ok).toBe(true);
+
+    const withoutHolidayMap = evaluateRequestEntitlement({
+      type: "VACATION",
+      startDate: parseIsoDate("2026-01-05")!,
+      endDate: parseIsoDate("2026-01-09")!,
+      weeklyTargetMinutes: 2520,
+      standardWorkDays: 5,
+      vacationDaysPerYear: 25,
+      balancesByYear: {
+        2026: { FERIEN: 4 },
+      },
+    });
+    expect(withoutHolidayMap.ok).toBe(false);
+  });
+
+  it("VACATION ohne Soll-Tage im Zeitraum (nur Feiertage) ⇒ ok ohne Kontenbuch", () => {
+    const ok = evaluateRequestEntitlement({
+      type: "VACATION",
+      startDate: parseIsoDate("2026-01-08")!,
+      endDate: parseIsoDate("2026-01-08")!,
+      weeklyTargetMinutes: 2520,
+      standardWorkDays: 5,
+      vacationDaysPerYear: 0,
+      holidayIsosByYear: new Map([[2026, new Set(["2026-01-08"])]]),
+      balancesByYear: {},
+    });
+    expect(ok.ok).toBe(true);
   });
 
   it("treats free-day like free-requested and enforces zeitsaldo", () => {

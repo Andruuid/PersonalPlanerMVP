@@ -1,13 +1,13 @@
 "use server";
 
-import { addDays, getISOWeek, getISOWeekYear } from "date-fns";
+import { addDays, format, getISOWeek, getISOWeekYear } from "date-fns";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import { isoDateString, parseIsoDate } from "@/lib/time/week";
 import {
   evaluateRequestEntitlement,
-  requestedWeekdaysByYear,
+  requestedSollDaysByYear,
   type RequestEntitlementInput,
   type RequestAccountType,
 } from "@/lib/requests/entitlement";
@@ -413,9 +413,6 @@ export async function createAbsenceRequestAction(
     }
   }
 
-  const years = Array.from(
-    new Set(Array.from(requestedWeekdaysByYear(startDate, endDate).keys())),
-  );
   const employeeRow = await prisma.employee.findFirst({
     where: {
       id: employeeId,
@@ -428,12 +425,46 @@ export async function createAbsenceRequestAction(
       vacationDaysPerYear: true,
       tztModel: true,
       standardWorkDays: true,
+      locationId: true,
       tenant: { select: { defaultStandardWorkDays: true } },
     },
   });
   if (!employeeRow) {
     return { ok: false, error: "Mitarbeitende:r nicht gefunden." };
   }
+
+  const effectiveStd = effectiveStandardWorkDays(
+    employeeRow.standardWorkDays,
+    employeeRow.tenant.defaultStandardWorkDays,
+  );
+
+  const holidayRows = await prisma.holiday.findMany({
+    where: {
+      tenantId: employee.tenantId,
+      locationId: employeeRow.locationId,
+      date: { gte: startDate, lte: endDate },
+    },
+    select: { date: true },
+  });
+  const holidayIsosByYear = new Map<number, Set<string>>();
+  for (const h of holidayRows) {
+    const iso = format(h.date, "yyyy-MM-dd");
+    const year = Number(iso.slice(0, 4));
+    let set = holidayIsosByYear.get(year);
+    if (!set) {
+      set = new Set<string>();
+      holidayIsosByYear.set(year, set);
+    }
+    set.add(iso);
+  }
+
+  const sollDaysByYear = requestedSollDaysByYear(
+    startDate,
+    endDate,
+    effectiveStd,
+    holidayIsosByYear,
+  );
+  const years = Array.from(sollDaysByYear.keys());
 
   const balances = await prisma.accountBalance.findMany({
     where: {
@@ -458,10 +489,8 @@ export async function createAbsenceRequestAction(
     startDate,
     endDate,
     weeklyTargetMinutes: employeeRow.weeklyTargetMinutes,
-    standardWorkDays: effectiveStandardWorkDays(
-      employeeRow.standardWorkDays,
-      employeeRow.tenant.defaultStandardWorkDays,
-    ),
+    standardWorkDays: effectiveStd,
+    holidayIsosByYear,
     tztModel: employeeRow.tztModel,
     vacationDaysPerYear: employeeRow.vacationDaysPerYear,
     balancesByYear,

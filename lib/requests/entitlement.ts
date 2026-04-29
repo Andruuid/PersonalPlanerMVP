@@ -1,5 +1,6 @@
-import { addDays } from "date-fns";
+import { addDays, getISODay } from "date-fns";
 import { baseDailySollMinutes } from "@/lib/time/soll";
+import { isoDateString } from "@/lib/time/week";
 
 export type RequestType =
   | "VACATION"
@@ -16,6 +17,11 @@ export interface RequestEntitlementInput {
   weeklyTargetMinutes: number;
   /** Effektive Arbeitstage/Woche (Tenant-Stamm oder Mitarbeiter-Override). */
   standardWorkDays: number;
+  /**
+   * Pro Kalenderjahr: ISO-Daten (yyyy-MM-dd) mit Feiertagen am Standort —
+   * werden bei der Soll-Tag-Zählung ausgeschlossen.
+   */
+  holidayIsosByYear?: Map<number, Set<string>>;
   tztModel?: "DAILY_QUOTA" | "TARGET_REDUCTION";
   vacationDaysPerYear: number;
   balancesByYear: Partial<
@@ -36,16 +42,28 @@ function* daysInRange(start: Date, end: Date): Generator<Date> {
   }
 }
 
-function isWeekday(d: Date): boolean {
-  const day = d.getDay();
-  return day >= 1 && day <= 5;
-}
-
-export function requestedWeekdaysByYear(start: Date, end: Date): Map<number, number> {
+/**
+ * Zählt Tage im Antragszeitraum, an denen fachlich Tagessoll > 0 wäre:
+ * ISO-Wochentag 1..standardWorkDays (Mo=1 … So=7), ohne Feiertage.
+ */
+export function requestedSollDaysByYear(
+  start: Date,
+  end: Date,
+  standardWorkDays: number,
+  holidayIsosByYear: Map<number, Set<string>>,
+): Map<number, number> {
   const out = new Map<number, number>();
+  const maxDow = Math.min(Math.max(standardWorkDays, 0), 7);
+  if (maxDow === 0) return out;
+
   for (const day of daysInRange(start, end)) {
-    if (!isWeekday(day)) continue;
+    const isoDow = getISODay(day);
+    if (isoDow > maxDow) continue;
+
     const year = day.getFullYear();
+    const iso = isoDateString(day);
+    if (holidayIsosByYear.get(year)?.has(iso)) continue;
+
     out.set(year, (out.get(year) ?? 0) + 1);
   }
   return out;
@@ -69,12 +87,18 @@ export function evaluateRequestEntitlement(
   const effectiveType =
     input.type === "FREE_DAY" ? "FREE_REQUESTED" : input.type;
   const tztModel = input.tztModel ?? "DAILY_QUOTA";
+  const holidayIsosByYear = input.holidayIsosByYear ?? new Map<number, Set<string>>();
 
-  const weekdaysByYear = requestedWeekdaysByYear(input.startDate, input.endDate);
-  if (weekdaysByYear.size === 0) return { ok: true };
+  const sollDaysByYear = requestedSollDaysByYear(
+    input.startDate,
+    input.endDate,
+    input.standardWorkDays,
+    holidayIsosByYear,
+  );
+  if (sollDaysByYear.size === 0) return { ok: true };
 
   if (effectiveType === "VACATION") {
-    for (const [year, requestedDays] of weekdaysByYear) {
+    for (const [year, requestedDays] of sollDaysByYear) {
       const available = getAccountValue(input, year, "FERIEN");
       if (available < requestedDays) {
         return {
@@ -92,7 +116,7 @@ export function evaluateRequestEntitlement(
     if (tztModel === "TARGET_REDUCTION") {
       return { ok: true };
     }
-    for (const [year, requestedDays] of weekdaysByYear) {
+    for (const [year, requestedDays] of sollDaysByYear) {
       const available = getAccountValue(input, year, "TZT");
       if (available < requestedDays) {
         return {
@@ -105,7 +129,7 @@ export function evaluateRequestEntitlement(
   }
 
   if (effectiveType === "PARENTAL_CARE") {
-    for (const [year, requestedDays] of weekdaysByYear) {
+    for (const [year, requestedDays] of sollDaysByYear) {
       const available = getAccountValue(input, year, "PARENTAL_CARE");
       if (available < requestedDays) {
         return {
@@ -121,7 +145,7 @@ export function evaluateRequestEntitlement(
     input.weeklyTargetMinutes,
     input.standardWorkDays,
   );
-  for (const [year, requestedDays] of weekdaysByYear) {
+  for (const [year, requestedDays] of sollDaysByYear) {
     const neededMinutes = requestedDays * dailyTargetMinutes;
     const available = getAccountValue(input, year, "ZEITSALDO");
     if (available < neededMinutes) {
