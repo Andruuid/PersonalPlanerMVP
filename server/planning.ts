@@ -9,7 +9,7 @@ import {
   type UpsertPlanEntryInput,
   type QuickPickKey,
 } from "@/lib/planning/plan-entry-schemas";
-import { isoDateString, parseIsoDate } from "@/lib/time/week";
+import { DEFAULT_HALF_DAY_OFF_MINUTES } from "@/lib/time/priority";
 import {
   requireAdmin,
   fieldErrorsFromZod,
@@ -20,6 +20,7 @@ import {
 } from "./_shared";
 import { archiveUntil } from "@/lib/archive";
 import { maybeSweepErtAfterPlanWrite } from "@/lib/ert/sweep";
+import { isoDateString, parseIsoDate } from "@/lib/time/week";
 
 function timeToMinutes(value: string): number {
   const [h, m] = value.split(":").map((p) => Number.parseInt(p, 10));
@@ -167,6 +168,8 @@ export async function upsertPlanEntryAction(
       );
     } else if (data.kind === "ABSENCE") {
       absenceType = data.absenceType;
+    } else if (data.kind === "HALF_DAY_OFF") {
+      plannedMinutes = DEFAULT_HALF_DAY_OFF_MINUTES;
     }
 
     const result = await prisma.$transaction(async (tx) => {

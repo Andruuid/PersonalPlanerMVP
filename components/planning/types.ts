@@ -1,6 +1,11 @@
 import type { ShiftKey } from "@/lib/shift-style";
 
-export type EntryKind = "SHIFT" | "ONE_TIME_SHIFT" | "ABSENCE" | "VFT";
+export type EntryKind =
+  | "SHIFT"
+  | "ONE_TIME_SHIFT"
+  | "ABSENCE"
+  | "VFT"
+  | "HALF_DAY_OFF";
 
 export type AbsenceType =
   | "VACATION"
@@ -38,9 +43,9 @@ export interface EmployeeView {
   firstName: string;
   lastName: string;
   roleLabel: string | null;
-  /** Mehrzeiliger Hinweis zu Ruhezeit-Verstößen (ArG); null wenn ok */
-  restViolationTooltip: string | null;
-  hasRestViolations: boolean;
+  /** Kombiniert Ruhezeit + Arbeitstage/Halbtag (ArG Hinweise) */
+  planningViolationTooltip: string | null;
+  hasPlanningViolations: boolean;
 }
 
 export interface DayView {
@@ -93,6 +98,10 @@ export interface KpiSummary {
   statusLabel: string;
   /** Summe aus täglichen Verstößen + 1 pro Person bei unzureichender Wochenruhe */
   restViolationCount: number;
+  /** Verstosse max. Arbeitstage in Folge (KW, alle MA zusammen gezählt) */
+  consecutiveWorkStreakKwViolationCount: number;
+  /** Mitarbeitende ohne angemerkten Halbtag wenn > 5 Arbeitstag(e) verteilt */
+  halfDayOffMissingEmployees: number;
 }
 
 export type EntryMap = Record<string, PlanEntryView>;

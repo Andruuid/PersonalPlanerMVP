@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { TimeInterval } from "../ert";
 import {
   buildIntervalsFromEntries,
+  countConsecutiveWorkDays,
+  requiresHalfDayOff,
   validateDailyRest,
   validateWeeklyRest,
   WEEKLY_REST_REQUIRED_MINUTES,
@@ -78,5 +80,46 @@ describe("buildIntervalsFromEntries", () => {
     const iv = buildIntervalsFromEntries(entries);
     const { violations } = validateDailyRest(iv);
     expect(violations.length).toBeGreaterThan(0);
+  });
+});
+
+describe("countConsecutiveWorkDays / requiresHalfDayOff", () => {
+  it("markiert den siebten aufeinanderfolgenden Arbeitstag", () => {
+    const seq = [];
+    for (let i = 0; i < 7; i += 1) {
+      seq.push({
+        date: `2026-10-${String(5 + i).padStart(2, "0")}`,
+        isWorkDay: true,
+      });
+    }
+    const r = countConsecutiveWorkDays(seq);
+    expect(r.maxConsecutiveWorkDays).toBe(7);
+    expect(r.violationDates).toContain("2026-10-11");
+  });
+
+  it("Mo–Fr Shift + Sa Shift ohne Halbtag → Halbtag fehlt", () => {
+    const week = [
+      { date: "2026-10-05", isWorkDay: true, halfDayOffPlanned: false },
+      { date: "2026-10-06", isWorkDay: true, halfDayOffPlanned: false },
+      { date: "2026-10-07", isWorkDay: true, halfDayOffPlanned: false },
+      { date: "2026-10-08", isWorkDay: true, halfDayOffPlanned: false },
+      { date: "2026-10-09", isWorkDay: true, halfDayOffPlanned: false },
+      { date: "2026-10-10", isWorkDay: true, halfDayOffPlanned: false },
+      { date: "2026-10-11", isWorkDay: false, halfDayOffPlanned: false },
+    ];
+    expect(requiresHalfDayOff(week)).toBe(true);
+  });
+
+  it("6 Arbeitstage mit einem HALF_DAY_OFF → kein fehlender Halbtag", () => {
+    const week = [
+      { date: "2026-10-05", isWorkDay: true, halfDayOffPlanned: false },
+      { date: "2026-10-06", isWorkDay: true, halfDayOffPlanned: false },
+      { date: "2026-10-07", isWorkDay: true, halfDayOffPlanned: true },
+      { date: "2026-10-08", isWorkDay: true, halfDayOffPlanned: false },
+      { date: "2026-10-09", isWorkDay: true, halfDayOffPlanned: false },
+      { date: "2026-10-10", isWorkDay: true, halfDayOffPlanned: false },
+      { date: "2026-10-11", isWorkDay: false, halfDayOffPlanned: false },
+    ];
+    expect(requiresHalfDayOff(week)).toBe(false);
   });
 });

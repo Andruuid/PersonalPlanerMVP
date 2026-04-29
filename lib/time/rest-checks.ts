@@ -1,7 +1,8 @@
 import { addDays, parse } from "date-fns";
+import type { HolidayLookup } from "./holidays";
 import { mergeIntervals, type TimeInterval } from "./ert";
-import { isoDateString } from "./week";
-import type { PlanEntryInput } from "./priority";
+import { isoDateString, isoWeekDays, parseIsoDate, startOfIsoWeek } from "./week";
+import { resolveDayFromEntries, type PlanEntryInput, type DayKind } from "./priority";
 
 /** Art. 9 ArG: min. 11h Ruhezeit zwischen zwei Arbeitsperioden. */
 export const DAILY_REST_REQUIRED_MINUTES = 11 * 60;
@@ -124,4 +125,142 @@ export function validateWeeklyRest(
     ok: longestMs >= WEEKLY_REST_REQUIRED_MINUTES * 60_000,
     longestGapMinutes,
   };
+}
+
+/** Maximal erlaubte aufeinanderfolgende Arbeitstage (ArG-Schweizer Regelteil). */
+export const MAX_CONSECUTIVE_WORK_DAYS_LEGAL = 6;
+
+export function resolvedKindCountsAsLaborWorkDay(kind: DayKind): boolean {
+  return (
+    kind === "WORK" ||
+    kind === "WORK_ON_WEEKEND" ||
+    kind === "HOLIDAY_WORK" ||
+    kind === "HALF_DAY_OFF"
+  );
+}
+
+/**
+ * Für jeden Kalendertag in [fromInclusive, toInclusive]:
+ * Arbeit nach gelöstem Tagesprior aus Plan-Einträgen.
+ */
+export function buildLaborDayFactsForRange(
+  fromInclusive: string,
+  toInclusive: string,
+  entries: PlanEntryWithShiftTimes[],
+  holidays: HolidayLookup,
+): Array<{
+  date: string;
+  isWorkDay: boolean;
+  halfDayOffPlanned: boolean;
+}> {
+  const byDate = new Map<string, PlanEntryInput[]>();
+  for (const e of entries) {
+    const row = byDate.get(e.date) ?? [];
+    row.push(e);
+    byDate.set(e.date, row);
+  }
+  const start = parseIsoDate(fromInclusive);
+  const end = parseIsoDate(toInclusive);
+  if (!start || !end) return [];
+
+  const out: Array<{
+    date: string;
+    isWorkDay: boolean;
+    halfDayOffPlanned: boolean;
+  }> = [];
+  for (let d = start; d.getTime() <= end.getTime(); d = addDays(d, 1)) {
+    const iso = isoDateString(d);
+    const isHoliday = holidays.has(iso);
+    const dow = d.getDay();
+    const isWeekend = dow === 0 || dow === 6;
+    const rows = byDate.get(iso) ?? [];
+    const halfDayOffPlanned = rows.some((r) => r.kind === "HALF_DAY_OFF");
+    const resolved = resolveDayFromEntries(rows, isHoliday, isWeekend);
+    const isWorkDay = resolvedKindCountsAsLaborWorkDay(resolved.kind);
+    out.push({ date: iso, isWorkDay, halfDayOffPlanned });
+  }
+  return out;
+}
+
+/**
+ * Zählt zusammenhängende Arbeitstage; Verstösse wenn Streak > MAX_CONSECUTIVE_WORK_DAYS_LEGAL (7.+ Tag).
+ */
+export function countConsecutiveWorkDays(
+  allDays: Array<{ date: string; isWorkDay: boolean }>,
+): { maxConsecutiveWorkDays: number; violationDates: string[] } {
+  if (allDays.length === 0) {
+    return { maxConsecutiveWorkDays: 0, violationDates: [] };
+  }
+  const byDay = new Map<string, boolean>();
+  for (const row of allDays) {
+    const prev = byDay.get(row.date) ?? false;
+    byDay.set(row.date, prev || row.isWorkDay);
+  }
+  const sortedKeys = [...byDay.keys()].sort();
+  const minIso = sortedKeys[0];
+  const maxIso = sortedKeys.at(-1);
+  if (!minIso || !maxIso) {
+    return { maxConsecutiveWorkDays: 0, violationDates: [] };
+  }
+  const minD = parseIsoDate(minIso);
+  const maxD = parseIsoDate(maxIso);
+  if (!minD || !maxD) {
+    return { maxConsecutiveWorkDays: 0, violationDates: [] };
+  }
+  const violations: string[] = [];
+  let streak = 0;
+  let maxC = 0;
+  for (
+    let d = minD;
+    d.getTime() <= maxD.getTime();
+    d = addDays(d, 1)
+  ) {
+    const iso = isoDateString(d);
+    const work = byDay.get(iso) ?? false;
+    streak = work ? streak + 1 : 0;
+    if (work && streak > maxC) maxC = streak;
+    if (work && streak > MAX_CONSECUTIVE_WORK_DAYS_LEGAL) {
+      violations.push(iso);
+    }
+  }
+  return {
+    maxConsecutiveWorkDays: maxC,
+    violationDates: violations,
+  };
+}
+
+/**
+ * Simulation: Wirkt der geplante Upsert auf `targetIso` auf das Max.-6-Arbeitstage-Konto?
+ */
+export function wouldConsecutiveWorkViolationOnUpsert(
+  mergedStreakContextEntries: PlanEntryWithShiftTimes[],
+  year: number,
+  weekNumber: number,
+  targetIso: string,
+  hypothetical: PlanEntryWithShiftTimes | null,
+  holidays: HolidayLookup,
+): boolean {
+  const stripped = mergedStreakContextEntries.filter((e) => e.date !== targetIso);
+  const merged = hypothetical ? [...stripped, hypothetical] : stripped;
+  const weekStart = startOfIsoWeek(year, weekNumber);
+  const streakFrom = isoDateString(addDays(weekStart, -14));
+  const streakTo = isoWeekDays(year, weekNumber)[6]!.iso;
+  const facts = buildLaborDayFactsForRange(streakFrom, streakTo, merged, holidays);
+  const { violationDates } = countConsecutiveWorkDays(
+    facts.map((row) => ({ date: row.date, isWorkDay: row.isWorkDay })),
+  );
+  return violationDates.includes(targetIso);
+}
+
+/** Wenn Arbeit auf mehr als 5 Werktitel verteilt ohne geplanten freien Halbtag (spec). */
+export function requiresHalfDayOff(
+  weekDays: Array<{
+    date: string;
+    isWorkDay: boolean;
+    halfDayOffPlanned: boolean;
+  }>,
+): boolean {
+  const workCt = weekDays.filter((w) => w.isWorkDay).length;
+  const hasHalf = weekDays.some((w) => w.halfDayOffPlanned);
+  return workCt > 5 && !hasHalf;
 }

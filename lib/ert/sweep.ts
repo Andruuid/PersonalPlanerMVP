@@ -2,7 +2,7 @@ import { addDays } from "date-fns";
 import type { PrismaClient } from "@/lib/generated/prisma/client";
 import { upsertAndAdvanceErtCases } from "@/lib/bookings/core";
 import { buildHolidayLookup } from "@/lib/time/holidays";
-import type { PlanEntryInput } from "@/lib/time/priority";
+import type { AbsenceType, PlanEntryInput } from "@/lib/time/priority";
 import { resolveDayFromEntries } from "@/lib/time/priority";
 import { isoDateString, parseIsoDate } from "@/lib/time/week";
 
@@ -36,7 +36,7 @@ function toPlanEntryInputs(
 ): PlanEntryInput[] {
   return rows.map((r) => ({
     kind: r.kind as PlanEntryInput["kind"],
-    absenceType: r.absenceType,
+    absenceType: r.absenceType as AbsenceType | null,
     plannedMinutes: r.plannedMinutes,
   }));
 }

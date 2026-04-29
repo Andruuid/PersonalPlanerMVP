@@ -12,7 +12,8 @@ export function actualWorkMinutes(
     if (
       d.kind === "WORK" ||
       d.kind === "WORK_ON_WEEKEND" ||
-      d.kind === "HOLIDAY_WORK"
+      d.kind === "HOLIDAY_WORK" ||
+      d.kind === "HALF_DAY_OFF"
     ) {
       total += d.plannedMinutes;
     }

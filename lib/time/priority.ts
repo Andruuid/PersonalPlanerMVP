@@ -11,7 +11,12 @@ export type AbsenceType =
   | "CIVIL_SERVICE"
   | "HOLIDAY_AUTO";
 
-export type PlanEntryKind = "SHIFT" | "ONE_TIME_SHIFT" | "ABSENCE" | "VFT";
+export type PlanEntryKind =
+  | "SHIFT"
+  | "ONE_TIME_SHIFT"
+  | "ABSENCE"
+  | "VFT"
+  | "HALF_DAY_OFF";
 
 export interface PlanEntryInput {
   kind: PlanEntryKind;
@@ -38,6 +43,7 @@ export type DayKind =
   | "SERVICE"
   | "UNPAID"
   | "VFT"
+  | "HALF_DAY_OFF"
   | "WORK"
   | "EMPTY_WEEKDAY";
 
@@ -84,6 +90,10 @@ const ABSENCE_PRIORITY_TIERS: AbsenceType[][] = [
 function isShiftLike(entry: PlanEntryInput): boolean {
   return entry.kind === "SHIFT" || entry.kind === "ONE_TIME_SHIFT";
 }
+
+const DEFAULT_HALF_DAY_OFF_MINUTES = 240;
+
+export { DEFAULT_HALF_DAY_OFF_MINUTES };
 
 /**
  * Resolve the canonical kind for a single day given the optional plan entry,
@@ -140,6 +150,13 @@ export function resolveDay(
     return { kind: "VFT", plannedMinutes: 0 };
   }
 
+  if (entry.kind === "HALF_DAY_OFF") {
+    return {
+      kind: "HALF_DAY_OFF",
+      plannedMinutes: entry.plannedMinutes || DEFAULT_HALF_DAY_OFF_MINUTES,
+    };
+  }
+
   return { kind: "WORK", plannedMinutes: entry.plannedMinutes };
 }
 
@@ -181,6 +198,13 @@ export function resolveDayFromEntries(
     if (weekendShift) {
       return { kind: "WORK_ON_WEEKEND", plannedMinutes: weekendShift.plannedMinutes };
     }
+    const halfWd = entries.find((entry) => entry.kind === "HALF_DAY_OFF");
+    if (halfWd) {
+      return {
+        kind: "HALF_DAY_OFF",
+        plannedMinutes: halfWd.plannedMinutes || DEFAULT_HALF_DAY_OFF_MINUTES,
+      };
+    }
     return { kind: "WEEKEND_OFF", plannedMinutes: 0 };
   }
 
@@ -195,6 +219,14 @@ export function resolveDayFromEntries(
     if (matched) {
       return { kind: ANRECHENBAR_FALLBACK[matched], plannedMinutes: 0 };
     }
+  }
+
+  const halfDay = entries.find((entry) => entry.kind === "HALF_DAY_OFF");
+  if (halfDay) {
+    return {
+      kind: "HALF_DAY_OFF",
+      plannedMinutes: halfDay.plannedMinutes || DEFAULT_HALF_DAY_OFF_MINUTES,
+    };
   }
 
   if (entries.some((entry) => entry.kind === "VFT")) {

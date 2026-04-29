@@ -28,6 +28,7 @@ enum PlanEntryKind {
   ONE_TIME_SHIFT
   ABSENCE
   VFT
+  HALF_DAY_OFF
 }
 
 enum AbsenceType {

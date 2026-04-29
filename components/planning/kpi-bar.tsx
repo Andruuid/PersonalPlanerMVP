@@ -17,6 +17,8 @@ interface KpiItem {
 export function KpiBar({ summary }: KpiBarProps) {
   const understaffed = summary.understaffedSlots > 0;
   const restIssues = summary.restViolationCount > 0;
+  const streakKw = summary.consecutiveWorkStreakKwViolationCount > 0;
+  const halfDayGap = summary.halfDayOffMissingEmployees > 0;
   const items: KpiItem[] = [
     { label: "Offene Anträge", value: summary.openRequests.toString() },
     { label: "Unbesetzte Felder", value: summary.unassignedCells.toString() },
@@ -33,6 +35,24 @@ export function KpiBar({ summary }: KpiBarProps) {
           ? "Keine Hinweise (tägl./wöchentl.)"
           : "Hinweise in den Mitarbeiterzeilen (tägl./wöchentl. Ruhezeit)",
       accent: restIssues ? "warn" : "default",
+    },
+    {
+      label: "Arbeitstage > 6 Folge",
+      value: summary.consecutiveWorkStreakKwViolationCount.toString(),
+      hint:
+        summary.consecutiveWorkStreakKwViolationCount === 0
+          ? "Keine Verstösse in dieser KW"
+          : "Siebter Arbeitstag in Folge in dieser KW (alle MA zusammen)",
+      accent: streakKw ? "warn" : "default",
+    },
+    {
+      label: "Halbtag fehlt",
+      value: summary.halfDayOffMissingEmployees.toString(),
+      hint:
+        summary.halfDayOffMissingEmployees === 0
+          ? "Verteilungsregeln erfüllt oder nicht zutreffend"
+          : "MA ohne angemerkten Halbtag trotz > 5 Arbeitstagen",
+      accent: halfDayGap ? "warn" : "default",
     },
     {
       label: "Unterbesetzt",
@@ -54,7 +74,7 @@ export function KpiBar({ summary }: KpiBarProps) {
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-9">
       {items.map((it) => (
         <div
           key={it.label}

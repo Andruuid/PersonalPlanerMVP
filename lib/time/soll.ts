@@ -37,6 +37,9 @@ export function dailySollMinutes(
   ) {
     return 0;
   }
+  if (kind === "HALF_DAY_OFF") {
+    return baseDailySollMinutes(weeklyTargetMinutes, standardWorkDays) / 2;
+  }
   return baseDailySollMinutes(weeklyTargetMinutes, standardWorkDays);
 }
 
@@ -56,6 +59,7 @@ export function anrechenbarIstMinutes(
     case "WORK":
     case "WORK_ON_WEEKEND":
     case "HOLIDAY_WORK":
+    case "HALF_DAY_OFF":
       return plannedMinutes;
     case "SICK":
     case "ACCIDENT":

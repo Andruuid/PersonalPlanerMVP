@@ -474,6 +474,44 @@ export async function recalcWeekClose(
     },
   });
 
+  const streakPrefetch = await prisma.planEntry.findMany({
+    where: {
+      deletedAt: null,
+      date: {
+        gte: addDays(monday, -14),
+        lt: monday,
+      },
+      employee: { tenantId },
+    },
+    include: {
+      serviceTemplate: { select: { startTime: true, endTime: true } },
+    },
+  });
+
+  const streakPrefetchByEmp = new Map<string, PlanEntryByDate[]>();
+  for (const e of streakPrefetch) {
+    const list = streakPrefetchByEmp.get(e.employeeId) ?? [];
+    list.push({
+      date: isoDateString(e.date),
+      kind: e.kind,
+      absenceType: e.absenceType ?? null,
+      plannedMinutes: e.plannedMinutes,
+      shiftStartTime:
+        e.kind === "SHIFT" && e.serviceTemplate
+          ? e.serviceTemplate.startTime
+          : e.kind === "ONE_TIME_SHIFT"
+            ? e.oneTimeStart
+            : null,
+      shiftEndTime:
+        e.kind === "SHIFT" && e.serviceTemplate
+          ? e.serviceTemplate.endTime
+          : e.kind === "ONE_TIME_SHIFT"
+            ? e.oneTimeEnd
+            : null,
+    });
+    streakPrefetchByEmp.set(e.employeeId, list);
+  }
+
   const locationIds = Array.from(new Set(employees.map((e) => e.locationId)));
   const holidayRows = await prisma.holiday.findMany({
     where: {
@@ -566,6 +604,7 @@ export async function recalcWeekClose(
           hazMinutesPerWeek: employee.hazMinutesPerWeek,
           tztModel: employee.tztModel,
         },
+        streakPrefetchByEmp.get(employee.id) ?? [],
       );
       await upsertAndAdvanceErtCases(tx, employee.id, tenantId, result.days, sunday);
       await upsertAndAdvanceCompensationCases(

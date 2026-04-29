@@ -28,6 +28,7 @@ import {
   type ServiceOption,
   type WeekView,
 } from "./types";
+import type { PlanEntryByDate } from "@/lib/time/balance";
 import { movePlanEntryAction } from "@/server/planning";
 
 interface PlanningBoardProps {
@@ -39,6 +40,10 @@ interface PlanningBoardProps {
   requests: RequestView[];
   kpi: KpiSummary;
   locationName: string;
+  weekYear: number;
+  weekNumber: number;
+  streakContextsByEmployee: Record<string, PlanEntryByDate[]>;
+  holidayIsosForEmployee: Record<string, string[]>;
 }
 
 interface DialogState {
@@ -56,6 +61,10 @@ export function PlanningBoard({
   requests,
   kpi,
   locationName,
+  weekYear,
+  weekNumber,
+  streakContextsByEmployee,
+  holidayIsosForEmployee,
 }: PlanningBoardProps) {
   const locked = week.status === "CLOSED";
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
@@ -204,6 +213,8 @@ export function PlanningBoard({
         open={dialog.open}
         onOpenChange={(o) => setDialog((d) => ({ ...d, open: o }))}
         weekId={week.id}
+        weekYear={weekYear}
+        weekNumber={weekNumber}
         employeeId={dialog.employeeId}
         employeeName={
           dialogEmployee
@@ -214,6 +225,10 @@ export function PlanningBoard({
         longDate={dialogDay?.longDate ?? ""}
         services={services}
         initialEntry={dialogEntry}
+        streakContextEntries={
+          streakContextsByEmployee[dialog.employeeId] ?? []
+        }
+        holidayIsos={holidayIsosForEmployee[dialog.employeeId] ?? []}
       />
     </DndContext>
   );

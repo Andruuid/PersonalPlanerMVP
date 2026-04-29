@@ -40,6 +40,10 @@ const vftSchema = z.object({
   kind: z.literal("VFT"),
 });
 
+const halfDaySchema = z.object({
+  kind: z.literal("HALF_DAY_OFF"),
+});
+
 const baseSchema = z.object({
   weekId: z.string().min(1),
   employeeId: z.string().min(1),
@@ -52,6 +56,7 @@ export const upsertSchema = z.discriminatedUnion("kind", [
   oneTimeSchema.merge(baseSchema),
   absenceSchema.merge(baseSchema),
   vftSchema.merge(baseSchema),
+  halfDaySchema.merge(baseSchema),
 ]);
 
 export type UpsertPlanEntryInput = z.infer<typeof upsertSchema>;

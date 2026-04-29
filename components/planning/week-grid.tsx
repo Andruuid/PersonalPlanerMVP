@@ -114,12 +114,12 @@ function RowFragment({
             </p>
           ) : null}
         </div>
-        {employee.hasRestViolations ? (
+        {employee.hasPlanningViolations ? (
           <Tooltip>
             <TooltipTrigger asChild>
               <button
                 type="button"
-                aria-label="Ruhezeit: Hinweis anzeigen"
+                aria-label="Planungshinweis ArG anzeigen"
                 className="mt-0.5 shrink-0 rounded p-0.5 text-amber-600 hover:bg-amber-50 hover:text-amber-800 focus-visible:outline focus-visible:ring-2 focus-visible:ring-amber-400"
               >
                 <AlertTriangle className="h-4 w-4" />
@@ -129,8 +129,8 @@ function RowFragment({
               side="top"
               className="max-w-xs whitespace-pre-line text-left text-sm"
             >
-              {employee.restViolationTooltip ??
-                "Ruhezeit gemäß ArG eingeschränkt (mind. 11h tägl. / 35h wöchentl.)."}
+              {employee.planningViolationTooltip ??
+                "Arbeitszeit-/Ruhezeit-Hinweise (ArG)."}
             </TooltipContent>
           </Tooltip>
         ) : null}
