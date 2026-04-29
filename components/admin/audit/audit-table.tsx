@@ -39,6 +39,7 @@ const ACTION_BADGE: Record<string, string> = {
   RECALC_WEEK: "bg-violet-100 text-violet-800",
   REVERT_RECALC_WEEK: "bg-amber-100 text-amber-800",
   YEAR_END_CARRYOVER: "bg-violet-100 text-violet-800",
+  YEAR_END_CARRYOVER_AUTO: "bg-violet-100 text-violet-800",
   GENERATE: "bg-teal-100 text-teal-800",
   MOVE: "bg-sky-100 text-sky-800",
 };

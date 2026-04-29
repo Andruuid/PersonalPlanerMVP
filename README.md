@@ -163,6 +163,24 @@ automatisch ab (`recalcWeekClose`, dann `CLOSED` samt Audit‑Eintrag
 Konfiguriere dieselbe **`CRON_SECRET`**‑Variable und eine **weitere**
 Scheduled Function mit täglichem Aufruf und `Authorization: Bearer <CRON_SECRET>`.
 
+### Jahreswechsel — Cron am 01.01. (empfohlen)
+
+`GET /api/cron/year-end` führt pro Mandanten die Jahreswechsel‑Logik
+(`applyYearEndCarryover`, idempotent wie der manuelle Admin‑Button) nur am **1. Januar**
+(Europe/Zurich) aus und schreibt pro Mandant einen Audit‑Eintrag **YEAR_END_CARRYOVER_AUTO**.
+Welcher Admin‑User gebucht wird, ist der erste aktive ADMIN des Mandanten (wie beim
+Auto‑Wochenschluss).
+
+Lege wieder **`CRON_SECRET`** an und einen **jährlichen** Scheduled Function‑Aufruf am
+01.01. (einmal täglicher Aufruf reicht ebenfalls — der Endpoint ist sonst ein No‑Op).
+Authorization: `Authorization: Bearer <CRON_SECRET>`.
+
+Für lokale/integration Tests ohne Kalenderdatum: Umgebungsvariable **`AUTO_YEAR_END_FORCE=1`**
+ersetzt den 01.01.‑Filter (gleiche `fromYear`‑Ableitung wie am „echten“ Jahresbeginn nach
+Timezone).
+
+Der Admin‑Dialog **„Jahreswechsel“** bleibt als manueller Override erhalten.
+
 ## CI
 
 Der GitHub-Actions-Workflow (`.github/workflows/ci.yml`) führt bei jedem
