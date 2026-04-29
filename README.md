@@ -13,7 +13,7 @@ Drag-and-Drop-Wochenplanung und Mitarbeitersicht.
 - Auth.js v5 (Credentials Provider, JWT)
 - Prisma 7 + SQLite via `@prisma/adapter-libsql`
 - @dnd-kit/core, react-hook-form, zod
-- Vitest, Prettier, ESLint
+- Vitest, Playwright (E2E), Prettier, ESLint
 
 ## Schnellstart
 
@@ -37,6 +37,31 @@ App läuft unter <http://localhost:3000>.
 | Mitarbeiter | `noah.schmid@demo.ch`   | `demo123` |
 
 Admin landet nach dem Login auf `/dashboard`, Mitarbeitende auf `/my-week`.
+Beim Anmelden den Betrieb-Slug angeben (`default` enthält alle Demo-Stammdaten aus dem Seed).
+
+### End-to-End-Tests (Playwright)
+
+Die Smoke-Tests in `e2e/` erwarten dieselbe Datenbankkonfiguration wie der Dev-Server
+(`DATABASE_URL`) und gültige Demo-Daten (**Migration + Seed vor dem ersten Lauf**):
+
+```powershell
+npx prisma migrate deploy
+npm run db:seed
+```
+
+Zugänge entsprechen der Tabelle „Demo-Konten“ bei Betrieb **„default“** (z. B. Admin und `anna.keller@demo.ch`).
+
+| Skript                 | Zweck                                        |
+| ---------------------- | -------------------------------------------- |
+| `npm run test:e2e`     | Alle E2E-Tests headless (`playwright.config`: startet ggf. `npm run dev` auf Port 3000) |
+| `npm run test:e2e:headed` | Gleiche Tests mit sichtbarem Browser     |
+| `npm run test:e2e:ui`  | [Playwright UI Mode](https://playwright.dev/docs/test-ui-mode) zum Debuggen |
+
+Optional: Chromium-Browser installieren oder aktualisieren:
+
+```powershell
+npx playwright install chromium
+```
 
 ## Skripte
 
@@ -46,6 +71,9 @@ Admin landet nach dem Login auf `/dashboard`, Mitarbeitende auf `/my-week`.
 | `npm run build`   | Produktions-Build                                      |
 | `npm run lint`    | ESLint                                                 |
 | `npm run test`    | Vitest (einmal)                                        |
+| `npm run test:e2e` | Playwright E2E (siehe Abschnitt E2E)              |
+| `npm run test:e2e:headed` | Playwright mit sichtbarem Fenster           |
+| `npm run test:e2e:ui`   | Playwright UI Mode                                   |
 | `npm run db:generate` | Prisma Client neu generieren                       |
 | `npm run db:migrate`  | Migration anwenden / erzeugen                      |
 | `npm run db:reset`    | DB zurücksetzen + Seed                             |
