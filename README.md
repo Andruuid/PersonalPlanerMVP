@@ -142,6 +142,16 @@ Provider-Wechsel.
 > Hinweis: Für die Demo ist Turso die schnellere Wahl, weil der Code
 > ohne Schema- oder Adapter-Änderungen funktioniert.
 
+### ERT — geplanter Tages‑Cron (empfohlen)
+
+ERT-Fälle können bei Planänderungen sofort berechnet werden; zusätzlich
+stellt die App einen Cron‑Endpoint bereit (`GET /api/cron/ert-sweep`).
+Lege einen geheimen Wert **`CRON_SECRET`** in Netlify (Environment variables)
+fest und konfiguriere eine **Scheduled Function**, die diese URL **täglich**
+mithilfe eines `Authorization: Bearer <CRON_SECRET>`-Headers aufruft —
+damit ERT‑Status (**OPEN**, **OVERDUE**, **FULFILLED**) auch ohne ständige
+Planungsaktivität konsistent bleiben.
+
 ## CI
 
 Der GitHub-Actions-Workflow (`.github/workflows/ci.yml`) führt bei jedem

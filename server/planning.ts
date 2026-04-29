@@ -19,6 +19,7 @@ import {
   type ActionResult,
 } from "./_shared";
 import { archiveUntil } from "@/lib/archive";
+import { maybeSweepErtAfterPlanWrite } from "@/lib/ert/sweep";
 
 function timeToMinutes(value: string): number {
   const [h, m] = value.split(":").map((p) => Number.parseInt(p, 10));
@@ -225,6 +226,13 @@ export async function upsertPlanEntryAction(
       comment: data.comment ?? null,
     });
 
+    await maybeSweepErtAfterPlanWrite(
+      prisma,
+      admin.tenantId,
+      data.employeeId,
+      data.date,
+    );
+
     safeRevalidatePath("upsertPlanEntryAction", "/planning");
     return { ok: true };
   } catch (err) {
@@ -267,6 +275,13 @@ export async function deletePlanEntryAction(
       entityId: existing.id,
       oldValue: entrySnapshot(existing),
     });
+
+    await maybeSweepErtAfterPlanWrite(
+      prisma,
+      admin.tenantId,
+      employeeId,
+      isoDate,
+    );
 
     safeRevalidatePath("deletePlanEntryAction", "/planning");
     return { ok: true };
@@ -408,6 +423,14 @@ export async function movePlanEntryAction(
         date: isoDateString(result.moved.date),
       },
     });
+
+    await maybeSweepErtAfterPlanWrite(
+      prisma,
+      admin.tenantId,
+      entry.employeeId,
+      isoDateString(entry.date),
+    );
+    await maybeSweepErtAfterPlanWrite(prisma, admin.tenantId, toEmployeeId, toIsoDate);
 
     safeRevalidatePath("movePlanEntryAction", "/planning");
     return { ok: true };

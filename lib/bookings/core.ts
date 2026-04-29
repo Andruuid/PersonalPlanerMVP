@@ -102,7 +102,7 @@ function intervalFromTimedEntry(entry: {
   return end > start ? { start, end } : null;
 }
 
-async function computeErtFulfilled(
+export async function computeErtFulfilled(
   tx: Tx,
   employeeId: string,
   triggerDate: Date,
@@ -141,7 +141,7 @@ async function computeErtFulfilled(
   );
 }
 
-async function upsertAndAdvanceErtCases(
+export async function upsertAndAdvanceErtCases(
   tx: Tx,
   employeeId: string,
   tenantId: string,
