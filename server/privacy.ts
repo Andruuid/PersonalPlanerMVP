@@ -63,6 +63,7 @@ export async function createPrivacyRequestAction(
 
   safeRevalidatePath("createPrivacyRequestAction", "/my-requests");
   safeRevalidatePath("createPrivacyRequestAction", "/privacy");
+  safeRevalidatePath("createPrivacyRequestAction", "/dashboard");
   return { ok: true };
 }
 
@@ -111,6 +112,7 @@ export async function decidePrivacyRequestAction(
 
   safeRevalidatePath("decidePrivacyRequestAction", "/privacy");
   safeRevalidatePath("decidePrivacyRequestAction", "/my-requests");
+  safeRevalidatePath("decidePrivacyRequestAction", "/dashboard");
   return { ok: true };
 }
 

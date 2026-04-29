@@ -1,4 +1,4 @@
-import { CalendarDays, FileClock, ShieldCheck, Users } from "lucide-react";
+import { CalendarDays, FileClock, Lock, ShieldCheck, Users } from "lucide-react";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
 import { listAuditLogs } from "@/lib/audit";
@@ -38,7 +38,8 @@ const getCachedDashboardData = unstable_cache(
   async (tenantId: string, weekYear: number, weekNumber: number, dayKey: string) => {
     const today = startOfCalendarDay(dayKey);
     const [
-      openRequests,
+      openAbsenceRequests,
+      openPrivacyRequests,
       currentWeek,
       activeEmployees,
       auditToday,
@@ -48,6 +49,7 @@ const getCachedDashboardData = unstable_cache(
     ] =
       await Promise.all([
         prisma.absenceRequest.count({ where: { tenantId, status: "OPEN" } }),
+        prisma.privacyRequest.count({ where: { tenantId, status: "OPEN" } }),
         prisma.week.findUnique({
           where: {
             tenantId_year_weekNumber: { tenantId, year: weekYear, weekNumber },
@@ -63,7 +65,8 @@ const getCachedDashboardData = unstable_cache(
         }),
       ]);
     return {
-      openRequests,
+      openAbsenceRequests,
+      openPrivacyRequests,
       currentWeek: currentWeek?.deletedAt ? null : currentWeek,
       activeEmployees,
       auditToday,
@@ -82,7 +85,8 @@ export default async function DashboardPage() {
   const dayKey = calendarDayKey();
 
   const {
-    openRequests,
+    openAbsenceRequests,
+    openPrivacyRequests,
     currentWeek,
     activeEmployees,
     auditToday,
@@ -102,16 +106,23 @@ export default async function DashboardPage() {
       <PageHeader
         caption="Übersicht"
         title="Dashboard"
-        description="Kennzahlen, offene Anträge und der Status der aktuellen Woche auf einen Blick."
+        description="Kennzahlen, offene Abwesenheits- und Datenschutzanträge sowie der Status der aktuellen Woche auf einen Blick."
       />
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <KpiCard
-          label="Offene Anträge"
-          value={openRequests.toString()}
+          label="Offene Abwesenheiten"
+          value={openAbsenceRequests.toString()}
           href="/absences"
           icon={FileClock}
           hint="Wartet auf Entscheid"
+        />
+        <KpiCard
+          label="Datenschutz offen"
+          value={openPrivacyRequests.toString()}
+          href="/privacy"
+          icon={Lock}
+          hint="Auskunft / Löschung"
         />
         <KpiCard
           label="Aktuelle Woche"

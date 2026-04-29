@@ -77,7 +77,9 @@ export default async function PrivacyAdminPage() {
             {requests.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-4 py-6 text-center text-neutral-500">
-                  Keine Datenschutz-Anfragen vorhanden.
+                  Keine Datenschutz-Anfragen vorhanden. Stellen Mitarbeitende unter
+                  „Meine Anträge“ einen Export oder Löschantrag, erscheinen die
+                  Einträge hier — nicht unter „Abwesenheiten“.
                 </td>
               </tr>
             ) : null}
