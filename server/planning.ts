@@ -9,7 +9,12 @@ import {
   type UpsertPlanEntryInput,
   type QuickPickKey,
 } from "@/lib/planning/plan-entry-schemas";
-import { DEFAULT_HALF_DAY_OFF_MINUTES } from "@/lib/time/priority";
+import {
+  DEFAULT_HALF_DAY_OFF_MINUTES,
+  resolveDayFromEntries,
+  type AbsenceType,
+  type PlanEntryInput,
+} from "@/lib/time/priority";
 import {
   requireAdmin,
   fieldErrorsFromZod,
@@ -21,6 +26,42 @@ import {
 import { archiveUntil } from "@/lib/archive";
 import { maybeSweepErtAfterPlanWrite } from "@/lib/ert/sweep";
 import { isoDateString, parseIsoDate } from "@/lib/time/week";
+import { buildWeekSnapshot } from "./weeks";
+
+/** Abwesenheiten, die in PUBLISHED-KW bei geänderter Tagespriorität einen neuen Snapshot auslösen. */
+const AUTO_REPUBLISH_TRIGGER_ABSENCES = new Set<AbsenceType>([
+  "SICK",
+  "ACCIDENT",
+  "PARENTAL_CARE",
+  "MILITARY_SERVICE",
+  "CIVIL_PROTECTION_SERVICE",
+  "CIVIL_SERVICE",
+]);
+
+function isWeekendIso(iso: string): boolean {
+  const d = new Date(`${iso}T00:00:00Z`);
+  const dow = d.getUTCDay();
+  return dow === 0 || dow === 6;
+}
+
+function planRowToInput(e: {
+  kind: string;
+  absenceType: string | null;
+  plannedMinutes: number;
+}): PlanEntryInput {
+  return {
+    kind: e.kind as PlanEntryInput["kind"],
+    absenceType: e.absenceType as AbsenceType | null,
+    plannedMinutes: e.plannedMinutes,
+  };
+}
+
+function resolvedDayEqual(
+  a: { kind: string; plannedMinutes: number },
+  b: { kind: string; plannedMinutes: number },
+): boolean {
+  return a.kind === b.kind && a.plannedMinutes === b.plannedMinutes;
+}
 
 function timeToMinutes(value: string): number {
   const [h, m] = value.split(":").map((p) => Number.parseInt(p, 10));
@@ -93,7 +134,7 @@ function entrySnapshot(entry: {
 
 export async function upsertPlanEntryAction(
   input: UpsertPlanEntryInput,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ autoRepublished?: boolean }>> {
   const admin = await requireAdmin();
 
   try {
@@ -115,7 +156,13 @@ export async function upsertPlanEntryAction(
 
     const employee = await prisma.employee.findUnique({
       where: { id: data.employeeId },
-      select: { id: true, tenantId: true, isActive: true, deletedAt: true },
+      select: {
+        id: true,
+        tenantId: true,
+        isActive: true,
+        deletedAt: true,
+        locationId: true,
+      },
     });
     if (!employee || employee.tenantId !== admin.tenantId) {
       return { ok: false, error: "Mitarbeitende:r nicht gefunden." };
@@ -171,6 +218,8 @@ export async function upsertPlanEntryAction(
     } else if (data.kind === "HALF_DAY_OFF") {
       plannedMinutes = DEFAULT_HALF_DAY_OFF_MINUTES;
     }
+
+    let autoRepublished = false;
 
     const result = await prisma.$transaction(async (tx) => {
       const existing = await tx.planEntry.findFirst({
@@ -229,6 +278,63 @@ export async function upsertPlanEntryAction(
       comment: data.comment ?? null,
     });
 
+    if (
+      data.kind === "ABSENCE" &&
+      absenceType &&
+      AUTO_REPUBLISH_TRIGGER_ABSENCES.has(absenceType)
+    ) {
+      const weekRow = await prisma.week.findFirst({
+        where: { id: data.weekId, tenantId: admin.tenantId, deletedAt: null },
+        select: { id: true, status: true },
+      });
+      if (weekRow?.status === "PUBLISHED") {
+        const holiday = await prisma.holiday.findFirst({
+          where: {
+            tenantId: admin.tenantId,
+            locationId: employee.locationId,
+            date,
+          },
+          select: { id: true },
+        });
+        const isHoliday = Boolean(holiday);
+        const isWeekend = isWeekendIso(data.date);
+        const beforeRows = result.replaced ? [planRowToInput(result.replaced)] : [];
+        const afterRows = [planRowToInput(result.created)];
+        const resolvedBefore = resolveDayFromEntries(
+          beforeRows,
+          isHoliday,
+          isWeekend,
+        );
+        const resolvedAfter = resolveDayFromEntries(
+          afterRows,
+          isHoliday,
+          isWeekend,
+        );
+        if (!resolvedDayEqual(resolvedBefore, resolvedAfter)) {
+          const snapshot = await buildWeekSnapshot(data.weekId, admin.tenantId);
+          const publishedAt = new Date();
+          await prisma.publishedSnapshot.create({
+            data: {
+              tenantId: admin.tenantId,
+              weekId: data.weekId,
+              snapshotJson: JSON.stringify(snapshot),
+              publishedAt,
+            },
+          });
+          await writeAudit({
+            userId: admin.id,
+            action: "REPUBLISH_AUTO",
+            entity: "Week",
+            entityId: weekRow.id,
+            comment:
+              "Auto-Republish wegen prioritätsverändernden Eintrags (SICK/ACCIDENT)",
+          });
+          autoRepublished = true;
+          safeRevalidatePath("upsertPlanEntryAction", "/my-week");
+        }
+      }
+    }
+
     await maybeSweepErtAfterPlanWrite(
       prisma,
       admin.tenantId,
@@ -237,7 +343,10 @@ export async function upsertPlanEntryAction(
     );
 
     safeRevalidatePath("upsertPlanEntryAction", "/planning");
-    return { ok: true };
+    return {
+      ok: true,
+      data: autoRepublished ? { autoRepublished: true } : undefined,
+    };
   } catch (err) {
     logServerError("upsertPlanEntryAction", err);
     return { ok: false, error: actionErrorFromDatabase(err) };
@@ -299,7 +408,7 @@ export async function quickSetPlanEntryAction(
   employeeId: string,
   isoDate: string,
   pick: QuickPickKey,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ autoRepublished?: boolean }>> {
   const admin = await requireAdmin();
   try {
     if (QUICK_SHIFT_CODES.includes(pick as (typeof QUICK_SHIFT_CODES)[number])) {

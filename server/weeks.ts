@@ -48,7 +48,10 @@ export interface WeekSnapshot {
   entries: SnapshotEntry[];
 }
 
-async function buildSnapshot(weekId: string, tenantId: string): Promise<WeekSnapshot> {
+export async function buildWeekSnapshot(
+  weekId: string,
+  tenantId: string,
+): Promise<WeekSnapshot> {
   const week = await prisma.week.findFirst({
     where: { id: weekId, tenantId, deletedAt: null },
   });
@@ -130,7 +133,7 @@ export async function publishWeekAction(
     };
   }
 
-  const snapshot = await buildSnapshot(weekId, admin.tenantId);
+  const snapshot = await buildWeekSnapshot(weekId, admin.tenantId);
   const publishedAt = new Date();
 
   await prisma.$transaction(async (tx) => {

@@ -318,6 +318,9 @@ function AssignmentForm({
         const result = await upsertPlanEntryAction(payload);
         if (result.ok) {
           toast.success("Eintrag gespeichert.");
+          if (result.data?.autoRepublished) {
+            toast.info("Plan wurde automatisch neu veröffentlicht.");
+          }
           onClose();
         } else {
           setError(result.error);
