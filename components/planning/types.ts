@@ -45,6 +45,7 @@ export interface DayView {
   weekdayLabel: string;
   shortDate: string;
   longDate: string;
+  understaffed?: boolean;
 }
 
 export interface ServiceOption {
@@ -83,6 +84,9 @@ export interface KpiSummary {
   unassignedCells: number;
   activeEmployees: number;
   uesAusweisMinutes: number;
+  understaffedSlots: number;
+  understaffedRequired: number;
+  understaffedPlanned: number;
   statusLabel: string;
 }
 

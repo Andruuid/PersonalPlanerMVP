@@ -108,6 +108,8 @@ export function QuickActionsProvider({
               endTime: "17:00",
               breakMinutes: 30,
               comment: "",
+              defaultDays: null,
+              requiredCount: null,
               isActive: true,
             }}
             onSuccess={close}

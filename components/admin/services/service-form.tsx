@@ -12,11 +12,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { HelpIconTooltip } from "@/components/ui/help-icon-tooltip";
 import {
   createServiceAction,
   updateServiceAction,
 } from "@/server/services";
 import type { ActionResult } from "@/server/_shared";
+import { bitmaskHasWeekday } from "@/lib/services/coverage";
+
+const WEEKDAY_LABELS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"] as const;
 
 export interface ServiceFormDefaults {
   id?: string;
@@ -26,6 +30,8 @@ export interface ServiceFormDefaults {
   endTime: string;
   breakMinutes: number;
   comment: string;
+  defaultDays: number | null;
+  requiredCount: number | null;
   isActive: boolean;
 }
 
@@ -142,7 +148,49 @@ export function ServiceForm({
           placeholder="z. B. Kasse / Öffnung"
           error={fieldErr.comment}
         />
+        <Field
+          label="Sollbesetzung pro Tag"
+          name="requiredCount"
+          type="number"
+          min={0}
+          max={50}
+          defaultValue={defaults.requiredCount ?? ""}
+          placeholder="z. B. 2"
+          error={fieldErr.requiredCount}
+          hint="0 oder leer = keine Vorgabe"
+          labelHelp="Wieviele Personen pro Tag mit diesem Dienst besetzt sein sollen."
+        />
       </div>
+
+      <fieldset className="space-y-2">
+        <legend className="flex items-center gap-1.5 text-sm font-medium text-neutral-900">
+          Standardtage
+          <HelpIconTooltip text="An welchen Wochentagen dieser Dienst geplant werden muss." />
+        </legend>
+        <div className="flex flex-wrap gap-3">
+          {WEEKDAY_LABELS.map((label, i) => (
+            <label
+              key={label}
+              className="flex items-center gap-1.5 text-sm text-neutral-700"
+            >
+              <input
+                type="checkbox"
+                name={`defaultDay${i}`}
+                defaultChecked={bitmaskHasWeekday(defaults.defaultDays, i)}
+                className="h-4 w-4 rounded border-neutral-300"
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+        {fieldErr.defaultDays ? (
+          <p className="text-xs text-rose-700">{fieldErr.defaultDays}</p>
+        ) : (
+          <p className="text-xs text-neutral-500">
+            Keine Auswahl = keine Vorgabe.
+          </p>
+        )}
+      </fieldset>
 
       <label className="flex items-center gap-2 text-sm">
         <input
@@ -182,12 +230,16 @@ interface FieldProps extends Omit<React.ComponentProps<"input">, "size"> {
   label: string;
   hint?: string;
   error?: string;
+  labelHelp?: string;
 }
 
-function Field({ label, hint, error, name, ...rest }: FieldProps) {
+function Field({ label, hint, error, name, labelHelp, ...rest }: FieldProps) {
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={name}>{label}</Label>
+      <div className="flex items-center gap-1.5">
+        <Label htmlFor={name}>{label}</Label>
+        {labelHelp ? <HelpIconTooltip text={labelHelp} /> : null}
+      </div>
       <Input id={name} name={name} {...rest} />
       {error ? (
         <p className="text-xs text-rose-700">{error}</p>

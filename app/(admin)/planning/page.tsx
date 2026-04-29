@@ -26,6 +26,10 @@ import { computeWeeklyBalance } from "@/lib/time/balance";
 import { buildHolidayLookup } from "@/lib/time/holidays";
 import type { PlanEntryByDate } from "@/lib/time/balance";
 import { requireAdmin } from "@/server/_shared";
+import {
+  hasCoverageRequirement,
+  isUnderstaffed,
+} from "@/lib/services/coverage";
 
 export const metadata = { title: "Wochenplanung · PersonalPlaner" };
 
@@ -292,11 +296,41 @@ export default async function PlanningPage({ searchParams }: PageProps) {
     return acc + result.weeklyUesAusweisMinutes;
   }, 0);
 
+  // Coverage analysis: compare ServiceTemplate.requiredCount per weekday flagged
+  // by `defaultDays` against the planned SHIFT entries for that template + day.
+  const shiftCounts = new Map<string, number>();
+  for (const e of planEntries) {
+    if (e.kind !== "SHIFT" || !e.serviceTemplateId) continue;
+    const key = `${isoDateString(e.date)}__${e.serviceTemplateId}`;
+    shiftCounts.set(key, (shiftCounts.get(key) ?? 0) + 1);
+  }
+
+  const understaffedDays = new Set<string>();
+  let understaffedSlots = 0;
+  let understaffedRequired = 0;
+  let understaffedPlanned = 0;
+  for (let i = 0; i < days.length; i += 1) {
+    const day = days[i];
+    for (const template of services) {
+      if (!hasCoverageRequirement(template, i)) continue;
+      const planned = shiftCounts.get(`${day.iso}__${template.id}`) ?? 0;
+      if (isUnderstaffed(template, i, planned)) {
+        understaffedSlots += 1;
+        understaffedRequired += template.requiredCount ?? 0;
+        understaffedPlanned += planned;
+        understaffedDays.add(day.iso);
+      }
+    }
+  }
+
   const kpi: KpiSummary = {
     openRequests: openRequests.filter((r) => r.status === "OPEN").length,
     unassignedCells,
     activeEmployees: employees.length,
     uesAusweisMinutes,
+    understaffedSlots,
+    understaffedRequired,
+    understaffedPlanned,
     statusLabel: STATUS_LABEL[week.status],
   };
 
@@ -342,6 +376,7 @@ export default async function PlanningPage({ searchParams }: PageProps) {
         weekdayLabel: d.weekdayLabel,
         shortDate: d.shortDate,
         longDate: d.longDate,
+        understaffed: understaffedDays.has(d.iso),
       }))}
       employees={employees.map((e) => ({
         id: e.id,

@@ -23,6 +23,8 @@ export default async function ServicesPage() {
     endTime: s.endTime,
     breakMinutes: s.breakMinutes,
     comment: s.comment,
+    defaultDays: s.defaultDays,
+    requiredCount: s.requiredCount,
     isActive: s.isActive,
   }));
 

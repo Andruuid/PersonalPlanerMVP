@@ -45,7 +45,16 @@ export function WeekGrid({
             key={d.iso}
             className="app-label-caps text-center text-xs text-neutral-500"
           >
-            <div>{d.weekdayLabel}</div>
+            <div className="flex items-center justify-center gap-1">
+              <span>{d.weekdayLabel}</span>
+              {d.understaffed ? (
+                <span
+                  aria-label="Tag unterbesetzt"
+                  title="Tag unterbesetzt — Sollvorgabe nicht erreicht"
+                  className="inline-block h-2 w-2 rounded-full bg-amber-500"
+                />
+              ) : null}
+            </div>
             <div className="font-normal text-neutral-400">{d.shortDate}</div>
           </div>
         ))}
