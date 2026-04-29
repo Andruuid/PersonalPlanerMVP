@@ -222,7 +222,7 @@ export function ServiceForm({
           placeholder="z. B. 2"
           error={fieldErr.requiredCount}
           hint="0 oder leer = keine Vorgabe"
-          labelHelp="Wieviele Personen pro Tag mit diesem Dienst besetzt sein sollen."
+          labelHelp="Wieviele Personen pro Tag mit diesem Dienst mindestens besetzt sein sollen."
         />
       </div>
 
