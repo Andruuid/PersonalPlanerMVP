@@ -22,6 +22,7 @@ describe("purgeArchivedData", () => {
     const locationId = await seedLocation(db.prisma, "Archived Loc");
     const week = await db.prisma.week.create({
       data: {
+        tenantId: "test-default",
         year: 2025,
         weekNumber: 8,
         status: "DRAFT",
@@ -117,6 +118,7 @@ describe("purgeArchivedData", () => {
 
     const expiredWeek = await db.prisma.week.create({
       data: {
+        tenantId: "test-default",
         year: 2025,
         weekNumber: 10,
         status: "DRAFT",
@@ -126,6 +128,7 @@ describe("purgeArchivedData", () => {
     });
     const keptWeek = await db.prisma.week.create({
       data: {
+        tenantId: "test-default",
         year: 2025,
         weekNumber: 11,
         status: "DRAFT",
@@ -177,7 +180,7 @@ describe("purgeArchivedData", () => {
     // Keep an audit row around so we know purge doesn't touch unrelated tables.
     await db.prisma.auditLog.create({
       data: {
-        tenantId: "default",
+        tenantId: "test-default",
         userId: admin.id,
         action: "TEST",
         entity: "Purge",
@@ -242,6 +245,7 @@ describe("purgeArchivedData", () => {
     const employee = await seedEmployee(db.prisma, { locationId });
     const week = await db.prisma.week.create({
       data: {
+        tenantId: "test-default",
         year: 2025,
         weekNumber: 12,
         status: "DRAFT",

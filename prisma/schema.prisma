@@ -122,7 +122,7 @@ enum CompensationCaseStatus {
 
 model User {
   id           String     @id @default(cuid())
-  tenantId     String     @default("default")
+  tenantId     String
   tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   email        String     @unique
   passwordHash String
@@ -165,7 +165,7 @@ model Tenant {
 
 model Location {
   id                 String     @id @default(cuid())
-  tenantId           String     @default("default")
+  tenantId           String
   tenant             Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   name               String
   holidayRegionCode  String
@@ -179,7 +179,7 @@ model Location {
 
 model Employee {
   id                   String            @id @default(cuid())
-  tenantId             String            @default("default")
+  tenantId             String
   tenant               Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   userId               String            @unique
   user                 User              @relation(fields: [userId], references: [id], onDelete: Restrict)
@@ -214,7 +214,7 @@ model Employee {
 
 model PrivacyRequest {
   id          String               @id @default(cuid())
-  tenantId    String               @default("default")
+  tenantId    String
   tenant      Tenant               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   employeeId  String
   employee    Employee             @relation(fields: [employeeId], references: [id], onDelete: Cascade)
@@ -233,7 +233,7 @@ model PrivacyRequest {
 
 model Holiday {
   id          String   @id @default(cuid())
-  tenantId    String   @default("default")
+  tenantId    String
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   date        DateTime
   name        String
@@ -246,7 +246,7 @@ model Holiday {
 
 model ServiceTemplate {
   id             String      @id @default(cuid())
-  tenantId       String      @default("default")
+  tenantId       String
   tenant         Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   name           String
   code           String
@@ -266,7 +266,7 @@ model ServiceTemplate {
 
 model Week {
   id            String              @id @default(cuid())
-  tenantId      String              @default("default")
+  tenantId      String
   tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   year          Int
   weekNumber    Int
@@ -310,7 +310,7 @@ model PlanEntry {
 
 model PublishedSnapshot {
   id           String   @id @default(cuid())
-  tenantId     String   @default("default")
+  tenantId     String
   tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   weekId       String
   week         Week     @relation(fields: [weekId], references: [id], onDelete: Cascade)
@@ -320,7 +320,7 @@ model PublishedSnapshot {
 
 model AbsenceRequest {
   id            String         @id @default(cuid())
-  tenantId      String         @default("default")
+  tenantId      String
   tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   employeeId    String
   employee      Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
@@ -337,7 +337,7 @@ model AbsenceRequest {
 
 model AccountBalance {
   id            String      @id @default(cuid())
-  tenantId      String      @default("default")
+  tenantId      String
   tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   employeeId    String
   employee      Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
@@ -353,7 +353,7 @@ model AccountBalance {
 
 model Booking {
   id              String       @id @default(cuid())
-  tenantId        String       @default("default")
+  tenantId        String
   tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   employeeId      String
   employee        Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
@@ -389,7 +389,7 @@ model AuditLog {
 
 model ErtCase {
   id               String        @id @default(cuid())
-  tenantId         String        @default("default")
+  tenantId         String
   tenant           Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   employeeId       String
   employee         Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
@@ -408,7 +408,7 @@ model ErtCase {
 
 model CompensationCase {
   id                 String                   @id @default(cuid())
-  tenantId           String                   @default("default")
+  tenantId           String
   tenant             Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   employeeId         String
   employee           Employee                 @relation(fields: [employeeId], references: [id], onDelete: Cascade)
@@ -428,7 +428,7 @@ model CompensationCase {
 /// Kontenabschluss-Snapshot zum Austrittsdatum (Spec: echte Konten abschliessen).
 model EmployeeExitSnapshot {
   id           String   @id @default(cuid())
-  tenantId     String   @default("default")
+  tenantId     String
   tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   employeeId   String   @unique
   employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)

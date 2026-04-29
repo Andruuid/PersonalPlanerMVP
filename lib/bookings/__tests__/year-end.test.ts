@@ -251,6 +251,7 @@ describe("applyYearEndCarryover", () => {
     });
     await db.prisma.accountBalance.create({
       data: {
+        tenantId: futureJoiner.tenantId,
         employeeId: futureJoiner.id,
         accountType: "ZEITSALDO",
         year: FROM_YEAR,
@@ -307,6 +308,7 @@ describe("applyYearEndCarryover", () => {
 
     await db.prisma.accountBalance.create({
       data: {
+        tenantId: startsOnCarryDate.tenantId,
         employeeId: startsOnCarryDate.id,
         accountType: "ZEITSALDO",
         year: FROM_YEAR,
@@ -317,6 +319,7 @@ describe("applyYearEndCarryover", () => {
     });
     await db.prisma.accountBalance.create({
       data: {
+        tenantId: exitsOnCarryDate.tenantId,
         employeeId: exitsOnCarryDate.id,
         accountType: "ZEITSALDO",
         year: FROM_YEAR,
