@@ -143,8 +143,9 @@ test.describe("Admin: Sidebar erreicht Hauptmodule (Smoke)", () => {
     await page.getByRole("navigation").getByRole("link", { name: "Audit-Log" }).click();
     await expect(page).toHaveURL(/\/audit/);
     await expect(page.getByRole("heading", { level: 1, name: "Audit-Log" })).toBeVisible();
-    // Filter-Spalten gemäß UX (Text sichtbar — kein feingranularer Label-Verknüpfungstest)
-    await expect(page.getByText("Benutzer:in", { exact: true }).first()).toBeVisible();
-    await expect(page.getByText("Entität", { exact: true }).first()).toBeVisible();
+    // Filter-Leiste: Native <select> unter umschließendem <label> — `getByText(..., exact)` trifft die
+    // Tabellen-<th> nur bei vorhandenen Zeilen (frischer CI-Seed oft leer). Combobox nach Name bleibt stabil.
+    await expect(page.getByRole("combobox", { name: "Benutzer:in" })).toBeVisible();
+    await expect(page.getByRole("combobox", { name: "Entität" })).toBeVisible();
   });
 });
