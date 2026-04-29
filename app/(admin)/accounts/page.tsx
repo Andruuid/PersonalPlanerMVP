@@ -34,7 +34,7 @@ export default async function AccountsPage({ searchParams }: PageProps) {
       <PageHeader
         caption={`Konten · ${year}`}
         title="Zeitkonten"
-        description="Zeitsaldo, Ferien, UEZ, TZT und weitere Konten pro Mitarbeitenden. Zusätzlich wird der UES-Ausweis (Arbeitszeit zwischen Wochen-Soll und HAZ) als reiner Kennwert angezeigt."
+        description="Zeitsaldo, Ferien, UEZ, TZT und weitere Konten pro Mitarbeitenden."
         action={
           <div className="flex flex-wrap gap-2">
             <YearSwitcher year={year} currentYear={currentYear} />

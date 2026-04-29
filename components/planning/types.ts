@@ -92,7 +92,6 @@ export interface KpiSummary {
   openRequests: number;
   unassignedCells: number;
   activeEmployees: number;
-  uesAusweisMinutes: number;
   understaffedSlots: number;
   understaffedRequired: number;
   understaffedPlanned: number;

@@ -418,7 +418,6 @@ export default async function PlanningPage({ searchParams }: PageProps) {
     string,
     { tooltip: string | null; hasPlanningViolations: boolean }
   >();
-  let uesAusweisMinutes = 0;
   let restViolationCount = 0;
   let consecutiveWorkStreakKwViolationCount = 0;
   let halfDayOffMissingEmployees = 0;
@@ -439,7 +438,6 @@ export default async function PlanningPage({ searchParams }: PageProps) {
       },
       streakPrefetchByEmp.get(employee.id) ?? [],
     );
-    uesAusweisMinutes += result.weeklyUesAusweisMinutes;
     restViolationCount +=
       result.dailyRestViolations.length + (result.weeklyRestOk ? 0 : 1);
     const restPart = formatRestViolationTooltip(result);
@@ -491,7 +489,6 @@ export default async function PlanningPage({ searchParams }: PageProps) {
     openRequests: openRequests.filter((r) => r.status === "OPEN").length,
     unassignedCells,
     activeEmployees: employees.length,
-    uesAusweisMinutes,
     understaffedSlots,
     understaffedRequired,
     understaffedPlanned,

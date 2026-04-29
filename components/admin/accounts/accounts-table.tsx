@@ -16,11 +16,7 @@ import {
   type CompensationRedemptionDefaults,
 } from "./compensation-redemption-form";
 import { UezPayoutForm, type UezPayoutDefaults } from "./uez-payout-form";
-import {
-  ACCOUNT_DISPLAY,
-  formatAccountValue,
-  formatMinutesAsHours,
-} from "./format";
+import { ACCOUNT_DISPLAY, formatAccountValue } from "./format";
 import { BOOKING_TYPE_LABEL } from "@/components/shared/booking-type-copy";
 import type { AccountSummary, AdminAccountsRow } from "@/server/accounts";
 import type { AccountType } from "@/lib/generated/prisma/enums";
@@ -102,12 +98,6 @@ export function AccountsTable({ rows, year, todayIso }: Props) {
                     />
                   </th>
                 ))}
-                <th className="px-4 py-3">
-                  <HeaderWithHelp
-                    label="UES-Ausweis"
-                    tooltip="Arbeitszeit zwischen Wochen-Soll und HAZ, kumuliert für das gewählte Jahr (Ausweis, keine Buchung)."
-                  />
-                </th>
                 <th className="px-4 py-3 text-right">Aktionen</th>
               </tr>
             </thead>
@@ -115,7 +105,7 @@ export function AccountsTable({ rows, year, todayIso }: Props) {
               {rows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={ACCOUNT_ORDER.length + 3}
+                    colSpan={ACCOUNT_ORDER.length + 2}
                     className="px-4 py-10 text-center text-sm text-neutral-500"
                   >
                     Noch keine Mitarbeitenden angelegt.
@@ -173,11 +163,6 @@ export function AccountsTable({ rows, year, todayIso }: Props) {
                       </td>
                     );
                   })}
-                  <td className="px-4 py-3">
-                    <div className="text-base font-semibold tabular-nums text-neutral-900">
-                      {formatMinutesAsHours(row.uesAusweisMinutesYear)}
-                    </div>
-                  </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-2">
                       <Button
