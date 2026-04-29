@@ -365,6 +365,29 @@ export async function updateEmployeeAction(
     };
   }
 
+  const isOwnEmployee =
+    admin.employeeId != null && admin.employeeId === data.id;
+  if (isOwnEmployee) {
+    const wouldDeactivate = !data.isActive;
+    const wouldDemoteToEmployee = before.user.role !== "EMPLOYEE";
+    if (wouldDeactivate || wouldDemoteToEmployee) {
+      const activeAdminCount = await prisma.user.count({
+        where: {
+          tenantId: admin.tenantId,
+          role: "ADMIN",
+          isActive: true,
+        },
+      });
+      if (activeAdminCount === 1) {
+        return {
+          ok: false,
+          error:
+            "Als einzigem aktiven Admin können Sie sich nicht deaktivieren oder die Admin-Rolle entziehen.",
+        };
+      }
+    }
+  }
+
   const passwordHash =
     data.password && data.password.length > 0
       ? await bcrypt.hash(data.password, 10)
@@ -516,6 +539,13 @@ export async function setEmployeeActiveAction(
     return { ok: false, error: "Kein Zugriff auf diese:n Mitarbeitende:n." };
   }
 
+  if (!isActive && before.user.id === admin.id) {
+    return {
+      ok: false,
+      error: "Du kannst dich nicht selbst deaktivieren.",
+    };
+  }
+
   await prisma.$transaction(async (tx) => {
     await tx.user.update({
       where: { id: before.userId },
@@ -569,6 +599,10 @@ export async function setUserLockAction(
   }
   if (before.tenantId !== admin.tenantId) {
     return { ok: false, error: "Kein Zugriff auf diese:n Mitarbeitende:n." };
+  }
+
+  if (locked && before.userId === admin.id) {
+    return { ok: false, error: "Du kannst dich nicht selbst sperren." };
   }
 
   const trimmedReason = reason?.trim();
