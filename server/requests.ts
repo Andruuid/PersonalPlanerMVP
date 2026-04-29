@@ -42,6 +42,60 @@ function* daysInRange(start: Date, end: Date): Generator<Date> {
   }
 }
 
+interface IsoWeekKey {
+  year: number;
+  weekNumber: number;
+}
+
+function isoWeeksInRange(start: Date, end: Date): IsoWeekKey[] {
+  const seen = new Set<string>();
+  const out: IsoWeekKey[] = [];
+  for (const day of daysInRange(start, end)) {
+    const year = getISOWeekYear(day);
+    const weekNumber = getISOWeek(day);
+    const key = `${year}-${weekNumber}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push({ year, weekNumber });
+    }
+  }
+  return out;
+}
+
+interface WeeksTouchedSummary {
+  year: number;
+  weekNumber: number;
+  status: "DRAFT" | "PUBLISHED" | "CLOSED";
+}
+
+/**
+ * Resolves the status of every ISO week that the request range touches. Weeks
+ * that don't yet exist in the DB are reported as DRAFT (their effective state
+ * before any planning has happened).
+ */
+async function resolveWeeksTouched(
+  tenantId: string,
+  weekKeys: IsoWeekKey[],
+): Promise<WeeksTouchedSummary[]> {
+  if (weekKeys.length === 0) return [];
+  const rows = await prisma.week.findMany({
+    where: {
+      tenantId,
+      OR: weekKeys.map(({ year, weekNumber }) => ({ year, weekNumber })),
+    },
+    select: { year: true, weekNumber: true, status: true },
+  });
+  const byKey = new Map<string, WeeksTouchedSummary["status"]>();
+  for (const row of rows) {
+    byKey.set(`${row.year}-${row.weekNumber}`, row.status);
+  }
+  return weekKeys.map(({ year, weekNumber }) => ({
+    year,
+    weekNumber,
+    status: byKey.get(`${year}-${weekNumber}`) ?? "DRAFT",
+  }));
+}
+
 export async function approveRequestAction(
   requestId: string,
 ): Promise<ActionResult> {
@@ -67,6 +121,16 @@ export async function approveRequestAction(
   });
   if (!employee) {
     return { ok: false, error: "Mitarbeitende:r ist archiviert." };
+  }
+
+  const weekKeys = isoWeeksInRange(request.startDate, request.endDate);
+  const weeksTouched = await resolveWeeksTouched(admin.tenantId, weekKeys);
+  if (weeksTouched.some((w) => w.status === "CLOSED")) {
+    return {
+      ok: false,
+      error:
+        "Antrag berührt eine abgeschlossene Woche und kann so nicht genehmigt werden. Bitte Woche zuerst wieder öffnen oder Antrag passend zuschneiden.",
+    };
   }
 
   const absenceType = REQUEST_TO_ABSENCE[request.type];
@@ -102,7 +166,11 @@ export async function approveRequestAction(
           });
 
       if (week.status === "CLOSED") {
-        continue;
+        // Defense in depth: a week could have been closed between the
+        // pre-flight check above and the transaction. Aborting rolls back
+        // any plan entries we already wrote in this loop instead of silently
+        // skipping the day (which would still flip the request to APPROVED).
+        throw new Error("CLOSED_WEEK_RACE");
       }
 
       const existing = await tx.planEntry.findFirst({
@@ -169,6 +237,7 @@ export async function approveRequestAction(
       to: isoDateString(request.endDate),
       replacedPlanEntries: replacedEntryCount,
       replacedPlanEntrySamples: replacedEntrySamples,
+      weeksTouched,
     },
   });
 
@@ -193,6 +262,16 @@ export async function rejectRequestAction(
     return { ok: false, error: "Antrag wurde bereits bearbeitet." };
   }
 
+  // Rejecting is intentionally not gated by CLOSED weeks (an admin must
+  // always be able to reject an open request), but we record which weeks the
+  // request range touched so the audit trail shows whether the rejection
+  // covered closed weeks.
+  const weeksTouched = await resolveWeeksTouched(
+    admin.tenantId,
+    isoWeeksInRange(request.startDate, request.endDate),
+  );
+  const touchedClosedWeek = weeksTouched.some((w) => w.status === "CLOSED");
+
   await prisma.absenceRequest.update({
     where: { id: requestId },
     data: {
@@ -208,7 +287,11 @@ export async function rejectRequestAction(
     entity: "AbsenceRequest",
     entityId: requestId,
     oldValue: { status: request.status },
-    newValue: { status: "REJECTED" },
+    newValue: {
+      status: "REJECTED",
+      weeksTouched,
+      touchedClosedWeek,
+    },
   });
 
   safeRevalidatePath("rejectRequestAction", "/planning");
@@ -267,6 +350,25 @@ export async function createAbsenceRequestAction(
   }
 
   const employeeId = employee.employeeId!;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (endDate < today) {
+    const weeksTouched = await resolveWeeksTouched(
+      employee.tenantId,
+      isoWeeksInRange(startDate, endDate),
+    );
+    if (
+      weeksTouched.length > 0 &&
+      weeksTouched.every((w) => w.status === "CLOSED")
+    ) {
+      return {
+        ok: false,
+        error: "Beantragter Zeitraum liegt komplett in abgeschlossenen Wochen.",
+      };
+    }
+  }
+
   const years = Array.from(
     new Set(Array.from(requestedWeekdaysByYear(startDate, endDate).keys())),
   );
