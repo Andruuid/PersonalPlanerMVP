@@ -29,7 +29,39 @@ function openingAmountSchema(maxAbs: number) {
   }, z.number().finite().min(-maxAbs).max(maxAbs));
 }
 
-const baseSchema = z.object({
+const minuteFieldsRequired = {
+  weeklyTargetMinutes: z.coerce
+    .number()
+    .int("Ganzzahl erforderlich")
+    .min(0, "Mindestens 0")
+    .max(7200, "Maximal 7200"),
+  hazMinutesPerWeek: z.coerce
+    .number()
+    .int("Ganzzahl erforderlich")
+    .min(0, "Mindestens 0")
+    .max(7200, "Maximal 7200"),
+};
+
+function optionalMinutesForCreate() {
+  return z.preprocess(
+    (raw) => {
+      if (raw === "" || raw === null || raw === undefined) return undefined;
+      const n = typeof raw === "number" ? raw : Number(raw);
+      return Number.isFinite(n) ? n : raw;
+    },
+    z
+      .number()
+      .int("Ganzzahl erforderlich")
+      .min(0, "Mindestens 0")
+      .max(7200, "Maximal 7200")
+      .optional(),
+  );
+}
+
+const optionalWeeklyTarget = optionalMinutesForCreate();
+const optionalHazMinutes = optionalMinutesForCreate();
+
+const employeeCoreSchema = z.object({
   firstName: z.string().min(1, "Vorname erforderlich"),
   lastName: z.string().min(1, "Nachname erforderlich"),
   roleLabel: z
@@ -49,16 +81,6 @@ const baseSchema = z.object({
     .number()
     .min(0, "Mindestens 0")
     .max(60, "Maximal 60"),
-  weeklyTargetMinutes: z.coerce
-    .number()
-    .int("Ganzzahl erforderlich")
-    .min(0, "Mindestens 0")
-    .max(7200, "Maximal 7200"),
-  hazMinutesPerWeek: z.coerce
-    .number()
-    .int("Ganzzahl erforderlich")
-    .min(0, "Mindestens 0")
-    .max(7200, "Maximal 7200"),
   tztModel: z.enum(["DAILY_QUOTA", "TARGET_REDUCTION"], {
     message: "TZT-Modell wählen",
   }),
@@ -76,16 +98,18 @@ const baseSchema = z.object({
   isActive: z.boolean().default(true),
 });
 
-const createSchema = baseSchema.extend({
+const createSchema = employeeCoreSchema.extend({
   email: z.string().email("E-Mail erforderlich"),
   password: z.string().min(6, "Mindestens 6 Zeichen"),
+  weeklyTargetMinutes: optionalWeeklyTarget,
+  hazMinutesPerWeek: optionalHazMinutes,
   openingZeitsaldoMinutes: openingAmountSchema(500_000),
   openingUezMinutes: openingAmountSchema(500_000),
   openingVacationDays: openingAmountSchema(366),
   openingTztDays: openingAmountSchema(366),
 });
 
-const updateSchema = baseSchema.extend({
+const updateSchema = employeeCoreSchema.extend({
   id: z.string().min(1),
   email: z.string().email("E-Mail erforderlich"),
   password: z
@@ -93,7 +117,7 @@ const updateSchema = baseSchema.extend({
     .min(6, "Mindestens 6 Zeichen")
     .optional()
     .or(z.literal("")),
-});
+}).extend(minuteFieldsRequired);
 
 function rawFromForm(formData: FormData): Record<string, unknown> {
   const exit = readOptionalString(formData.get("exitDate"));
@@ -161,6 +185,22 @@ export async function createEmployeeAction(
     };
   }
 
+  const tenantDefaults = await prisma.tenant.findUnique({
+    where: { id: admin.tenantId },
+    select: {
+      defaultWeeklyTargetMinutes: true,
+      defaultHazMinutesPerWeek: true,
+    },
+  });
+  const resolvedWeeklyTargetMinutes =
+    data.weeklyTargetMinutes ??
+    tenantDefaults?.defaultWeeklyTargetMinutes ??
+    2520;
+  const resolvedHazMinutesPerWeek =
+    data.hazMinutesPerWeek ??
+    tenantDefaults?.defaultHazMinutesPerWeek ??
+    2700;
+
   const passwordHash = await bcrypt.hash(data.password, 10);
   const archivedAt = new Date();
 
@@ -188,8 +228,8 @@ export async function createEmployeeAction(
           exitDate: data.exitDate ?? null,
           locationId: data.locationId,
           vacationDaysPerYear: data.vacationDaysPerYear,
-          weeklyTargetMinutes: data.weeklyTargetMinutes,
-          hazMinutesPerWeek: data.hazMinutesPerWeek,
+          weeklyTargetMinutes: resolvedWeeklyTargetMinutes,
+          hazMinutesPerWeek: resolvedHazMinutesPerWeek,
           tztModel: data.tztModel,
           standardWorkDays: data.standardWorkDays,
           isActive: data.isActive,

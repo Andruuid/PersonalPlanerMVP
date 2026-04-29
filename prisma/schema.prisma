@@ -144,6 +144,14 @@ model Tenant {
   slug          String              @unique
   /// Standard-Arbeitstage/Woche für Verteilung des Wochensolls (Spec Stammdatum Betrieb).
   defaultStandardWorkDays Int       @default(5)
+  /// Vorschlagswert Vollzeit-Wochensoll (Minuten), z. B. bei neuen Mitarbeitenden.
+  defaultWeeklyTargetMinutes Int    @default(2520)
+  /// Vorschlagswert HAZ/Woche (Minuten) je Betrieb.
+  defaultHazMinutesPerWeek Int       @default(2700)
+  /// Untergrenze Zeitsaldo (Minuten); null = keine administrative Untergrenze / kein Block.
+  zeitsaldoMinLimitMinutes Int?
+  /// UEZ-Auszahlungsregel: ALLOWED | WITH_NOTICE | BLOCKED
+  uezPayoutPolicy String             @default("ALLOWED")
   createdAt     DateTime            @default(now())
   deletedAt     DateTime?
   archivedUntil DateTime?

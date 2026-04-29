@@ -54,6 +54,10 @@ interface Props {
   employees: EmployeeRow[];
   locations: LocationOption[];
   defaultLocationId: string;
+  tenantTimeDefaults: {
+    defaultWeeklyTargetMinutes: number;
+    defaultHazMinutesPerWeek: number;
+  };
 }
 
 type DialogState =
@@ -65,6 +69,7 @@ export function EmployeesTable({
   employees,
   locations,
   defaultLocationId,
+  tenantTimeDefaults,
 }: Props) {
   const [dialog, setDialog] = useState<DialogState>({ mode: "closed" });
   const [snapshotPanel, setSnapshotPanel] = useState<
@@ -277,7 +282,7 @@ export function EmployeesTable({
           {dialog.mode === "create" ? (
             <EmployeeForm
               mode="create"
-              defaults={createDefaults(defaultLocationId)}
+              defaults={createDefaults(defaultLocationId, tenantTimeDefaults)}
               locations={locations}
               onSuccess={close}
             />
@@ -423,7 +428,10 @@ function ExitSnapshotTables({ data }: { data: ExitSnapshotData }) {
   );
 }
 
-function createDefaults(defaultLocationId: string): EmployeeFormDefaults {
+function createDefaults(
+  defaultLocationId: string,
+  tenantTimeDefaults: Props["tenantTimeDefaults"],
+): EmployeeFormDefaults {
   return {
     email: "",
     firstName: "",
@@ -434,8 +442,8 @@ function createDefaults(defaultLocationId: string): EmployeeFormDefaults {
     exitDate: "",
     locationId: defaultLocationId,
     vacationDaysPerYear: 25,
-    weeklyTargetMinutes: 2520,
-    hazMinutesPerWeek: 2700,
+    weeklyTargetMinutes: tenantTimeDefaults.defaultWeeklyTargetMinutes,
+    hazMinutesPerWeek: tenantTimeDefaults.defaultHazMinutesPerWeek,
     tztModel: "DAILY_QUOTA",
     standardWorkDays: null,
     isActive: true,

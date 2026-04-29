@@ -16,7 +16,7 @@ function dateForInput(d: Date | null | undefined): string {
 
 export default async function EmployeesPage() {
   const admin = await requireAdmin();
-  const [employees, locations] = await Promise.all([
+  const [employees, locations, tenant] = await Promise.all([
     prisma.employee.findMany({
       where: { tenantId: admin.tenantId },
       orderBy: [{ isActive: "desc" }, { lastName: "asc" }, { firstName: "asc" }],
@@ -29,6 +29,13 @@ export default async function EmployeesPage() {
     prisma.location.findMany({
       where: { tenantId: admin.tenantId, deletedAt: null },
       orderBy: { name: "asc" },
+    }),
+    prisma.tenant.findUnique({
+      where: { id: admin.tenantId },
+      select: {
+        defaultWeeklyTargetMinutes: true,
+        defaultHazMinutesPerWeek: true,
+      },
     }),
   ]);
 
@@ -70,6 +77,10 @@ export default async function EmployeesPage() {
         employees={rows}
         locations={locations.map((l) => ({ id: l.id, name: l.name }))}
         defaultLocationId={locations[0]?.id ?? ""}
+        tenantTimeDefaults={{
+          defaultWeeklyTargetMinutes: tenant?.defaultWeeklyTargetMinutes ?? 2520,
+          defaultHazMinutesPerWeek: tenant?.defaultHazMinutesPerWeek ?? 2700,
+        }}
       />
     </div>
   );

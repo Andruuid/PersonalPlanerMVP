@@ -18,6 +18,9 @@ const {
       findUnique: vi.fn(),
       findFirst: vi.fn(),
     },
+    tenant: {
+      findUnique: vi.fn(),
+    },
     employee: {
       findUnique: vi.fn(),
     },
@@ -127,6 +130,10 @@ describe("employees audit coverage", () => {
     writeAuditMock.mockResolvedValue(undefined);
     applyEmployeeOpeningBalancesMock.mockResolvedValue(1);
     prismaMock.location.findUnique.mockResolvedValue({ tenantId: "tenant-a" });
+    prismaMock.tenant.findUnique.mockResolvedValue({
+      defaultWeeklyTargetMinutes: 2520,
+      defaultHazMinutesPerWeek: 2700,
+    });
   });
 
   it("writes a dedicated OPENING_BALANCES audit on employee creation", async () => {

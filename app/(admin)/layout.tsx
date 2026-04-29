@@ -17,7 +17,7 @@ export default async function AdminLayout({
     redirect("/my-week");
   }
 
-  const [locations, employees] = await Promise.all([
+  const [locations, employees, tenantForForms] = await Promise.all([
     prisma.location.findMany({
       where: { tenantId: session.user.tenantId, deletedAt: null },
       orderBy: { name: "asc" },
@@ -28,6 +28,13 @@ export default async function AdminLayout({
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
       select: { id: true, firstName: true, lastName: true, roleLabel: true },
     }),
+    prisma.tenant.findUnique({
+      where: { id: session.user.tenantId },
+      select: {
+        defaultWeeklyTargetMinutes: true,
+        defaultHazMinutesPerWeek: true,
+      },
+    }),
   ]);
 
   const employeeOptions = employees.map((e) => ({
@@ -35,11 +42,17 @@ export default async function AdminLayout({
     label: `${e.firstName} ${e.lastName}${e.roleLabel ? ` · ${e.roleLabel}` : ""}`,
   }));
 
+  const tenantTimeDefaults = {
+    defaultWeeklyTargetMinutes: tenantForForms?.defaultWeeklyTargetMinutes ?? 2520,
+    defaultHazMinutesPerWeek: tenantForForms?.defaultHazMinutesPerWeek ?? 2700,
+  };
+
   return (
     <QuickActionsProvider
       locations={locations}
       defaultLocationId={locations[0]?.id ?? ""}
       employees={employeeOptions}
+      tenantTimeDefaults={tenantTimeDefaults}
     >
       <AppShell
         variant="admin"

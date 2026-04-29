@@ -94,7 +94,13 @@ export default async function SettingsPage({ searchParams }: PageProps) {
 
   const tenant = await prisma.tenant.findUnique({
     where: { id: admin.tenantId },
-    select: { defaultStandardWorkDays: true },
+    select: {
+      defaultStandardWorkDays: true,
+      defaultWeeklyTargetMinutes: true,
+      defaultHazMinutesPerWeek: true,
+      zeitsaldoMinLimitMinutes: true,
+      uezPayoutPolicy: true,
+    },
   });
 
   return (
@@ -109,6 +115,15 @@ export default async function SettingsPage({ searchParams }: PageProps) {
 
       <BusinessDataCard
         defaultStandardWorkDays={tenant?.defaultStandardWorkDays ?? 5}
+        defaultWeeklyTargetMinutes={tenant?.defaultWeeklyTargetMinutes ?? 2520}
+        defaultHazMinutesPerWeek={tenant?.defaultHazMinutesPerWeek ?? 2700}
+        zeitsaldoMinLimitMinutes={tenant?.zeitsaldoMinLimitMinutes ?? null}
+        uezPayoutPolicy={
+          (tenant?.uezPayoutPolicy === "WITH_NOTICE" ||
+          tenant?.uezPayoutPolicy === "BLOCKED"
+            ? tenant.uezPayoutPolicy
+            : "ALLOWED") as "ALLOWED" | "WITH_NOTICE" | "BLOCKED"
+        }
       />
 
       <Card>

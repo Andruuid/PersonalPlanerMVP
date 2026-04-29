@@ -197,9 +197,13 @@ export function EmployeeForm({
           min={0}
           step={1}
           defaultValue={defaults.weeklyTargetMinutes}
-          tooltip="Wöchentliche Sollzeit für die Zeitsaldo-Berechnung; wird auf die Standardarbeitstage verteilt."
-          hint="Standard: 2520 (42h × 60)"
-          required
+          tooltip="Wöchentliche Sollzeit für die Zeitsaldo-Berechnung; wird auf die Standardarbeitstage verteilt. Vorschlagswert beim Anlegen neuer Mitarbeitender aus den Betriebsdaten."
+          hint={
+            mode === "create"
+              ? "Leer lassen = Vorschlagswerte aus Einstellungen › Betriebsdaten (aktuell im Formular vorbefüllt)."
+              : "Standard oft 2520 (42h × 60), je nach Firmenvorgabe."
+          }
+          required={mode === "edit"}
           error={fieldErr.weeklyTargetMinutes}
         />
         <Field
@@ -226,9 +230,13 @@ export function EmployeeForm({
           min={0}
           step={1}
           defaultValue={defaults.hazMinutesPerWeek}
-          tooltip="HAZ-Schwelle pro Woche; oberhalb davon schreibt die Wochenautomatik UEZ gut."
-          hint="Standard: 2700 (45h) oder 3000 (50h)"
-          required
+          tooltip="HAZ-Schwelle pro Woche; oberhalb davon schreibt die Wochenautomatik UEZ gut. Firmen-Vorschlag beim Anlegen neuer Mitarbeitender."
+          hint={
+            mode === "create"
+              ? "Leer lassen = Firmen-HAZ aus Betriebsdaten (Formular zeigt den Vorschlag)."
+              : "Typisch 2700 (45h) oder 3000 (50h)."
+          }
+          required={mode === "edit"}
           error={fieldErr.hazMinutesPerWeek}
         />
         <SelectField
