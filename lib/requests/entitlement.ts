@@ -14,6 +14,8 @@ export interface RequestEntitlementInput {
   startDate: Date;
   endDate: Date;
   weeklyTargetMinutes: number;
+  /** Effektive Arbeitstage/Woche (Tenant-Stamm oder Mitarbeiter-Override). */
+  standardWorkDays: number;
   tztModel?: "DAILY_QUOTA" | "TARGET_REDUCTION";
   vacationDaysPerYear: number;
   balancesByYear: Partial<
@@ -115,7 +117,10 @@ export function evaluateRequestEntitlement(
     return { ok: true };
   }
 
-  const dailyTargetMinutes = baseDailySollMinutes(input.weeklyTargetMinutes);
+  const dailyTargetMinutes = baseDailySollMinutes(
+    input.weeklyTargetMinutes,
+    input.standardWorkDays,
+  );
   for (const [year, requestedDays] of weekdaysByYear) {
     const neededMinutes = requestedDays * dailyTargetMinutes;
     const available = getAccountValue(input, year, "ZEITSALDO");

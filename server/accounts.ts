@@ -2,6 +2,7 @@ import "server-only";
 
 import { prisma } from "@/lib/db";
 import { computeWeeklyBalance, type PlanEntryByDate } from "@/lib/time/balance";
+import { effectiveStandardWorkDays } from "@/lib/time/soll";
 import { buildHolidayLookup } from "@/lib/time/holidays";
 import type {
   AccountType,
@@ -106,6 +107,9 @@ export async function loadAdminAccountsTable(
   const employees = await prisma.employee.findMany({
     where: { tenantId: user.tenantId, deletedAt: null },
     orderBy: [{ isActive: "desc" }, { lastName: "asc" }, { firstName: "asc" }],
+    include: {
+      tenant: { select: { defaultStandardWorkDays: true } },
+    },
   });
   if (employees.length === 0) return [];
 
@@ -179,6 +183,10 @@ export async function loadAdminAccountsTable(
           weeklyTargetMinutes: employee.weeklyTargetMinutes,
           hazMinutesPerWeek: employee.hazMinutesPerWeek,
           tztModel: employee.tztModel,
+          standardWorkDays: effectiveStandardWorkDays(
+            employee.standardWorkDays,
+            employee.tenant.defaultStandardWorkDays,
+          ),
         },
       );
       ues += result.weeklyUesAusweisMinutes;

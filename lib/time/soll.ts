@@ -1,15 +1,15 @@
 import type { DayKind } from "./priority";
 
-export const STANDARD_WORK_DAYS = 5;
 export type TztModel = "DAILY_QUOTA" | "TARGET_REDUCTION";
 
 /**
- * Daily Sollzeit derived from the employee's weekly target divided across the
- * five standard work days (Mon–Fri). Independent of the actual day kind.
+ * Daily Sollzeit derived from the employee's weekly target divided across
+ * {@link standardWorkDays} nominal work days (spec e.g. Mon–Fri). Independent
+ * of the actual day kind.
  */
 export function baseDailySollMinutes(
   weeklyTargetMinutes: number,
-  standardWorkDays: number = STANDARD_WORK_DAYS,
+  standardWorkDays: number,
 ): number {
   if (standardWorkDays <= 0) return 0;
   return weeklyTargetMinutes / standardWorkDays;
@@ -24,8 +24,8 @@ export function baseDailySollMinutes(
 export function dailySollMinutes(
   kind: DayKind,
   weeklyTargetMinutes: number,
-  tztModel: TztModel = "DAILY_QUOTA",
-  standardWorkDays: number = STANDARD_WORK_DAYS,
+  tztModel: TztModel,
+  standardWorkDays: number,
 ): number {
   if (
     kind === "HOLIDAY" ||
@@ -52,8 +52,8 @@ export function anrechenbarIstMinutes(
   kind: DayKind,
   plannedMinutes: number,
   weeklyTargetMinutes: number,
-  tztModel: TztModel = "DAILY_QUOTA",
-  standardWorkDays: number = STANDARD_WORK_DAYS,
+  tztModel: TztModel,
+  standardWorkDays: number,
 ): number {
   switch (kind) {
     case "WORK":
@@ -79,4 +79,12 @@ export function anrechenbarIstMinutes(
     case "EMPTY_WEEKDAY":
       return 0;
   }
+}
+
+/** Resolved Arbeitstage/Woche: Mitarbeiter-Override oder Tenant-Stammwert. */
+export function effectiveStandardWorkDays(
+  employeeOverride: number | null | undefined,
+  tenantDefaultStandardWorkDays: number,
+): number {
+  return employeeOverride ?? tenantDefaultStandardWorkDays;
 }

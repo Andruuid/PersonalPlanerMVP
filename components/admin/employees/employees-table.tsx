@@ -39,6 +39,8 @@ export interface EmployeeRow {
   weeklyTargetMinutes: number;
   hazMinutesPerWeek: number;
   tztModel: TztModelValue;
+  /** null = Tenant-Standard */
+  standardWorkDays: number | null;
   isActive: boolean;
   userIsActive: boolean;
   /** Kontenabschluss-Snapshot nach gesetztem Austritt (Vergangenheit). */
@@ -435,6 +437,7 @@ function createDefaults(defaultLocationId: string): EmployeeFormDefaults {
     weeklyTargetMinutes: 2520,
     hazMinutesPerWeek: 2700,
     tztModel: "DAILY_QUOTA",
+    standardWorkDays: null,
     isActive: true,
   };
 }
@@ -454,6 +457,7 @@ function editDefaultsFromRow(row: EmployeeRow): EmployeeFormDefaults {
     weeklyTargetMinutes: row.weeklyTargetMinutes,
     hazMinutesPerWeek: row.hazMinutesPerWeek,
     tztModel: row.tztModel,
+    standardWorkDays: row.standardWorkDays,
     isActive: row.isActive,
   };
 }

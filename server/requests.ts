@@ -11,6 +11,7 @@ import {
   type RequestEntitlementInput,
   type RequestAccountType,
 } from "@/lib/requests/entitlement";
+import { effectiveStandardWorkDays } from "@/lib/time/soll";
 import {
   fieldErrorsFromZod,
   readOptionalString,
@@ -383,6 +384,8 @@ export async function createAbsenceRequestAction(
       weeklyTargetMinutes: true,
       vacationDaysPerYear: true,
       tztModel: true,
+      standardWorkDays: true,
+      tenant: { select: { defaultStandardWorkDays: true } },
     },
   });
   if (!employeeRow) {
@@ -412,6 +415,10 @@ export async function createAbsenceRequestAction(
     startDate,
     endDate,
     weeklyTargetMinutes: employeeRow.weeklyTargetMinutes,
+    standardWorkDays: effectiveStandardWorkDays(
+      employeeRow.standardWorkDays,
+      employeeRow.tenant.defaultStandardWorkDays,
+    ),
     tztModel: employeeRow.tztModel,
     vacationDaysPerYear: employeeRow.vacationDaysPerYear,
     balancesByYear,

@@ -62,6 +62,17 @@ const baseSchema = z.object({
   tztModel: z.enum(["DAILY_QUOTA", "TARGET_REDUCTION"], {
     message: "TZT-Modell wählen",
   }),
+  standardWorkDays: z.preprocess(
+    (raw) => {
+      if (raw === "" || raw === null || raw === undefined) return null;
+      const n = typeof raw === "number" ? raw : Number(raw);
+      return Number.isFinite(n) ? n : raw;
+    },
+    z.union([
+      z.null(),
+      z.number().int().min(1).max(7),
+    ]),
+  ),
   isActive: z.boolean().default(true),
 });
 
@@ -101,6 +112,7 @@ function rawFromForm(formData: FormData): Record<string, unknown> {
     weeklyTargetMinutes: formData.get("weeklyTargetMinutes"),
     hazMinutesPerWeek: formData.get("hazMinutesPerWeek"),
     tztModel: readOptionalString(formData.get("tztModel")) ?? "DAILY_QUOTA",
+    standardWorkDays: formData.get("standardWorkDays"),
     isActive: readBooleanFlag(formData.get("isActive")),
     openingZeitsaldoMinutes: formData.get("openingZeitsaldoMinutes"),
     openingUezMinutes: formData.get("openingUezMinutes"),
@@ -179,6 +191,7 @@ export async function createEmployeeAction(
           weeklyTargetMinutes: data.weeklyTargetMinutes,
           hazMinutesPerWeek: data.hazMinutesPerWeek,
           tztModel: data.tztModel,
+          standardWorkDays: data.standardWorkDays,
           isActive: data.isActive,
           deletedAt: data.isActive ? null : archivedAt,
           archivedUntil: data.isActive ? null : archiveUntil(archivedAt),
@@ -219,6 +232,7 @@ export async function createEmployeeAction(
       weeklyTargetMinutes: employee.weeklyTargetMinutes,
       hazMinutesPerWeek: employee.hazMinutesPerWeek,
       tztModel: employee.tztModel,
+      standardWorkDays: employee.standardWorkDays,
       isActive: employee.isActive,
       openingBookingsCreated,
     },
@@ -338,6 +352,7 @@ export async function updateEmployeeAction(
         weeklyTargetMinutes: data.weeklyTargetMinutes,
         hazMinutesPerWeek: data.hazMinutesPerWeek,
         tztModel: data.tztModel,
+        standardWorkDays: data.standardWorkDays,
         isActive: data.isActive,
         deletedAt: data.isActive ? null : (before.deletedAt ?? archivedAt),
         archivedUntil: data.isActive
@@ -389,6 +404,7 @@ export async function updateEmployeeAction(
       weeklyTargetMinutes: before.weeklyTargetMinutes,
       hazMinutesPerWeek: before.hazMinutesPerWeek,
       tztModel: before.tztModel,
+      standardWorkDays: before.standardWorkDays,
       isActive: before.isActive,
       passwordChanged: false,
     },
@@ -403,6 +419,7 @@ export async function updateEmployeeAction(
       weeklyTargetMinutes: updated.weeklyTargetMinutes,
       hazMinutesPerWeek: updated.hazMinutesPerWeek,
       tztModel: updated.tztModel,
+      standardWorkDays: updated.standardWorkDays,
       isActive: updated.isActive,
       passwordChanged: Boolean(passwordHash),
     },

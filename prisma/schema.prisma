@@ -142,6 +142,8 @@ model Tenant {
   id            String              @id @default(cuid())
   name          String
   slug          String              @unique
+  /// Standard-Arbeitstage/Woche für Verteilung des Wochensolls (Spec Stammdatum Betrieb).
+  defaultStandardWorkDays Int       @default(5)
   createdAt     DateTime            @default(now())
   deletedAt     DateTime?
   archivedUntil DateTime?
@@ -193,6 +195,8 @@ model Employee {
   weeklyTargetMinutes  Int               @default(2520) // 42h * 60
   hazMinutesPerWeek    Int               @default(2700) // 45h * 60
   tztModel             TztModel          @default(DAILY_QUOTA)
+  /// Null = Tenant-defaultStandardWorkDays verwenden.
+  standardWorkDays     Int?
   isActive             Boolean           @default(true)
   deletedAt            DateTime?
   archivedUntil        DateTime?

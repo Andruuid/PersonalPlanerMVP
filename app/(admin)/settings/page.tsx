@@ -19,6 +19,7 @@ import {
   HolidaysList,
   type HolidayRow,
 } from "@/components/admin/settings/holidays-list";
+import { BusinessDataCard } from "@/components/admin/settings/business-data-card";
 
 export const metadata = { title: "Einstellungen · PersonalPlaner" };
 
@@ -91,6 +92,11 @@ export default async function SettingsPage({ searchParams }: PageProps) {
 
   const selectedLocation = locations.find((l) => l.id === selectedLocationId);
 
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: admin.tenantId },
+    select: { defaultStandardWorkDays: true },
+  });
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -100,6 +106,10 @@ export default async function SettingsPage({ searchParams }: PageProps) {
       />
 
       <LocationsCard locations={locationRows} />
+
+      <BusinessDataCard
+        defaultStandardWorkDays={tenant?.defaultStandardWorkDays ?? 5}
+      />
 
       <Card>
         <CardHeader>

@@ -8,6 +8,7 @@ const noHolidays = buildHolidayLookup([]);
 const FULL_PENSUM = {
   weeklyTargetMinutes: 2520, // 100% pensum, 42h
   hazMinutesPerWeek: 2700, // 45h
+  standardWorkDays: 5,
 };
 
 // Use a fixed reference week well clear of CH holidays (KW 41, 2026: Mon
@@ -386,6 +387,26 @@ describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
     expect(result.totalHolidayCreditMinutes).toBe(0);
     expect(result.weeklyZeitsaldoDeltaMinutes).toBe(2 * 504 - 2520);
   });
+
+  it("uses tenant-equivalent standardWorkDays=4 (employee ohne Override)", () => {
+    const days = isoWeekDays(YEAR, WEEK);
+    const daily = 2520 / 4;
+    const entries = asEntries(
+      Object.fromEntries(
+        days
+          .slice(0, 5)
+          .map((d) => [d.iso, { kind: "SHIFT", plannedMinutes: daily }]),
+      ),
+    );
+    const result = computeWeeklyBalance(YEAR, WEEK, entries, noHolidays, {
+      weeklyTargetMinutes: 2520,
+      hazMinutesPerWeek: 3600,
+      standardWorkDays: 4,
+    });
+    expect(result.totalSollMinutes).toBe(5 * daily);
+    expect(result.totalIstMinutes).toBe(5 * daily);
+    expect(result.weeklyZeitsaldoDeltaMinutes).toBe(0);
+  });
 });
 
 describe("computeWeeklyBalance — partial pensum", () => {
@@ -401,7 +422,7 @@ describe("computeWeeklyBalance — partial pensum", () => {
       WEEK,
       entries,
       noHolidays,
-      { weeklyTargetMinutes: 1512, hazMinutesPerWeek: 2700 },
+      { weeklyTargetMinutes: 1512, hazMinutesPerWeek: 2700, standardWorkDays: 5 },
     );
     expect(result.totalSollMinutes).toBe(1512);
     expect(result.totalIstMinutes).toBe(1512);

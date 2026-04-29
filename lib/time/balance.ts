@@ -5,7 +5,6 @@ import {
   type DayKind,
 } from "./priority";
 import {
-  STANDARD_WORK_DAYS,
   anrechenbarIstMinutes,
   baseDailySollMinutes,
   dailySollMinutes,
@@ -71,7 +70,7 @@ export interface EmployeeWeekConfig {
   weeklyTargetMinutes: number;
   hazMinutesPerWeek: number;
   tztModel?: TztModel;
-  standardWorkDays?: number;
+  standardWorkDays: number;
 }
 
 /** Plan row for Zeitlogik; optional shift times enable Ruhezeit-Checks. */
@@ -100,7 +99,7 @@ export function computeWeeklyBalance(
   config: EmployeeWeekConfig,
   streakContextEntries?: PlanEntryByDate[],
 ): WeeklyComputation {
-  const standardWorkDays = config.standardWorkDays ?? STANDARD_WORK_DAYS;
+  const standardWorkDays = config.standardWorkDays;
   const tztModel = config.tztModel ?? "DAILY_QUOTA";
   const byDate = new Map<string, PlanEntryByDate[]>();
   for (const e of entries) {

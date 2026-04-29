@@ -17,6 +17,7 @@ import {
   computeWeeklyBalance,
   type PlanEntryByDate,
 } from "@/lib/time/balance";
+import { effectiveStandardWorkDays } from "@/lib/time/soll";
 import { buildHolidayLookup } from "@/lib/time/holidays";
 import { isoDateString, isoWeekDays } from "@/lib/time/week";
 import { hasRestWindowMinutes, type TimeInterval } from "@/lib/time/ert";
@@ -464,6 +465,9 @@ export async function recalcWeekClose(
   const employees = (
     await prisma.employee.findMany({
       where: { tenantId, isActive: true, deletedAt: null },
+      include: {
+        tenant: { select: { defaultStandardWorkDays: true } },
+      },
     })
   ).filter((employee) => isEmployeeActiveOnDate(employee, sunday));
 
@@ -603,6 +607,10 @@ export async function recalcWeekClose(
           weeklyTargetMinutes: employee.weeklyTargetMinutes,
           hazMinutesPerWeek: employee.hazMinutesPerWeek,
           tztModel: employee.tztModel,
+          standardWorkDays: effectiveStandardWorkDays(
+            employee.standardWorkDays,
+            employee.tenant.defaultStandardWorkDays,
+          ),
         },
         streakPrefetchByEmp.get(employee.id) ?? [],
       );

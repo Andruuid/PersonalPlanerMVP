@@ -9,6 +9,7 @@ describe("evaluateRequestEntitlement", () => {
       startDate: parseIsoDate("2026-03-02")!,
       endDate: parseIsoDate("2026-03-06")!,
       weeklyTargetMinutes: 2520,
+      standardWorkDays: 5,
       vacationDaysPerYear: 25,
       balancesByYear: {
         2026: { FERIEN: 3 },
@@ -25,6 +26,7 @@ describe("evaluateRequestEntitlement", () => {
       startDate: parseIsoDate("2026-03-02")!,
       endDate: parseIsoDate("2026-03-03")!,
       weeklyTargetMinutes: 2520,
+      standardWorkDays: 5,
       vacationDaysPerYear: 25,
       balancesByYear: {
         2026: { TZT: 1 },
@@ -41,6 +43,7 @@ describe("evaluateRequestEntitlement", () => {
       startDate: parseIsoDate("2026-03-02")!,
       endDate: parseIsoDate("2026-03-03")!,
       weeklyTargetMinutes: 2520,
+      standardWorkDays: 5,
       tztModel: "TARGET_REDUCTION",
       vacationDaysPerYear: 25,
       balancesByYear: {
@@ -57,6 +60,7 @@ describe("evaluateRequestEntitlement", () => {
       startDate: parseIsoDate("2026-03-02")!,
       endDate: parseIsoDate("2026-03-03")!,
       weeklyTargetMinutes: 2520,
+      standardWorkDays: 5,
       vacationDaysPerYear: 25,
       balancesByYear: {
         2026: { PARENTAL_CARE: 1 },
@@ -73,6 +77,7 @@ describe("evaluateRequestEntitlement", () => {
       startDate: parseIsoDate("2026-03-02")!,
       endDate: parseIsoDate("2026-03-03")!,
       weeklyTargetMinutes: 2520,
+      standardWorkDays: 5,
       vacationDaysPerYear: 25,
       balancesByYear: {
         2026: { ZEITSALDO: 400 },
@@ -89,6 +94,7 @@ describe("evaluateRequestEntitlement", () => {
       startDate: parseIsoDate("2026-03-02")!,
       endDate: parseIsoDate("2026-03-06")!,
       weeklyTargetMinutes: 2520,
+      standardWorkDays: 5,
       vacationDaysPerYear: 25,
       balancesByYear: {},
     });
@@ -102,6 +108,7 @@ describe("evaluateRequestEntitlement", () => {
       startDate: parseIsoDate("2026-12-31")!,
       endDate: parseIsoDate("2027-01-01")!,
       weeklyTargetMinutes: 2520,
+      standardWorkDays: 5,
       vacationDaysPerYear: 25,
       balancesByYear: {
         2026: { FERIEN: 1 },
@@ -118,6 +125,7 @@ describe("evaluateRequestEntitlement", () => {
       startDate: parseIsoDate("2026-03-02")!,
       endDate: parseIsoDate("2026-03-02")!,
       weeklyTargetMinutes: 2520,
+      standardWorkDays: 5,
       vacationDaysPerYear: 25,
       balancesByYear: {
         2026: { ZEITSALDO: 100 },
@@ -131,6 +139,7 @@ describe("evaluateRequestEntitlement", () => {
       startDate: parseIsoDate("2026-03-02")!,
       endDate: parseIsoDate("2026-03-02")!,
       weeklyTargetMinutes: 2520,
+      standardWorkDays: 5,
       vacationDaysPerYear: 25,
       balancesByYear: {
         2026: { ZEITSALDO: 504 },

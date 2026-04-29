@@ -27,6 +27,7 @@ import {
   type PlanEntryByDate,
   type WeeklyComputation,
 } from "@/lib/time/balance";
+import { effectiveStandardWorkDays } from "@/lib/time/soll";
 import type { AbsenceType } from "@/lib/time/priority";
 import { buildHolidayLookup } from "@/lib/time/holidays";
 import { requireAdmin } from "@/server/_shared";
@@ -264,6 +265,7 @@ export default async function PlanningPage({ searchParams }: PageProps) {
         orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
         include: {
           location: { select: { name: true } },
+          tenant: { select: { defaultStandardWorkDays: true } },
         },
       }),
       prisma.serviceTemplate.findMany({
@@ -429,6 +431,10 @@ export default async function PlanningPage({ searchParams }: PageProps) {
         weeklyTargetMinutes: employee.weeklyTargetMinutes,
         hazMinutesPerWeek: employee.hazMinutesPerWeek,
         tztModel: employee.tztModel,
+        standardWorkDays: effectiveStandardWorkDays(
+          employee.standardWorkDays,
+          employee.tenant.defaultStandardWorkDays,
+        ),
       },
       streakPrefetchByEmp.get(employee.id) ?? [],
     );

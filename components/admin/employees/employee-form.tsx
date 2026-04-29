@@ -40,6 +40,8 @@ export interface EmployeeFormDefaults {
   weeklyTargetMinutes: number;
   hazMinutesPerWeek: number;
   tztModel: TztModelValue;
+  /** Gesetzt = Override; `undefined`/null + leeres Feld = Tenant-Standard */
+  standardWorkDays?: number | null;
   isActive: boolean;
 }
 
@@ -199,6 +201,23 @@ export function EmployeeForm({
           hint="Standard: 2520 (42h × 60)"
           required
           error={fieldErr.weeklyTargetMinutes}
+        />
+        <Field
+          label="Individuelle Arbeitstage/Woche"
+          name="standardWorkDays"
+          type="number"
+          min={1}
+          max={7}
+          step={1}
+          defaultValue={
+            defaults.standardWorkDays === undefined ||
+            defaults.standardWorkDays === null
+              ? ""
+              : defaults.standardWorkDays
+          }
+          tooltip="Leer lassen = Tenant-Standard (Einstellungen › Betriebsdaten)."
+          hint="Leer = Firmen-Standard"
+          error={fieldErr.standardWorkDays}
         />
         <Field
           label="HAZ pro Woche (Minuten)"
