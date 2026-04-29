@@ -16,6 +16,7 @@ const BOOKING_TYPE_LABEL: Record<BookingType, string> = {
   MANUAL_DEBIT: "Belastung",
   CORRECTION: "Korrektur",
   CARRYOVER: "Vortrag",
+  COMPENSATION_REDEMPTION: "Kompensationsbezug",
 };
 
 const BOOKING_TYPE_BADGE: Record<BookingType, string> = {
@@ -26,6 +27,7 @@ const BOOKING_TYPE_BADGE: Record<BookingType, string> = {
   MANUAL_DEBIT: "bg-rose-100 text-rose-800",
   CORRECTION: "bg-amber-100 text-amber-800",
   CARRYOVER: "bg-sky-100 text-sky-800",
+  COMPENSATION_REDEMPTION: "bg-rose-100 text-rose-800",
 };
 
 interface MonthGroup {

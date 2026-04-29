@@ -782,6 +782,145 @@ export async function applyManualBooking(
   return { bookingId: booking.id, signedValue };
 }
 
+// ---------------------------------------------------------------------------
+// SONNTAG_FEIERTAG_KOMPENSATION — Bezug ("Redemption")
+// ---------------------------------------------------------------------------
+
+export interface ApplyCompensationRedemptionInput {
+  employeeId: string;
+  tenantId?: string;
+  /** Local-midnight date the redemption is booked on (drives the year). */
+  date: Date;
+  /** Positive number of minutes to redeem; signed negatively on the booking row. */
+  minutes: number;
+  comment: string;
+  createdByUserId: string;
+}
+
+export interface ApplyCompensationRedemptionResult {
+  bookingId: string;
+  /** Always negative: the value persisted on the booking row. */
+  signedValue: number;
+}
+
+export class CompensationRedemptionError extends Error {
+  constructor(
+    message: string,
+    readonly code:
+      | "EMPLOYEE_NOT_FOUND"
+      | "EMPLOYMENT_NOT_ACTIVE_ON_DATE"
+      | "NON_POSITIVE_MINUTES"
+      | "INSUFFICIENT_BALANCE",
+  ) {
+    super(message);
+    this.name = "CompensationRedemptionError";
+  }
+}
+
+/**
+ * Redeem ("Bezug") rest minutes from the SONNTAG_FEIERTAG_KOMPENSATION
+ * account: posts a single negative booking against that account and
+ * recomputes the balance. The account is otherwise driven exclusively by
+ * AUTO_WEEKLY bookings from the week-close logic — there is no manual
+ * credit/debit path for it.
+ *
+ * Validations:
+ * - employee exists and the booking date lies within the employment span;
+ * - minutes is a positive integer;
+ * - the current balance for the redemption year is at least `minutes`.
+ */
+export async function applyCompensationRedemption(
+  prisma: PrismaClient,
+  input: ApplyCompensationRedemptionInput,
+): Promise<ApplyCompensationRedemptionResult> {
+  if (!Number.isFinite(input.minutes) || input.minutes <= 0) {
+    throw new CompensationRedemptionError(
+      "Minuten müssen grösser als 0 sein.",
+      "NON_POSITIVE_MINUTES",
+    );
+  }
+
+  const employee = await prisma.employee.findUnique({
+    where: { id: input.employeeId },
+    select: {
+      id: true,
+      tenantId: true,
+      vacationDaysPerYear: true,
+      entryDate: true,
+      exitDate: true,
+      deletedAt: true,
+    },
+  });
+  if (
+    !employee ||
+    employee.deletedAt ||
+    (input.tenantId && employee.tenantId !== input.tenantId)
+  ) {
+    throw new CompensationRedemptionError(
+      "Mitarbeitende:r nicht gefunden",
+      "EMPLOYEE_NOT_FOUND",
+    );
+  }
+  if (!isEmployeeActiveOnDate(employee, input.date)) {
+    throw new CompensationRedemptionError(
+      "Buchungsdatum liegt ausserhalb der Anstellungsdauer.",
+      "EMPLOYMENT_NOT_ACTIVE_ON_DATE",
+    );
+  }
+
+  const year = input.date.getFullYear();
+  const minutes = Math.round(input.minutes);
+  const signedValue = -minutes;
+
+  const booking = await prisma.$transaction(async (tx) => {
+    await ensureBalanceRow(
+      tx,
+      employee.id,
+      employee.tenantId,
+      "SONNTAG_FEIERTAG_KOMPENSATION",
+      year,
+      employee.vacationDaysPerYear,
+    );
+    const balance = await tx.accountBalance.findUnique({
+      where: {
+        employeeId_accountType_year: {
+          employeeId: employee.id,
+          accountType: "SONNTAG_FEIERTAG_KOMPENSATION",
+          year,
+        },
+      },
+    });
+    const currentValue = balance?.currentValue ?? 0;
+    if (currentValue < minutes) {
+      throw new CompensationRedemptionError(
+        "Nicht genug Sonn-/Feiertagskompensation für diesen Bezug verfügbar.",
+        "INSUFFICIENT_BALANCE",
+      );
+    }
+    const created = await tx.booking.create({
+      data: {
+        tenantId: employee.tenantId,
+        employeeId: employee.id,
+        accountType: "SONNTAG_FEIERTAG_KOMPENSATION",
+        date: input.date,
+        value: signedValue,
+        bookingType: "COMPENSATION_REDEMPTION",
+        comment: input.comment,
+        createdByUserId: input.createdByUserId,
+      },
+    });
+    await recomputeBalance(
+      tx,
+      employee.id,
+      "SONNTAG_FEIERTAG_KOMPENSATION",
+      year,
+    );
+    return created;
+  });
+
+  return { bookingId: booking.id, signedValue };
+}
+
 export interface DeleteBookingResult {
   bookingId: string;
   employeeId: string;

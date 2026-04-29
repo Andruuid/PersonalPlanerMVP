@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, History } from "lucide-react";
+import { Plus, History, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -11,6 +11,10 @@ import {
   type EmployeePickOption,
   type ManualBookingFormDefaults,
 } from "./manual-booking-form";
+import {
+  CompensationRedemptionForm,
+  type CompensationRedemptionDefaults,
+} from "./compensation-redemption-form";
 import {
   ACCOUNT_DISPLAY,
   formatAccountValue,
@@ -36,7 +40,8 @@ const ACCOUNT_ORDER: AccountType[] = [
 
 type DialogState =
   | { mode: "closed" }
-  | { mode: "manual-booking"; preset: Partial<ManualBookingFormDefaults> };
+  | { mode: "manual-booking"; preset: Partial<ManualBookingFormDefaults> }
+  | { mode: "redeem-compensation"; preset: CompensationRedemptionDefaults };
 
 export function AccountsTable({ rows, year, todayIso }: Props) {
   const [dialog, setDialog] = useState<DialogState>({ mode: "closed" });
@@ -51,6 +56,10 @@ export function AccountsTable({ rows, year, todayIso }: Props) {
     preset: Partial<ManualBookingFormDefaults> = {},
   ) {
     setDialog({ mode: "manual-booking", preset });
+  }
+
+  function openRedeem(preset: CompensationRedemptionDefaults) {
+    setDialog({ mode: "redeem-compensation", preset });
   }
 
   return (
@@ -152,6 +161,32 @@ export function AccountsTable({ rows, year, todayIso }: Props) {
                         <Plus className="mr-1 h-3.5 w-3.5" />
                         Buchung
                       </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={
+                          row.accounts.SONNTAG_FEIERTAG_KOMPENSATION
+                            .currentValue <= 0
+                        }
+                        title={
+                          row.accounts.SONNTAG_FEIERTAG_KOMPENSATION
+                            .currentValue <= 0
+                            ? "Kein Kompensationsguthaben vorhanden."
+                            : "Sonn-/Feiertagskompensation einlösen"
+                        }
+                        onClick={() =>
+                          openRedeem({
+                            employeeId: row.employeeId,
+                            date: todayIso,
+                            availableMinutes:
+                              row.accounts.SONNTAG_FEIERTAG_KOMPENSATION
+                                .currentValue,
+                          })
+                        }
+                      >
+                        <Minus className="mr-1 h-3.5 w-3.5" />
+                        Kompensation einlösen
+                      </Button>
                       <Button asChild size="sm" variant="ghost">
                         <a
                           href={`/my-accounts?employee=${row.employeeId}&year=${year}`}
@@ -185,6 +220,13 @@ export function AccountsTable({ rows, year, todayIso }: Props) {
                   dialog.preset.bookingType ?? "MANUAL_CREDIT",
                 comment: dialog.preset.comment,
               }}
+              onSuccess={close}
+            />
+          ) : null}
+          {dialog.mode === "redeem-compensation" ? (
+            <CompensationRedemptionForm
+              employees={employees}
+              defaults={dialog.preset}
               onSuccess={close}
             />
           ) : null}

@@ -92,6 +92,9 @@ enum BookingType {
   MANUAL_DEBIT
   CORRECTION
   CARRYOVER
+  // Bezug von SONNTAG_FEIERTAG_KOMPENSATION-Stunden (negativer Eintrag,
+  // der den Restsaldo der fristgebundenen Kompensation reduziert).
+  COMPENSATION_REDEMPTION
 }
 
 /// TZT accounting variant (Spec: Modell 1 = Tageskontingent, Modell 2 = Sollzeit-Reduktion).

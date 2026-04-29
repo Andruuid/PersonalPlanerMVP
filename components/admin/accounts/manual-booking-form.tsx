@@ -23,13 +23,10 @@ export interface EmployeePickOption {
 
 export interface ManualBookingFormDefaults {
   employeeId: string;
-  accountType:
-    | "ZEITSALDO"
-    | "FERIEN"
-    | "UEZ"
-    | "TZT"
-    | "SONNTAG_FEIERTAG_KOMPENSATION"
-    | "PARENTAL_CARE";
+  // SONNTAG_FEIERTAG_KOMPENSATION ist hier bewusst nicht erlaubt: Bewegungen
+  // entstehen ausschliesslich aus dem Wochenabschluss (AUTO_WEEKLY) oder dem
+  // Bezug-Workflow (`redeemCompensationAction`).
+  accountType: "ZEITSALDO" | "FERIEN" | "UEZ" | "TZT" | "PARENTAL_CARE";
   date: string;
   bookingType: "MANUAL_CREDIT" | "MANUAL_DEBIT" | "CORRECTION" | "OPENING";
   comment?: string;
@@ -51,11 +48,6 @@ const ACCOUNT_OPTIONS: Array<{
   { value: "UEZ", label: "UEZ", hint: "Wert in Minuten" },
   { value: "TZT", label: "TZT", hint: "Wert in Tagen" },
   {
-    value: "SONNTAG_FEIERTAG_KOMPENSATION",
-    label: "So./Feiertag-Kompensation",
-    hint: "Wert in Minuten",
-  },
-  {
     value: "PARENTAL_CARE",
     label: "Eltern-/Betreuungsurlaub",
     hint: "Wert in Tagen",
@@ -72,12 +64,6 @@ const TYPE_OPTIONS: Array<{
   { value: "OPENING", label: "Anfangsbestand" },
 ];
 
-// SONNTAG_FEIERTAG_KOMPENSATION wird ausschliesslich aus dem Wochenabschluss
-// berechnet; ein nachträglicher Anfangsbestand ist dort nicht erlaubt.
-const ACCOUNTS_WITHOUT_OPENING: ReadonlySet<
-  ManualBookingFormDefaults["accountType"]
-> = new Set(["SONNTAG_FEIERTAG_KOMPENSATION"]);
-
 export function ManualBookingForm({ employees, defaults, onSuccess }: Props) {
   const [errors, setErrors] = useState<{
     message: string;
@@ -86,13 +72,6 @@ export function ManualBookingForm({ employees, defaults, onSuccess }: Props) {
   const [pending, startTransition] = useTransition();
   const [accountType, setAccountType] = useState(defaults.accountType);
   const [bookingType, setBookingType] = useState(defaults.bookingType);
-
-  const openingDisallowed = ACCOUNTS_WITHOUT_OPENING.has(accountType);
-  const visibleTypeOptions = openingDisallowed
-    ? TYPE_OPTIONS.filter((o) => o.value !== "OPENING")
-    : TYPE_OPTIONS;
-  const effectiveBookingType =
-    openingDisallowed && bookingType === "OPENING" ? "MANUAL_CREDIT" : bookingType;
 
   const accountHint =
     ACCOUNT_OPTIONS.find((o) => o.value === accountType)?.hint ?? "";
@@ -191,7 +170,7 @@ export function ManualBookingForm({ employees, defaults, onSuccess }: Props) {
           <select
             id="bookingType"
             name="bookingType"
-            value={effectiveBookingType}
+            value={bookingType}
             onChange={(e) =>
               setBookingType(
                 e.target.value as ManualBookingFormDefaults["bookingType"],
@@ -199,7 +178,7 @@ export function ManualBookingForm({ employees, defaults, onSuccess }: Props) {
             }
             className="flex h-9 w-full rounded-md border border-neutral-300 bg-white px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900"
           >
-            {visibleTypeOptions.map((o) => (
+            {TYPE_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>
