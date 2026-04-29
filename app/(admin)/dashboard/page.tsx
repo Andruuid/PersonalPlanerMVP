@@ -1,8 +1,16 @@
-import { CalendarDays, FileClock, Lock, ShieldCheck, Users } from "lucide-react";
+import {
+  CalendarDays,
+  CalendarRange,
+  FileClock,
+  Lock,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
 import { listAuditLogs } from "@/lib/audit";
 import { currentIsoWeek } from "@/lib/time/week";
+import { countOpenWeeksWithPastSunday } from "@/lib/cron/auto-close-past-weeks";
 import { PageHeader } from "@/components/admin/page-header";
 import { KpiCard } from "@/components/admin/dashboard/kpi-card";
 import { CompensationCasesKpi } from "@/components/admin/dashboard/compensation-cases-kpi";
@@ -46,6 +54,7 @@ const getCachedDashboardData = unstable_cache(
       recentList,
       compensationCasesOpen,
       compensationCasesOverdue,
+      openWeeksWithPastSunday,
     ] =
       await Promise.all([
         prisma.absenceRequest.count({ where: { tenantId, status: "OPEN" } }),
@@ -63,6 +72,7 @@ const getCachedDashboardData = unstable_cache(
         prisma.compensationCase.count({
           where: { tenantId, status: "OPEN", dueAt: { lt: today } },
         }),
+        countOpenWeeksWithPastSunday(prisma, tenantId, today),
       ]);
     return {
       openAbsenceRequests,
@@ -73,6 +83,7 @@ const getCachedDashboardData = unstable_cache(
       recentList,
       compensationCasesOpen,
       compensationCasesOverdue,
+      openWeeksWithPastSunday,
     };
   },
   ["admin-dashboard-kpis"],
@@ -93,6 +104,7 @@ export default async function DashboardPage() {
     recentList,
     compensationCasesOpen,
     compensationCasesOverdue,
+    openWeeksWithPastSunday,
   } = await getCachedDashboardData(admin.tenantId, isoWeek.year, isoWeek.weekNumber, dayKey);
 
   const weekKw = String(isoWeek.weekNumber).padStart(2, "0");
@@ -109,7 +121,7 @@ export default async function DashboardPage() {
         description="Kennzahlen, offene Abwesenheits- und Datenschutzanträge sowie der Status der aktuellen Woche auf einen Blick."
       />
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         <KpiCard
           label="Offene Abwesenheiten"
           value={openAbsenceRequests.toString()}
@@ -123,6 +135,13 @@ export default async function DashboardPage() {
           href="/privacy"
           icon={Lock}
           hint="Auskunft / Löschung"
+        />
+        <KpiCard
+          label="Offene Wochen mit Vergangenheit"
+          value={openWeeksWithPastSunday.toString()}
+          href="/planning"
+          icon={CalendarRange}
+          hint="Bitte Wochen veröffentlichen oder abschließen"
         />
         <KpiCard
           label="Aktuelle Woche"

@@ -92,6 +92,24 @@ export function isoDateString(date: Date): string {
   return format(date, "yyyy-MM-dd");
 }
 
+/** Local calendar midnight (server timezone), for comparing ISO-week boundaries to „heute“. */
+export function startOfLocalCalendarDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+/**
+ * True if the ISO week’s Sunday (Mo–So window) is strictly before today’s
+ * calendar day (local). Used for cron auto-close and Dashboard-KPI „Vergangenheit“.
+ */
+export function isIsoWeekSundayBeforeToday(
+  year: number,
+  weekNumber: number,
+  today: Date,
+): boolean {
+  const sunday = isoWeekDays(year, weekNumber)[6]!.date;
+  return startOfLocalCalendarDay(sunday) < startOfLocalCalendarDay(today);
+}
+
 export function weekdayLongLabel(index: number): string {
   return LONG_WEEKDAY_LABELS[index] ?? "";
 }

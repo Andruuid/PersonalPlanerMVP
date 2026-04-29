@@ -71,7 +71,7 @@ Admin landet nach dem Login auf `/dashboard`, Mitarbeitende auf `/my-week`.
 - **Mitarbeitersicht + Anträge:** „Meine Woche", Antragsstellung (Ferien, Frei, TZT, Freier Tag), Genehmigungs-Loop.
 - **Zeitlogik + Konten:** Sollzeit, Zeitsaldo, UEZ, Ferien und TZT mit AUTO_WEEKLY-Buchungen, manuellen Buchungen und Jahreswechsel-Carryover.
 - **Audit-Log:** Vollständige Historie aller Änderungen mit Filter, Pagination und Vorher/Nachher-Diff.
-- **Dashboard:** Kennzahlen (offene Anträge, aktuelle Woche, aktive Mitarbeitende, Audit-Aktivität) und letzte Audit-Einträge auf einen Blick.
+- **Dashboard:** Kennzahlen (offene Anträge, Backlog vergangener offener Wochen, aktuelle Woche, aktive Mitarbeitende, Audit-Aktivität) und letzte Audit-Einträge auf einen Blick.
 
 ## Deployment auf Netlify (Demo)
 
@@ -151,6 +151,17 @@ fest und konfiguriere eine **Scheduled Function**, die diese URL **täglich**
 mithilfe eines `Authorization: Bearer <CRON_SECRET>`-Headers aufruft —
 damit ERT‑Status (**OPEN**, **OVERDUE**, **FULFILLED**) auch ohne ständige
 Planungsaktivität konsistent bleiben.
+
+### Vergangene veröffentlichte Wochen — Tages‑Cron (empfohlen)
+
+Spezifikation: Sobald eine Kalenderwoche vorbei ist, werden die Zeitkonten
+berechnet. Dazu schließt ein zweiter Cron‑Endpoint (`GET /api/cron/auto-close`)
+pro Mandanten alle **vergangenen** ISO‑Wochen mit Status **Veröffentlicht**
+automatisch ab (`recalcWeekClose`, dann `CLOSED` samt Audit‑Eintrag
+**AUTO_CLOSE**). Entwürfe (**DRAFT**) bleiben unberührt.
+
+Konfiguriere dieselbe **`CRON_SECRET`**‑Variable und eine **weitere**
+Scheduled Function mit täglichem Aufruf und `Authorization: Bearer <CRON_SECRET>`.
 
 ## CI
 
