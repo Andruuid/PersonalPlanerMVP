@@ -5,7 +5,11 @@ import { Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { LocationForm, type LocationFormDefaults } from "./location-form";
+import {
+  LocationForm,
+  type HolidayConfession,
+  type LocationFormDefaults,
+} from "./location-form";
 
 export interface LocationRow {
   id: string;
@@ -13,6 +17,33 @@ export interface LocationRow {
   holidayRegionCode: string;
   employeeCount: number;
   holidayCount: number;
+}
+
+function confessionLabel(code: string): string {
+  switch (code.toUpperCase()) {
+    case "EVANGELISCH":
+      return "Konfession Evangelisch";
+    case "KATHOLISCH":
+      return "Konfession Katholisch";
+    // Legacy canton codes can still appear in untouched data; show them as
+    // the confession they map to so admins see consistent wording.
+    case "ZH":
+      return "Konfession Evangelisch";
+    case "LU":
+    case "BE":
+    case "BS":
+      return "Konfession Katholisch";
+    default:
+      return `Konfession ${code}`;
+  }
+}
+
+function defaultConfession(code: string): HolidayConfession {
+  const upper = code.toUpperCase();
+  if (upper === "KATHOLISCH" || upper === "LU" || upper === "BE" || upper === "BS") {
+    return "KATHOLISCH";
+  }
+  return "EVANGELISCH";
 }
 
 interface Props {
@@ -56,8 +87,8 @@ export function LocationsCard({ locations }: Props) {
               <div>
                 <p className="font-medium text-neutral-900">{l.name}</p>
                 <p className="text-xs text-neutral-500">
-                  Region {l.holidayRegionCode} · {l.employeeCount} Mitarbeitende ·{" "}
-                  {l.holidayCount} Feiertage
+                  {confessionLabel(l.holidayRegionCode)} · {l.employeeCount}{" "}
+                  Mitarbeitende · {l.holidayCount} Feiertage
                 </p>
               </div>
               <Button
@@ -81,7 +112,7 @@ export function LocationsCard({ locations }: Props) {
           {dialog.mode === "create" ? (
             <LocationForm
               mode="create"
-              defaults={{ name: "", holidayRegionCode: "LU" }}
+              defaults={{ name: "", holidayRegionCode: "EVANGELISCH" }}
               onSuccess={close}
             />
           ) : dialog.mode === "edit" ? (
@@ -101,6 +132,6 @@ function editDefaults(row: LocationRow): LocationFormDefaults {
   return {
     id: row.id,
     name: row.name,
-    holidayRegionCode: row.holidayRegionCode,
+    holidayRegionCode: defaultConfession(row.holidayRegionCode),
   };
 }

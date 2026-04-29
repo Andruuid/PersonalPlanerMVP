@@ -29,12 +29,12 @@ interface DemoEmployee {
 const DEMO_LOCATIONS: Array<{
   id: string;
   name: string;
-  holidayRegionCode: string;
+  holidayRegionCode: "EVANGELISCH" | "KATHOLISCH";
 }> = [
-  { id: "loc-luzern", name: "Standort Luzern", holidayRegionCode: "LU" },
-  { id: "loc-bern", name: "Standort Bern", holidayRegionCode: "BE" },
-  { id: "loc-zuerich", name: "Standort Zürich", holidayRegionCode: "ZH" },
-  { id: "loc-basel", name: "Standort Basel", holidayRegionCode: "BS" },
+  { id: "loc-luzern", name: "Standort Luzern", holidayRegionCode: "KATHOLISCH" },
+  { id: "loc-bern", name: "Standort Bern", holidayRegionCode: "KATHOLISCH" },
+  { id: "loc-zuerich", name: "Standort Zürich", holidayRegionCode: "EVANGELISCH" },
+  { id: "loc-basel", name: "Standort Basel", holidayRegionCode: "KATHOLISCH" },
 ];
 
 const DEMO_EMPLOYEES: DemoEmployee[] = [

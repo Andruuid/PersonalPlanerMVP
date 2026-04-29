@@ -13,11 +13,9 @@ import {
 
 const baseSchema = z.object({
   name: z.string().min(1, "Name erforderlich").max(80),
-  holidayRegionCode: z
-    .string()
-    .min(1, "Region erforderlich")
-    .max(4)
-    .regex(/^[A-Z]+$/, "Nur Grossbuchstaben"),
+  holidayRegionCode: z.enum(["EVANGELISCH", "KATHOLISCH"], {
+    message: "Konfession wählen (Evangelisch oder Katholisch).",
+  }),
 });
 
 const createSchema = baseSchema;

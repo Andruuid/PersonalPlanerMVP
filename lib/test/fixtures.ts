@@ -39,7 +39,7 @@ export async function seedAdmin(
 export async function seedLocation(
   prisma: PrismaClient,
   name = "Test Location",
-  holidayRegionCode = "ZH",
+  holidayRegionCode = "EVANGELISCH",
   tenantId?: string,
 ): Promise<string> {
   const effectiveTenantId = await ensureTestTenant(prisma, tenantId);
