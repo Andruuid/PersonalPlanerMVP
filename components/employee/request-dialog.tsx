@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useLayoutEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,7 +57,14 @@ const ENTITLEMENT_HINTS: Record<RequestType, string | null> = {
 export function RequestDialog({ open, type, onOpenChange }: RequestDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent
+        className="sm:max-w-md"
+        onOpenAutoFocus={(e) => {
+          // Radix fokussiert sonst das erste tabbare Element — oft das Hilfe-(i)-Icon,
+          // wodurch der Tooltip mit delay 0 sofort aufgeht.
+          e.preventDefault();
+        }}
+      >
         {open && type ? (
           <RequestForm
             key={type}
@@ -87,6 +94,10 @@ function RequestForm({ type, onClose }: RequestFormProps) {
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const entitlementHint = ENTITLEMENT_HINTS[type];
+
+  useLayoutEffect(() => {
+    document.getElementById("startDate")?.focus({ preventScroll: true });
+  }, [type]);
 
   function handleStartChange(value: string) {
     setStartDate(value);

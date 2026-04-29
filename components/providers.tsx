@@ -7,7 +7,7 @@ import { Toaster } from "@/components/ui/sonner";
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
-      <TooltipProvider>
+      <TooltipProvider delayDuration={300}>
         {children}
         <Toaster richColors closeButton position="top-right" />
       </TooltipProvider>

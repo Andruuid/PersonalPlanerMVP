@@ -13,9 +13,20 @@ interface TopbarProps {
   variant: "admin" | "employee";
   email: string;
   showRoleToggle: boolean;
+  /** Vor- und Nachname; nur in der Mitarbeiter-Ansicht als Kopfzeile nach «Personalplanung –». */
+  employeeHeadingName?: string | null;
 }
 
-export function Topbar({ variant, email, showRoleToggle }: TopbarProps) {
+export function Topbar({
+  variant,
+  email,
+  showRoleToggle,
+  employeeHeadingName,
+}: TopbarProps) {
+  const heading =
+    variant === "employee" && employeeHeadingName?.trim()
+      ? `Personalplanung – ${employeeHeadingName.trim()}`
+      : "Personalplanung – Admin und Mitarbeiter";
   return (
     <header className="sticky top-0 z-30 border-b border-neutral-200 bg-white">
       <div className="mx-auto flex w-full items-center gap-3 px-4 py-3 md:px-6">
@@ -41,7 +52,7 @@ export function Topbar({ variant, email, showRoleToggle }: TopbarProps) {
             Prototyp
           </span>
           <h1 className="truncate text-base font-semibold text-neutral-900 md:text-lg">
-            Personalplanung – Admin und Mitarbeiter
+            {heading}
           </h1>
         </div>
 

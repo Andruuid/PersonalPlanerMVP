@@ -6,6 +6,7 @@ interface AppShellProps {
   variant: "admin" | "employee";
   email: string;
   showRoleToggle: boolean;
+  employeeHeadingName?: string | null;
   rightRail?: React.ReactNode;
   children: React.ReactNode;
 }
@@ -14,6 +15,7 @@ export function AppShell({
   variant,
   email,
   showRoleToggle,
+  employeeHeadingName,
   rightRail,
   children,
 }: AppShellProps) {
@@ -23,6 +25,7 @@ export function AppShell({
         variant={variant}
         email={email}
         showRoleToggle={showRoleToggle}
+        employeeHeadingName={employeeHeadingName}
       />
 
       <div className="mx-auto flex w-full max-w-[1480px] flex-1 gap-6 px-4 py-6 md:px-6">
