@@ -202,6 +202,122 @@ describe("recalcWeekClose", () => {
     expect(byType.UEZ).toBe(300);
   });
 
+  it("FREE_REQUESTED reduces Zeitsaldo by exactly one -Tagessoll per day, no AUTO_WEEKLY wash", async () => {
+    // Repro for Befund #13: FREE_REQUESTED-Tag must pull -Tagessoll from
+    // Zeitsaldo cleanly. Previously the +/- pair washed on the AUTO_WEEKLY
+    // booking; now there is one FREE_REQUESTED booking per FREE_REQUESTED
+    // day and the AUTO_WEEKLY booking excludes that contribution entirely.
+    const employee = await seedEmployee(db.prisma, {
+      locationId,
+      weeklyTargetMinutes: 2400,
+      hazMinutesPerWeek: 2700,
+    });
+    // Mon–Thu: 480 min WORK each (= Tagessoll) → work delta = 0
+    for (let i = 0; i < 4; i++) {
+      await seedShiftEntry(db.prisma, {
+        weekId,
+        employeeId: employee.id,
+        isoDate: weekDays[i],
+        plannedMinutes: 480,
+      });
+    }
+    // Friday: FREE_REQUESTED → soll 480, ist 0 → -480 contribution
+    await seedAbsenceEntry(db.prisma, {
+      weekId,
+      employeeId: employee.id,
+      isoDate: weekDays[4],
+      absenceType: "FREE_REQUESTED",
+    });
+
+    const result = await recalcWeekClose(db.prisma, weekId, adminId);
+    expect(result.bookingsCreated).toBe(1);
+
+    const zeitsaldoBookings = await db.prisma.booking.findMany({
+      where: { employeeId: employee.id, accountType: "ZEITSALDO" },
+    });
+    expect(zeitsaldoBookings).toHaveLength(1);
+    expect(zeitsaldoBookings[0].bookingType).toBe("FREE_REQUESTED");
+    expect(zeitsaldoBookings[0].value).toBe(-480);
+    expect(zeitsaldoBookings[0].comment).toBe(
+      `Frei verlangt KW ${KW}/${YEAR}`,
+    );
+
+    const autoWeekly = await db.prisma.booking.findMany({
+      where: {
+        employeeId: employee.id,
+        accountType: "ZEITSALDO",
+        bookingType: "AUTO_WEEKLY",
+      },
+    });
+    expect(autoWeekly).toHaveLength(0);
+
+    const balance = await db.prisma.accountBalance.findUnique({
+      where: {
+        employeeId_accountType_year: {
+          employeeId: employee.id,
+          accountType: "ZEITSALDO",
+          year: YEAR,
+        },
+      },
+    });
+    expect(balance?.currentValue).toBe(-480);
+  });
+
+  it("creates one FREE_REQUESTED booking per FREE_REQUESTED day", async () => {
+    const employee = await seedEmployee(db.prisma, {
+      locationId,
+      weeklyTargetMinutes: 2400,
+      hazMinutesPerWeek: 2700,
+    });
+    // Mon + Tue FREE_REQUESTED, Wed–Fri 480 work each
+    await seedAbsenceEntry(db.prisma, {
+      weekId,
+      employeeId: employee.id,
+      isoDate: weekDays[0],
+      absenceType: "FREE_REQUESTED",
+    });
+    await seedAbsenceEntry(db.prisma, {
+      weekId,
+      employeeId: employee.id,
+      isoDate: weekDays[1],
+      absenceType: "FREE_REQUESTED",
+    });
+    for (let i = 2; i < 5; i++) {
+      await seedShiftEntry(db.prisma, {
+        weekId,
+        employeeId: employee.id,
+        isoDate: weekDays[i],
+        plannedMinutes: 480,
+      });
+    }
+
+    await recalcWeekClose(db.prisma, weekId, adminId);
+
+    const freeRequestedBookings = await db.prisma.booking.findMany({
+      where: {
+        employeeId: employee.id,
+        bookingType: "FREE_REQUESTED",
+      },
+    });
+    expect(freeRequestedBookings).toHaveLength(2);
+    for (const b of freeRequestedBookings) {
+      expect(b.value).toBe(-480);
+      expect(b.accountType).toBe("ZEITSALDO");
+      expect(b.comment).toBe(`Frei verlangt KW ${KW}/${YEAR}`);
+    }
+
+    const balance = await db.prisma.accountBalance.findUnique({
+      where: {
+        employeeId_accountType_year: {
+          employeeId: employee.id,
+          accountType: "ZEITSALDO",
+          year: YEAR,
+        },
+      },
+    });
+    expect(balance?.currentValue).toBe(-960);
+  });
+
   it("creates a dedicated FREE_REQUESTED booking on ZEITSALDO", async () => {
     const employee = await seedEmployee(db.prisma, { locationId });
     await seedAbsenceEntry(db.prisma, {
@@ -230,7 +346,7 @@ describe("recalcWeekClose", () => {
     expect(bookings[0].bookingType).toBe("FREE_REQUESTED");
     expect(bookings[0].accountType).toBe("ZEITSALDO");
     expect(bookings[0].value).toBe(-504);
-    expect(bookings[0].comment).toBe(`KW ${KW}/${YEAR}`);
+    expect(bookings[0].comment).toBe(`Frei verlangt KW ${KW}/${YEAR}`);
 
     const balance = await db.prisma.accountBalance.findUnique({
       where: {

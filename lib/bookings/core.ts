@@ -468,24 +468,35 @@ export async function recalcWeekClose(
         accountType: AccountType;
         bookingType: BookingType;
         value: number;
+        comment?: string;
       }> = [];
-      const freeRequestedMinutes = result.days.reduce((acc, day) => {
-        return day.kind === "FREE_REQUESTED" ? acc + day.sollMinutes : acc;
-      }, 0);
-      const weeklyZeitsaldoAutoDelta =
-        result.weeklyZeitsaldoDeltaMinutes + freeRequestedMinutes;
-      if (weeklyZeitsaldoAutoDelta !== 0) {
-        bookingsToCreate.push({
-          accountType: "ZEITSALDO",
-          bookingType: "AUTO_WEEKLY",
-          value: weeklyZeitsaldoAutoDelta,
-        });
-      }
-      if (freeRequestedMinutes !== 0) {
+
+      // FREE_REQUESTED bookings: one per FREE_REQUESTED day, valued at
+      // -Tagessoll. computeWeeklyBalance() already accounts for these days
+      // as a -Tagessoll contribution inside weeklyZeitsaldoDeltaMinutes
+      // (kind=FREE_REQUESTED → soll=Tagessoll, ist=0). To avoid posting
+      // the same minutes twice, we strip that contribution out of the
+      // AUTO_WEEKLY booking below.
+      const freeRequestedDays = result.days.filter(
+        (day) => day.kind === "FREE_REQUESTED" && day.sollMinutes > 0,
+      );
+      const freeRequestedComment = `Frei verlangt KW ${week.weekNumber}/${week.year}`;
+      let autoWeeklyZeitsaldoDelta = result.weeklyZeitsaldoDeltaMinutes;
+      for (const day of freeRequestedDays) {
         bookingsToCreate.push({
           accountType: "ZEITSALDO",
           bookingType: "FREE_REQUESTED",
-          value: -freeRequestedMinutes,
+          value: -day.sollMinutes,
+          comment: freeRequestedComment,
+        });
+        autoWeeklyZeitsaldoDelta += day.sollMinutes;
+      }
+
+      if (autoWeeklyZeitsaldoDelta !== 0) {
+        bookingsToCreate.push({
+          accountType: "ZEITSALDO",
+          bookingType: "AUTO_WEEKLY",
+          value: autoWeeklyZeitsaldoDelta,
         });
       }
       if (result.weeklyUezDeltaMinutes !== 0) {
@@ -517,6 +528,7 @@ export async function recalcWeekClose(
         });
       }
 
+      const defaultComment = `KW ${week.weekNumber}/${week.year}`;
       for (const b of bookingsToCreate) {
         await ensureBalanceRow(
           tx,
@@ -534,7 +546,7 @@ export async function recalcWeekClose(
             date: sunday,
             value: b.value,
             bookingType: b.bookingType,
-            comment: `KW ${week.weekNumber}/${week.year}`,
+            comment: b.comment ?? defaultComment,
             createdByUserId: closedByUserId,
           },
         });
