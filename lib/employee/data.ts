@@ -46,6 +46,7 @@ export async function loadMyRequests(
     endIso: format(r.endDate, "yyyy-MM-dd"),
     rangeLabel: fmtRange(r.startDate, r.endDate),
     comment: r.comment,
+    decisionComment: r.decisionComment,
     decidedAt: r.decidedAt ? r.decidedAt.toISOString() : null,
     createdAt: r.createdAt.toISOString(),
   }));

@@ -22,6 +22,27 @@ import {
 } from "./_shared";
 import { archiveUntil } from "@/lib/archive";
 
+type ParsedDecisionComment =
+  | { ok: true; text: string | null }
+  | { ok: false; error: string };
+
+function parseDecisionComment(raw?: string | null): ParsedDecisionComment {
+  if (raw == null || raw === "") {
+    return { ok: true, text: null };
+  }
+  const t = raw.trim();
+  if (t === "") {
+    return { ok: true, text: null };
+  }
+  if (t.length > DECISION_COMMENT_MAX) {
+    return {
+      ok: false,
+      error: `Begründung maximal ${DECISION_COMMENT_MAX} Zeichen.`,
+    };
+  }
+  return { ok: true, text: t };
+}
+
 const REQUEST_TO_ABSENCE: Record<
   "VACATION" | "FREE_REQUESTED" | "TZT" | "FREE_DAY" | "PARENTAL_CARE",
   "VACATION" | "FREE_REQUESTED" | "TZT" | "UNPAID" | "PARENTAL_CARE"
@@ -99,8 +120,14 @@ async function resolveWeeksTouched(
 
 export async function approveRequestAction(
   requestId: string,
+  decisionComment?: string | null,
 ): Promise<ActionResult> {
   const admin = await requireAdmin();
+
+  const parsedComment = parseDecisionComment(decisionComment);
+  if (!parsedComment.ok) {
+    return { ok: false, error: parsedComment.error };
+  }
 
   const request = await prisma.absenceRequest.findUnique({
     where: { id: requestId },
@@ -221,6 +248,7 @@ export async function approveRequestAction(
         status: "APPROVED",
         decidedAt: new Date(),
         decidedById: admin.id,
+        decisionComment: parsedComment.text,
       },
     });
   });
@@ -230,7 +258,10 @@ export async function approveRequestAction(
     action: "APPROVE",
     entity: "AbsenceRequest",
     entityId: requestId,
-    oldValue: { status: request.status },
+    oldValue: {
+      status: request.status,
+      decisionComment: request.decisionComment ?? null,
+    },
     newValue: {
       status: "APPROVED",
       absenceType,
@@ -239,6 +270,7 @@ export async function approveRequestAction(
       replacedPlanEntries: replacedEntryCount,
       replacedPlanEntrySamples: replacedEntrySamples,
       weeksTouched,
+      decisionComment: parsedComment.text,
     },
   });
 
@@ -250,8 +282,14 @@ export async function approveRequestAction(
 
 export async function rejectRequestAction(
   requestId: string,
+  reason?: string | null,
 ): Promise<ActionResult> {
   const admin = await requireAdmin();
+
+  const parsedReason = parseDecisionComment(reason);
+  if (!parsedReason.ok) {
+    return { ok: false, error: parsedReason.error };
+  }
 
   const request = await prisma.absenceRequest.findUnique({
     where: { id: requestId },
@@ -279,6 +317,7 @@ export async function rejectRequestAction(
       status: "REJECTED",
       decidedAt: new Date(),
       decidedById: admin.id,
+      decisionComment: parsedReason.text,
     },
   });
 
@@ -287,11 +326,15 @@ export async function rejectRequestAction(
     action: "REJECT",
     entity: "AbsenceRequest",
     entityId: requestId,
-    oldValue: { status: request.status },
+    oldValue: {
+      status: request.status,
+      decisionComment: request.decisionComment ?? null,
+    },
     newValue: {
       status: "REJECTED",
       weeksTouched,
       touchedClosedWeek,
+      decisionComment: parsedReason.text,
     },
   });
 
@@ -521,6 +564,7 @@ export async function reopenRequestAction(
       status: "OPEN",
       decidedAt: null,
       decidedById: null,
+      decisionComment: null,
       comment: comment ?? request.comment,
     },
   });
@@ -530,8 +574,11 @@ export async function reopenRequestAction(
     action: "REOPEN",
     entity: "AbsenceRequest",
     entityId: requestId,
-    oldValue: { status: request.status },
-    newValue: { status: "OPEN" },
+    oldValue: {
+      status: request.status,
+      decisionComment: request.decisionComment ?? null,
+    },
+    newValue: { status: "OPEN", decisionComment: null },
   });
 
   safeRevalidatePath("reopenRequestAction", "/planning");

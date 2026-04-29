@@ -125,6 +125,7 @@ export default async function AbsencesPage({ searchParams }: PageProps) {
     endIso: format(r.endDate, "yyyy-MM-dd"),
     rangeLabel: formatRange(r.startDate, r.endDate),
     comment: r.comment,
+    decisionComment: r.decisionComment,
     createdAtLabel: format(r.createdAt, "dd.MM.yyyy HH:mm"),
     decidedAtLabel: r.decidedAt ? format(r.decidedAt, "dd.MM.yyyy HH:mm") : null,
     decidedByEmail: r.decidedById ? decidedByEmail.get(r.decidedById) ?? null : null,

@@ -1,9 +1,17 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import {
   approveRequestAction,
@@ -14,6 +22,8 @@ import type { RequestView } from "./types";
 interface RequestsPanelProps {
   requests: RequestView[];
 }
+
+const REASON_MAX = 300;
 
 const TYPE_TITLES: Record<RequestView["type"], string> = {
   VACATION: "Ferienantrag",
@@ -69,6 +79,8 @@ export function RequestsPanel({ requests }: RequestsPanelProps) {
 
 function RequestItem({ request }: { request: RequestView }) {
   const [pending, startTransition] = useTransition();
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
 
   function approve() {
     startTransition(async () => {
@@ -77,11 +89,15 @@ function RequestItem({ request }: { request: RequestView }) {
       else toast.error(result.error);
     });
   }
-  function reject() {
+
+  function confirmReject() {
     startTransition(async () => {
-      const result = await rejectRequestAction(request.id);
-      if (result.ok) toast.success("Antrag abgelehnt.");
-      else toast.error(result.error);
+      const result = await rejectRequestAction(request.id, rejectReason || undefined);
+      if (result.ok) {
+        toast.success("Antrag abgelehnt.");
+        setRejectOpen(false);
+        setRejectReason("");
+      } else toast.error(result.error);
     });
   }
 
@@ -111,25 +127,81 @@ function RequestItem({ request }: { request: RequestView }) {
       ) : null}
 
       {request.status === "OPEN" ? (
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            className="flex-1"
-            disabled={pending}
-            onClick={approve}
+        <>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              className="flex-1"
+              disabled={pending}
+              onClick={approve}
+            >
+              Genehmigen
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex-1"
+              disabled={pending}
+              onClick={() => setRejectOpen(true)}
+            >
+              Ablehnen
+            </Button>
+          </div>
+          <Dialog
+            open={rejectOpen}
+            onOpenChange={(open) => {
+              setRejectOpen(open);
+              if (!open) setRejectReason("");
+            }}
           >
-            Genehmigen
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="flex-1"
-            disabled={pending}
-            onClick={reject}
-          >
-            Ablehnen
-          </Button>
-        </div>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Antrag ablehnen</DialogTitle>
+                <DialogDescription>
+                  Optional: Begründung für die Mitarbeitenden-Ansicht (max.{" "}
+                  {REASON_MAX} Zeichen).
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-2">
+                <Label htmlFor={`reject-plan-${request.id}`}>Begründung</Label>
+                <textarea
+                  id={`reject-plan-${request.id}`}
+                  value={rejectReason}
+                  onChange={(e) =>
+                    setRejectReason(e.target.value.slice(0, REASON_MAX))
+                  }
+                  rows={4}
+                  maxLength={REASON_MAX}
+                  placeholder="z. B. Personaldecke in dieser Woche…"
+                  className="min-h-[96px] w-full resize-y rounded-lg border border-input bg-transparent px-2.5 py-2 text-base outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
+                />
+                <p className="text-right text-xs text-neutral-400">
+                  {rejectReason.length}/{REASON_MAX}
+                </p>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={pending}
+                  onClick={() => setRejectOpen(false)}
+                >
+                  Abbrechen
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  disabled={pending}
+                  onClick={confirmReject}
+                >
+                  Ablehnen
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </>
       ) : null}
     </li>
   );

@@ -62,6 +62,7 @@ describe("approveRequestAction CLOSED week protection", () => {
       startDate: new Date("2026-04-13T00:00:00.000Z"),
       endDate: new Date("2026-04-15T00:00:00.000Z"),
       comment: null,
+      decisionComment: null,
     });
     prismaMock.employee.findFirst.mockResolvedValue({ id: "emp-1" });
     prismaMock.week.findMany.mockResolvedValue([

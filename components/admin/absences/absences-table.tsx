@@ -1,9 +1,17 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import {
   approveRequestAction,
@@ -29,6 +37,7 @@ export interface AbsenceRequestRow {
   endIso: string;
   rangeLabel: string;
   comment: string | null;
+  decisionComment: string | null;
   createdAtLabel: string;
   decidedAtLabel: string | null;
   decidedByEmail: string | null;
@@ -56,6 +65,8 @@ const STATUS_BADGE: Record<AbsenceRequestStatus, string> = {
   APPROVED: "bg-emerald-100 text-emerald-800",
   REJECTED: "bg-rose-100 text-rose-800",
 };
+
+const REASON_MAX = 300;
 
 export function AbsencesTable({ rows }: AbsencesTableProps) {
   if (rows.length === 0) {
@@ -98,6 +109,8 @@ export function AbsencesTable({ rows }: AbsencesTableProps) {
 
 function Row({ row }: { row: AbsenceRequestRow }) {
   const [pending, startTransition] = useTransition();
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
 
   function approve() {
     startTransition(async () => {
@@ -106,13 +119,18 @@ function Row({ row }: { row: AbsenceRequestRow }) {
       else toast.error(r.error);
     });
   }
-  function reject() {
+
+  function confirmReject() {
     startTransition(async () => {
-      const r = await rejectRequestAction(row.id);
-      if (r.ok) toast.success("Antrag abgelehnt.");
-      else toast.error(r.error);
+      const r = await rejectRequestAction(row.id, rejectReason || undefined);
+      if (r.ok) {
+        toast.success("Antrag abgelehnt.");
+        setRejectOpen(false);
+        setRejectReason("");
+      } else toast.error(r.error);
     });
   }
+
   function reopen() {
     startTransition(async () => {
       const r = await reopenRequestAction(row.id);
@@ -140,6 +158,14 @@ function Row({ row }: { row: AbsenceRequestRow }) {
             {row.comment}
           </p>
         ) : null}
+        {row.status === "REJECTED" && row.decisionComment ? (
+          <div className="mt-2 max-w-xs rounded-md border border-neutral-100 bg-neutral-50 px-2 py-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+              Begründung GL
+            </p>
+            <p className="mt-0.5 text-xs text-neutral-700">{row.decisionComment}</p>
+          </div>
+        ) : null}
       </td>
       <td className="px-4 py-3 text-neutral-700">{row.rangeLabel}</td>
       <td className="px-4 py-3">
@@ -160,9 +186,9 @@ function Row({ row }: { row: AbsenceRequestRow }) {
         {row.createdAtLabel}
       </td>
       <td className="px-4 py-3">
-        <div className="flex justify-end gap-2">
-          {row.status === "OPEN" ? (
-            <>
+        {row.status === "OPEN" ? (
+          <>
+            <div className="flex justify-end gap-2">
               <Button size="sm" disabled={pending} onClick={approve}>
                 Genehmigen
               </Button>
@@ -170,12 +196,68 @@ function Row({ row }: { row: AbsenceRequestRow }) {
                 size="sm"
                 variant="outline"
                 disabled={pending}
-                onClick={reject}
+                onClick={() => setRejectOpen(true)}
               >
                 Ablehnen
               </Button>
-            </>
-          ) : (
+            </div>
+            <Dialog
+              open={rejectOpen}
+              onOpenChange={(open) => {
+                setRejectOpen(open);
+                if (!open) setRejectReason("");
+              }}
+            >
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Antrag ablehnen</DialogTitle>
+                  <DialogDescription>
+                    Optional: Begründung für die Mitarbeitenden-Ansicht (max.{" "}
+                    {REASON_MAX} Zeichen).
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-2">
+                  <Label htmlFor={`reject-${row.id}`}>Begründung</Label>
+                  <textarea
+                    id={`reject-${row.id}`}
+                    value={rejectReason}
+                    onChange={(e) =>
+                      setRejectReason(e.target.value.slice(0, REASON_MAX))
+                    }
+                    rows={4}
+                    maxLength={REASON_MAX}
+                    placeholder="z. B. Personaldecke in dieser Woche…"
+                    className="min-h-[96px] w-full resize-y rounded-lg border border-input bg-transparent px-2.5 py-2 text-base outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
+                  />
+                  <p className="text-right text-xs text-neutral-400">
+                    {rejectReason.length}/{REASON_MAX}
+                  </p>
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={pending}
+                    onClick={() => setRejectOpen(false)}
+                  >
+                    Abbrechen
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    disabled={pending}
+                    onClick={confirmReject}
+                  >
+                    Ablehnen
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </>
+        ) : (
+          <div className="flex justify-end">
             <Button
               size="sm"
               variant="ghost"
@@ -184,8 +266,8 @@ function Row({ row }: { row: AbsenceRequestRow }) {
             >
               Wieder eröffnen
             </Button>
-          )}
-        </div>
+          </div>
+        )}
       </td>
     </tr>
   );

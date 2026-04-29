@@ -51,6 +51,7 @@ export interface MyRequestView {
   endIso: string;
   rangeLabel: string;
   comment: string | null;
+  decisionComment: string | null;
   decidedAt: string | null;
   createdAt: string;
 }

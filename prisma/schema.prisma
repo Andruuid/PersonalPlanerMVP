@@ -327,8 +327,9 @@ model AbsenceRequest {
   type          RequestType
   startDate     DateTime
   endDate       DateTime
-  status        RequestStatus  @default(OPEN)
-  comment       String?
+  status          RequestStatus  @default(OPEN)
+  comment         String?
+  decisionComment String? // Admin-Begründung bei Genehmigung/Ablehnung (für MA sichtbar bei Ablehnung)
   decidedAt     DateTime?
   decidedById   String?
   createdAt     DateTime       @default(now())
