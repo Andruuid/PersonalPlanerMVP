@@ -13,6 +13,8 @@ const ADMIN_PATHS = [
   "/absences",
   "/accounts",
   "/settings",
+  "/compensation-cases",
+  "/privacy",
   "/audit",
 ];
 const EMPLOYEE_PATHS = ["/my-week", "/my-requests", "/my-accounts"];
