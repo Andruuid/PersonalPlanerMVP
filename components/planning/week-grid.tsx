@@ -8,6 +8,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { UNDERSTAFFED_DAY_DOT_TOOLTIP } from "./copy";
 
 interface WeekGridProps {
   employees: EmployeeView[];
@@ -54,11 +55,22 @@ export function WeekGrid({
             <div className="flex items-center justify-center gap-1">
               <span>{d.weekdayLabel}</span>
               {d.understaffed ? (
-                <span
-                  aria-label="Tag unterbesetzt"
-                  title="Tag unterbesetzt — Sollvorgabe nicht erreicht"
-                  className="inline-block h-2 w-2 rounded-full bg-amber-500"
-                />
+                <Tooltip delayDuration={200}>
+                  <TooltipTrigger asChild>
+                    <span
+                      tabIndex={0}
+                      aria-label="Tag unterbesetzt"
+                      className="inline-block h-2 w-2 cursor-help rounded-full bg-amber-500 align-middle outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-1"
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="bottom"
+                    sideOffset={4}
+                    className="max-w-xs text-left text-sm leading-snug"
+                  >
+                    {UNDERSTAFFED_DAY_DOT_TOOLTIP}
+                  </TooltipContent>
+                </Tooltip>
               ) : null}
             </div>
             <div className="font-normal text-neutral-400">{d.shortDate}</div>

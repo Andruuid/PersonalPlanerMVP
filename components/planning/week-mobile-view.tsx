@@ -16,6 +16,7 @@ import {
   type EntryMap,
   type PlanEntryView,
 } from "./types";
+import { UNDERSTAFFED_DAY_DOT_TOOLTIP } from "./copy";
 
 interface WeekMobileViewProps {
   employees: EmployeeView[];
@@ -62,11 +63,23 @@ export function WeekMobileView({
                 <span className="flex items-center justify-center gap-1 text-xs font-medium">
                   {d.weekdayLabel}
                   {d.understaffed ? (
-                    <span
-                      aria-label="Tag unterbesetzt"
-                      title="Tag unterbesetzt — Sollvorgabe nicht erreicht"
-                      className="inline-block h-2 w-2 shrink-0 rounded-full bg-amber-500"
-                    />
+                    <Tooltip delayDuration={200}>
+                      <TooltipTrigger asChild>
+                        <span
+                          tabIndex={0}
+                          aria-label="Tag unterbesetzt"
+                          className="inline-block h-2 w-2 shrink-0 cursor-help rounded-full bg-amber-500 align-middle outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-1"
+                          onPointerDown={(e) => e.stopPropagation()}
+                        />
+                      </TooltipTrigger>
+                      <TooltipContent
+                        side="bottom"
+                        sideOffset={4}
+                        className="max-w-xs text-left text-sm leading-snug"
+                      >
+                        {UNDERSTAFFED_DAY_DOT_TOOLTIP}
+                      </TooltipContent>
+                    </Tooltip>
                   ) : null}
                 </span>
                 <span className="text-[10px] font-normal text-neutral-400">
