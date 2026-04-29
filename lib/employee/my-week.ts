@@ -56,6 +56,8 @@ interface ResolveOptions {
  *  2. Otherwise, use the current ISO week.
  *
  * The page reads only PublishedSnapshot so reset-to-draft preserves the view.
+ * Feiertage: mit `snapshot.holidays` pro Standort eingefroren (Publish/Republish);
+ * ohne dieses Feld (ältere Snapshots) oder ohne PublishedSnapshot → live prisma.holiday.
  */
 export async function loadMyWeek(
   user: Pick<SessionUser, "tenantId">,
@@ -82,19 +84,25 @@ export async function loadMyWeek(
     : null;
 
   const days = isoWeekDays(year, weekNumber);
-  const startDate = startOfIsoWeek(year, weekNumber);
-  const endDate = days[6].date;
 
-  const holidayRows = await prisma.holiday.findMany({
-    where: {
-      tenantId: user.tenantId,
-      locationId,
-      date: { gte: startDate, lte: endDate },
-    },
-  });
   const holidayByIso = new Map<string, string>();
-  for (const h of holidayRows) {
-    holidayByIso.set(format(h.date, "yyyy-MM-dd"), h.name);
+  if (snapshot?.holidays) {
+    for (const h of snapshot.holidays[locationId] ?? []) {
+      holidayByIso.set(h.iso, h.name);
+    }
+  } else {
+    const startDate = startOfIsoWeek(year, weekNumber);
+    const endDate = days[6].date;
+    const holidayRows = await prisma.holiday.findMany({
+      where: {
+        tenantId: user.tenantId,
+        locationId,
+        date: { gte: startDate, lte: endDate },
+      },
+    });
+    for (const h of holidayRows) {
+      holidayByIso.set(format(h.date, "yyyy-MM-dd"), h.name);
+    }
   }
 
   const entriesByDate = new Map<string, SnapshotEntry>();

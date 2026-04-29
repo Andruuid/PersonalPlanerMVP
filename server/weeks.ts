@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
-import { isoDateString, isoWeekDays } from "@/lib/time/week";
+import { isoDateString, isoWeekDays, startOfIsoWeek } from "@/lib/time/week";
 import {
   actionErrorFromDatabase,
   requireAdmin,
@@ -34,6 +34,9 @@ interface SnapshotEntry {
   comment: string | null;
 }
 
+/** Ein Feiertag im Mo–So-Fenster der ISO-Woche, zum Publish-Zeitpunkt. */
+export type WeekSnapshotHolidayRow = { iso: string; name: string };
+
 export interface WeekSnapshot {
   year: number;
   weekNumber: number;
@@ -46,6 +49,13 @@ export interface WeekSnapshot {
     roleLabel: string | null;
   }>;
   entries: SnapshotEntry[];
+  /**
+   * Feiertage eingefroren pro Standort: Schlüssel = locationId der aktiven
+   * Mitarbeitenden zum Publish-Zeitpunkt, Werte = Feiertage in diesem Standort
+   * im Mo–So-Range der Woche (gleiche Semantik wie früher live aus prisma.holiday).
+   * Fehlt bei älteren Snapshots → loadMyWeek nutzt prisma.holiday (DRAFT/Altbestand).
+   */
+  holidays?: Record<string, WeekSnapshotHolidayRow[]>;
 }
 
 export async function buildWeekSnapshot(
@@ -66,6 +76,7 @@ export async function buildWeekSnapshot(
         firstName: true,
         lastName: true,
         roleLabel: true,
+        locationId: true,
       },
     }),
     prisma.planEntry.findMany({
@@ -84,7 +95,40 @@ export async function buildWeekSnapshot(
     }),
   ]);
 
-  const days = isoWeekDays(week.year, week.weekNumber).map((d) => d.iso);
+  const weekDayModels = isoWeekDays(week.year, week.weekNumber);
+  const days = weekDayModels.map((d) => d.iso);
+  const rangeStart = startOfIsoWeek(week.year, week.weekNumber);
+  const rangeEnd = weekDayModels[6]!.date;
+
+  const locationIds = [
+    ...new Set(employees.map((e) => e.locationId)),
+  ];
+  const holidays: Record<string, WeekSnapshotHolidayRow[]> = Object.fromEntries(
+    locationIds.map((id) => [id, [] as WeekSnapshotHolidayRow[]]),
+  );
+  if (locationIds.length > 0) {
+    const holidayRows = await prisma.holiday.findMany({
+      where: {
+        tenantId,
+        locationId: { in: locationIds },
+        date: { gte: rangeStart, lte: rangeEnd },
+      },
+      select: { locationId: true, date: true, name: true },
+    });
+    for (const h of holidayRows) {
+      const list = holidays[h.locationId];
+      if (list) {
+        list.push({ iso: isoDateString(h.date), name: h.name });
+      }
+    }
+    for (const id of locationIds) {
+      holidays[id]!.sort((a, b) => a.iso.localeCompare(b.iso));
+    }
+  }
+
+  const snapshotEmployees = employees.map(
+    ({ locationId: _loc, ...rest }) => rest,
+  );
 
   const snapshotEntries: SnapshotEntry[] = entries.map((e) => ({
     id: e.id,
@@ -111,8 +155,9 @@ export async function buildWeekSnapshot(
     weekNumber: week.weekNumber,
     publishedAt: new Date().toISOString(),
     days,
-    employees,
+    employees: snapshotEmployees,
     entries: snapshotEntries,
+    holidays,
   };
 }
 
