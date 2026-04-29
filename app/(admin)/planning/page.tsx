@@ -302,6 +302,7 @@ export default async function PlanningPage({ searchParams }: PageProps) {
       prisma.absenceRequest.findMany({
         where: {
           tenantId: admin.tenantId,
+          deletedAt: null,
           OR: [
             { status: "OPEN" },
             {

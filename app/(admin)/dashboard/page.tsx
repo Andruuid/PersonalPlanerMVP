@@ -57,7 +57,9 @@ const getCachedDashboardData = unstable_cache(
       openWeeksWithPastSunday,
     ] =
       await Promise.all([
-        prisma.absenceRequest.count({ where: { tenantId, status: "OPEN" } }),
+        prisma.absenceRequest.count({
+          where: { tenantId, status: "OPEN", deletedAt: null },
+        }),
         prisma.privacyRequest.count({ where: { tenantId, status: "OPEN" } }),
         prisma.week.findUnique({
           where: {

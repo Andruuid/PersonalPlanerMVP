@@ -80,11 +80,13 @@ export default async function AbsencesPage({ searchParams }: PageProps) {
 
   const where: {
     tenantId?: string;
+    deletedAt: null;
     status?: AbsenceRequestStatus;
     type?: AbsenceRequestType;
     employeeId?: string;
   } = {};
   where.tenantId = admin.tenantId;
+  where.deletedAt = null;
   if (status !== "ALL") where.status = status;
   if (type !== "ALL") where.type = type;
   if (employeeId !== "ALL") where.employeeId = employeeId;
@@ -104,6 +106,7 @@ export default async function AbsencesPage({ searchParams }: PageProps) {
       _count: { _all: true },
       where: {
         tenantId: admin.tenantId,
+        deletedAt: null,
         ...(type !== "ALL" ? { type } : {}),
         ...(employeeId !== "ALL" ? { employeeId } : {}),
       },

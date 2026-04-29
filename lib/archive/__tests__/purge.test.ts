@@ -70,12 +70,14 @@ describe("purgeArchivedData", () => {
     expect(result.dryRun).toBe(true);
     expect(result.candidates).toEqual({
       planEntries: 1,
+      absenceRequests: 0,
       weeks: 1,
       employees: 1,
       locations: 1,
     });
     expect(result.deleted).toEqual({
       planEntries: 0,
+      absenceRequests: 0,
       weeks: 0,
       employees: 0,
       locations: 0,
@@ -194,6 +196,7 @@ describe("purgeArchivedData", () => {
 
     expect(result.deleted).toEqual({
       planEntries: 1,
+      absenceRequests: 0,
       weeks: 1,
       employees: 1,
       locations: 1,
@@ -272,5 +275,35 @@ describe("purgeArchivedData", () => {
     expect(result.deleted.weeks).toBe(0);
     expect(await db.prisma.week.findUnique({ where: { id: week.id } })).not.toBeNull();
     expect(await db.prisma.planEntry.findUnique({ where: { id: entry.id } })).not.toBeNull();
+  });
+
+  it("purges expired soft-deleted absence requests", async () => {
+    const locationId = await seedLocation(db.prisma, "AR Purge Loc");
+    const { id: employeeId, tenantId } = await seedEmployee(db.prisma, {
+      locationId,
+    });
+    const ar = await db.prisma.absenceRequest.create({
+      data: {
+        tenantId,
+        employeeId,
+        type: "VACATION",
+        startDate: new Date("2026-01-01T00:00:00.000Z"),
+        endDate: new Date("2026-01-03T00:00:00.000Z"),
+        status: "CANCELLED",
+        deletedAt: new Date("2025-01-01T00:00:00.000Z"),
+        archivedUntil: new Date("2026-01-01T00:00:00.000Z"),
+      },
+    });
+
+    const result = await purgeArchivedData(db.prisma, {
+      allTenants: true,
+      now: new Date("2037-01-01T00:00:00.000Z"),
+    });
+
+    expect(result.candidates.absenceRequests).toBe(1);
+    expect(result.deleted.absenceRequests).toBe(1);
+    expect(
+      await db.prisma.absenceRequest.findUnique({ where: { id: ar.id } }),
+    ).toBeNull();
   });
 });

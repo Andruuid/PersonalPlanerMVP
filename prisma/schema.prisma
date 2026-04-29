@@ -59,6 +59,7 @@ enum RequestStatus {
   OPEN
   APPROVED
   REJECTED
+  CANCELLED
 }
 
 enum PrivacyRequestType {
@@ -226,6 +227,7 @@ model Employee {
   ertCases             ErtCase[]
   compensationCases    CompensationCase[]
   exitSnapshot         EmployeeExitSnapshot?
+  cancelledAbsenceRequests AbsenceRequest[] @relation("AbsenceRequestCancelledBy")
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
 }
@@ -351,6 +353,11 @@ model AbsenceRequest {
   decisionComment String? // Admin-Begründung bei Genehmigung/Ablehnung (für MA sichtbar bei Ablehnung)
   decidedAt     DateTime?
   decidedById   String?
+  deletedAt     DateTime?
+  archivedUntil DateTime?
+  cancelledAt   DateTime?
+  cancelledById String?
+  cancelledBy   Employee?      @relation("AbsenceRequestCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 }

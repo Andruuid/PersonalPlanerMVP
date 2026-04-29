@@ -16,12 +16,14 @@ export interface PurgeArchivedResult {
   asOf: Date;
   candidates: {
     planEntries: number;
+    absenceRequests: number;
     weeks: number;
     employees: number;
     locations: number;
   };
   deleted: {
     planEntries: number;
+    absenceRequests: number;
     weeks: number;
     employees: number;
     locations: number;
@@ -39,12 +41,21 @@ export async function purgeArchivedData(
   }
   const tenantId = options.tenantId;
 
-  const [planEntries, weeks, employees, locations] = await Promise.all([
+  const [planEntries, absenceRequests, weeks, employees, locations] =
+    await Promise.all([
     prisma.planEntry.findMany({
       where: {
         deletedAt: { not: null },
         archivedUntil: { lte: asOf },
         ...(tenantId ? { week: { tenantId } } : {}),
+      },
+      select: { id: true },
+    }),
+    prisma.absenceRequest.findMany({
+      where: {
+        deletedAt: { not: null },
+        archivedUntil: { lte: asOf },
+        ...(tenantId ? { tenantId } : {}),
       },
       select: { id: true },
     }),
@@ -94,6 +105,7 @@ export async function purgeArchivedData(
 
   const candidates = {
     planEntries: planEntries.length,
+    absenceRequests: absenceRequests.length,
     weeks: weeks.length,
     employees: employees.length,
     locations: locations.length,
@@ -104,7 +116,13 @@ export async function purgeArchivedData(
       dryRun: true,
       asOf,
       candidates,
-      deleted: { planEntries: 0, weeks: 0, employees: 0, locations: 0 },
+      deleted: {
+        planEntries: 0,
+        absenceRequests: 0,
+        weeks: 0,
+        employees: 0,
+        locations: 0,
+      },
     };
   }
 
@@ -114,6 +132,15 @@ export async function purgeArchivedData(
         ? (
             await tx.planEntry.deleteMany({
               where: { id: { in: planEntries.map((e) => e.id) } },
+            })
+          ).count
+        : 0;
+
+    const absenceRequestsDeleted =
+      absenceRequests.length > 0
+        ? (
+            await tx.absenceRequest.deleteMany({
+              where: { id: { in: absenceRequests.map((r) => r.id) } },
             })
           ).count
         : 0;
@@ -147,6 +174,7 @@ export async function purgeArchivedData(
 
     return {
       planEntries: planEntriesDeleted,
+      absenceRequests: absenceRequestsDeleted,
       weeks: weeksDeleted,
       employees: employeesDeleted,
       locations: locationsDeleted,

@@ -148,6 +148,9 @@ export async function approveRequestAction(
   if (!request || request.tenantId !== admin.tenantId) {
     return { ok: false, error: "Antrag nicht gefunden." };
   }
+  if (request.deletedAt) {
+    return { ok: false, error: "Antrag nicht gefunden." };
+  }
   if (request.status !== "OPEN") {
     return { ok: false, error: "Antrag wurde bereits bearbeitet." };
   }
@@ -308,6 +311,9 @@ export async function rejectRequestAction(
     where: { id: requestId },
   });
   if (!request || request.tenantId !== admin.tenantId) {
+    return { ok: false, error: "Antrag nicht gefunden." };
+  }
+  if (request.deletedAt) {
     return { ok: false, error: "Antrag nicht gefunden." };
   }
   if (request.status !== "OPEN") {
@@ -568,6 +574,9 @@ export async function cancelOwnRequestAction(
   if (!request || request.tenantId !== employee.tenantId) {
     return { ok: false, error: "Antrag nicht gefunden." };
   }
+  if (request.deletedAt) {
+    return { ok: false, error: "Antrag nicht gefunden." };
+  }
   if (request.employeeId !== employee.employeeId) {
     return { ok: false, error: "Kein Zugriff auf diesen Antrag." };
   }
@@ -578,7 +587,18 @@ export async function cancelOwnRequestAction(
     };
   }
 
-  await prisma.absenceRequest.delete({ where: { id: requestId } });
+  const now = new Date();
+  const archivedUntil = archiveUntil(now);
+  await prisma.absenceRequest.update({
+    where: { id: requestId },
+    data: {
+      status: "CANCELLED",
+      cancelledAt: now,
+      cancelledById: employee.employeeId,
+      deletedAt: now,
+      archivedUntil,
+    },
+  });
 
   await writeAudit({
     userId: employee.id,
@@ -590,6 +610,13 @@ export async function cancelOwnRequestAction(
       from: isoDateString(request.startDate),
       to: isoDateString(request.endDate),
       status: request.status,
+    },
+    newValue: {
+      status: "CANCELLED",
+      cancelledAt: now.toISOString(),
+      cancelledById: employee.employeeId,
+      deletedAt: now.toISOString(),
+      archivedUntil: archivedUntil.toISOString(),
     },
   });
 
@@ -609,6 +636,9 @@ export async function reopenRequestAction(
     where: { id: requestId },
   });
   if (!request || request.tenantId !== admin.tenantId) {
+    return { ok: false, error: "Antrag nicht gefunden." };
+  }
+  if (request.deletedAt) {
     return { ok: false, error: "Antrag nicht gefunden." };
   }
 

@@ -33,7 +33,7 @@ export async function loadMyRequests(
   }
 
   const rows = await prisma.absenceRequest.findMany({
-    where: { ...where, tenantId: user.tenantId },
+    where: { ...where, tenantId: user.tenantId, deletedAt: null },
     orderBy: { createdAt: "desc" },
     take: options.limit,
   });
