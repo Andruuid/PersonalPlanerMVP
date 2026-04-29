@@ -1,8 +1,9 @@
 import type { DayKind } from "./priority";
 
 /**
- * Sum of "real" work minutes (only SHIFT / ONE_TIME_SHIFT — including weekend
- * shifts), used as the basis for the Höchstarbeitszeit (HAZ) check.
+ * Sum of geleistete Arbeit minutes (SHIFT / ONE_TIME_SHIFT — including weekend
+ * and holiday shifts). HALF_DAY_OFF is excluded (Pflichtpause / planning marker,
+ * not performed work — HAZ applies to real shifts only).
  */
 export function actualWorkMinutes(
   days: Array<{ kind: DayKind; plannedMinutes: number }>,
@@ -12,8 +13,7 @@ export function actualWorkMinutes(
     if (
       d.kind === "WORK" ||
       d.kind === "WORK_ON_WEEKEND" ||
-      d.kind === "HOLIDAY_WORK" ||
-      d.kind === "HALF_DAY_OFF"
+      d.kind === "HOLIDAY_WORK"
     ) {
       total += d.plannedMinutes;
     }

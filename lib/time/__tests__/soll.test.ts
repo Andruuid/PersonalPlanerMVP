@@ -135,4 +135,23 @@ describe("anrechenbarIstMinutes", () => {
       anrechenbarIstMinutes("EMPTY_WEEKDAY", 0, weekly, "DAILY_QUOTA", STD_DAYS),
     ).toBe(0);
   });
+
+  it("half-day off: 50% pensum → ist = soll = base/2, contribution 0 (ignores display 240)", () => {
+    const weeklyTarget50 = 21 * 60; // 50% of 42h
+    const base = baseDailySollMinutes(weeklyTarget50, STD_DAYS);
+    const half = base / 2;
+    expect(dailySollMinutes("HALF_DAY_OFF", weeklyTarget50, "DAILY_QUOTA", STD_DAYS)).toBe(
+      half,
+    );
+    const ist = anrechenbarIstMinutes(
+      "HALF_DAY_OFF",
+      240,
+      weeklyTarget50,
+      "DAILY_QUOTA",
+      STD_DAYS,
+    );
+    expect(ist).toBe(126);
+    expect(ist).toBe(half);
+    expect(ist - half).toBe(0);
+  });
 });

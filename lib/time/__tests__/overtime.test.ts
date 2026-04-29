@@ -19,6 +19,15 @@ describe("actualWorkMinutes", () => {
       ]),
     ).toBe(480 + 510 + 360 + 120);
   });
+
+  it("does not count HALF_DAY_OFF toward HAZ / weekly work", () => {
+    expect(
+      actualWorkMinutes([
+        { kind: "WORK", plannedMinutes: 480 },
+        { kind: "HALF_DAY_OFF", plannedMinutes: 240 },
+      ]),
+    ).toBe(480);
+  });
 });
 
 describe("weeklyUezContribution", () => {

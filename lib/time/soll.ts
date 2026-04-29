@@ -59,8 +59,10 @@ export function anrechenbarIstMinutes(
     case "WORK":
     case "WORK_ON_WEEKEND":
     case "HOLIDAY_WORK":
-    case "HALF_DAY_OFF":
       return plannedMinutes;
+    case "HALF_DAY_OFF":
+      /** UI may keep 240 as display; balance uses Tagessoll / 2 (same as {@link dailySollMinutes}). */
+      return baseDailySollMinutes(weeklyTargetMinutes, standardWorkDays) / 2;
     case "SICK":
     case "ACCIDENT":
     case "VACATION":
