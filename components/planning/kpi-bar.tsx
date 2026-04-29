@@ -14,71 +14,88 @@ interface KpiItem {
   size?: "sm" | "md" | "lg";
 }
 
+/**
+ * Wochenplanung KPI-Leiste (Admin)
+ *
+ * Kern-KPI entsprechen dem ursprünglichen Mockup und sind immer sichtbar.
+ * Erweiterte KPI (UES, Compliance, Sollbesetzung) blenden wir nur ein, wenn
+ * sie fachlich „etwas melden“ (> 0 bzw. UES ≠ 0), damit die Leiste ruhiger
+ * wirkt. Layout/Logik kann nach Kundenfeedback wieder angepasst werden.
+ */
 export function KpiBar({ summary }: KpiBarProps) {
   const understaffed = summary.understaffedSlots > 0;
   const restIssues = summary.restViolationCount > 0;
   const streakKw = summary.consecutiveWorkStreakKwViolationCount > 0;
   const halfDayGap = summary.halfDayOffMissingEmployees > 0;
-  const items: KpiItem[] = [
+  const uesNonZero = summary.uesAusweisMinutes !== 0;
+
+  const primaryItems: KpiItem[] = [
     { label: "Offene Anträge", value: summary.openRequests.toString() },
     { label: "Unbesetzte Felder", value: summary.unassignedCells.toString() },
     { label: "Mitarbeitende aktiv", value: summary.activeEmployees.toString() },
-    {
+  ];
+
+  const optionalItems: KpiItem[] = [];
+
+  if (uesNonZero) {
+    optionalItems.push({
       label: "UES-Ausweis",
       value: formatMinutesAsHours(summary.uesAusweisMinutes),
-    },
-    {
+    });
+  }
+
+  if (restIssues) {
+    optionalItems.push({
       label: "Ruhezeit-Verstöße",
       value: summary.restViolationCount.toString(),
-      hint:
-        summary.restViolationCount === 0
-          ? "Keine Hinweise (tägl./wöchentl.)"
-          : "Hinweise in den Mitarbeiterzeilen (tägl./wöchentl. Ruhezeit)",
-      accent: restIssues ? "warn" : "default",
-    },
-    {
+      hint: "Hinweise in den Mitarbeiterzeilen (tägl./wöchentl. Ruhezeit)",
+      accent: "warn",
+    });
+  }
+
+  if (streakKw) {
+    optionalItems.push({
       label: "Arbeitstage > 6 Folge",
       value: summary.consecutiveWorkStreakKwViolationCount.toString(),
-      hint:
-        summary.consecutiveWorkStreakKwViolationCount === 0
-          ? "Keine Verstösse in dieser KW"
-          : "Siebter Arbeitstag in Folge in dieser KW (alle MA zusammen)",
-      accent: streakKw ? "warn" : "default",
-    },
-    {
+      hint: "Siebter Arbeitstag in Folge in dieser KW (alle MA zusammen)",
+      accent: "warn",
+    });
+  }
+
+  if (halfDayGap) {
+    optionalItems.push({
       label: "Halbtag fehlt",
       value: summary.halfDayOffMissingEmployees.toString(),
-      hint:
-        summary.halfDayOffMissingEmployees === 0
-          ? "Verteilungsregeln erfüllt oder nicht zutreffend"
-          : "MA ohne angemerkten Halbtag trotz > 5 Arbeitstagen",
-      accent: halfDayGap ? "warn" : "default",
-    },
-    {
+      hint: "MA ohne angemerkten Halbtag trotz > 5 Arbeitstagen",
+      accent: "warn",
+    });
+  }
+
+  if (understaffed) {
+    optionalItems.push({
       label: "Unterbesetzt",
-      value: understaffed
-        ? `${summary.understaffedSlots} Tage unterbesetzt`
-        : "Keine",
-      hint: understaffed
-        ? `Soll: ${summary.understaffedRequired}, Ist: ${summary.understaffedPlanned}`
-        : "Alle Sollvorgaben erfüllt",
-      accent: understaffed ? "warn" : "default",
+      value: `${summary.understaffedSlots} Tage unterbesetzt`,
+      hint: `Soll: ${summary.understaffedRequired}, Ist: ${summary.understaffedPlanned}`,
+      accent: "warn",
       size: "sm",
-    },
-    {
-      label: "Status",
-      value: summary.statusLabel,
-      accent: "default",
-      size: "md",
-    },
-  ];
+    });
+  }
+
+  const statusItem: KpiItem = {
+    label: "Status",
+    value: summary.statusLabel,
+    accent: "default",
+    size: "md",
+  };
+
+  const items: KpiItem[] = [...primaryItems, ...optionalItems, statusItem];
 
   return (
     <div
       className={cn(
         "gap-3",
         "flex flex-nowrap overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-        "md:grid md:grid-cols-2 md:overflow-visible md:pb-0 lg:grid-cols-3 xl:grid-cols-9",
+        "md:grid md:overflow-visible md:pb-0 md:[grid-template-columns:repeat(auto-fill,minmax(11rem,1fr))]",
       )}
     >
       {items.map((it) => (
