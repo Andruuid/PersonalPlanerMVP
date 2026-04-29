@@ -50,7 +50,7 @@ export interface QuickAction {
 }
 
 export const ADMIN_QUICK_ACTIONS: QuickAction[] = [
-  { id: "new-service", label: "+ Dienstvorlage erstellen", icon: ClipboardList },
-  { id: "new-employee", label: "+ Mitarbeitenden hinzufügen", icon: UserPlus },
+  { id: "new-service", label: "+ Dienstvorlage", icon: ClipboardList },
+  { id: "new-employee", label: "+ Mitarbeiter:in", icon: UserPlus },
   { id: "manual-booking", label: "+ Manuelle Buchung", icon: Coins },
 ];
