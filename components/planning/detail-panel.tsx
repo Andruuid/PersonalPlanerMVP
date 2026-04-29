@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getShiftStyle, type ShiftKey } from "@/lib/shift-style";
+import { planEntryBlockAppearance } from "@/lib/planning/block-appearance";
 import type { QuickPickKey } from "@/lib/planning/plan-entry-schemas";
 import {
   deletePlanEntryAction,
@@ -100,7 +101,7 @@ export function DetailPanel({
           <DetailRow
             label="Aktueller Eintrag"
             value={entry ? entry.title : "—"}
-            valueChip={entry?.shiftKey ?? null}
+            entry={entry}
             subtitle={entry?.subtitle ?? null}
           />
 
@@ -117,7 +118,7 @@ export function DetailPanel({
                   onClick={() => quickSet(p.key)}
                   className={cn(
                     "rounded-full px-3 py-1.5 text-xs font-medium",
-                    getShiftStyle(p.shiftKey).chip,
+                    getShiftStyle(p.shiftKey).block,
                     locked || pending ? "opacity-60" : null,
                   )}
                 >
@@ -150,23 +151,25 @@ export function DetailPanel({
 interface DetailRowProps {
   label: string;
   value: string;
-  valueChip?: ShiftKey | null;
+  entry?: PlanEntryView | null;
   subtitle?: string | null;
 }
 
-function DetailRow({ label, value, valueChip, subtitle }: DetailRowProps) {
+function DetailRow({ label, value, entry, subtitle }: DetailRowProps) {
+  const block = entry ? planEntryBlockAppearance(entry) : null;
   return (
     <div>
       <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
         {label}
       </p>
       <div className="mt-0.5 flex flex-wrap items-center gap-2">
-        {valueChip ? (
+        {block ? (
           <span
             className={cn(
               "inline-flex rounded-full px-2.5 py-1 text-xs font-medium",
-              getShiftStyle(valueChip).chip,
+              block.className,
             )}
+            style={block.style}
           >
             {value}
           </span>

@@ -92,6 +92,7 @@ function entryView(raw: {
     endTime: string;
     breakMinutes: number;
     comment: string | null;
+    blockColorHex: string | null;
   } | null;
   oneTimeStart: string | null;
   oneTimeEnd: string | null;
@@ -149,6 +150,10 @@ function entryView(raw: {
     oneTimeLabel: raw.oneTimeLabel,
     absenceType: raw.absenceType as PlanEntryView["absenceType"],
     shiftKey,
+    serviceBlockColorHex:
+      raw.kind === "SHIFT" && raw.serviceTemplate
+        ? raw.serviceTemplate.blockColorHex ?? null
+        : null,
     title,
     subtitle: null,
   };
@@ -288,6 +293,7 @@ export default async function PlanningPage({ searchParams }: PageProps) {
               endTime: true,
               breakMinutes: true,
               comment: true,
+              blockColorHex: true,
             },
           },
           employee: { select: { firstName: true, lastName: true } },
@@ -338,6 +344,7 @@ export default async function PlanningPage({ searchParams }: PageProps) {
           endTime: true,
           breakMinutes: true,
           comment: true,
+          blockColorHex: true,
         },
       },
       employee: { select: { firstName: true, lastName: true } },
@@ -518,6 +525,7 @@ export default async function PlanningPage({ searchParams }: PageProps) {
     endTime: s.endTime,
     breakMinutes: s.breakMinutes,
     comment: s.comment,
+    blockColorHex: s.blockColorHex,
   }));
 
   // Pull a representative location label. If multiple, just use the first.

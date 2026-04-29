@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { getShiftStyle } from "@/lib/shift-style";
+import { employeeDayBlockAppearance } from "@/lib/planning/block-appearance";
 import type { MyDayView } from "./types";
 
 interface DayCardProps {
@@ -7,19 +7,24 @@ interface DayCardProps {
 }
 
 export function DayCard({ day }: DayCardProps) {
-  const style = getShiftStyle(day.shiftKey);
+  const tone = employeeDayBlockAppearance({
+    shiftKey: day.shiftKey,
+    serviceBlockColorHex: day.serviceBlockColorHex ?? null,
+  });
   const isEmpty = day.shiftKey === "EMPTY" || day.shiftKey === "FREI";
 
   return (
     <article
       className={cn(
         "flex flex-col gap-2 rounded-2xl border bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between md:gap-6",
-        isEmpty ? "border-neutral-200" : style.border,
+        isEmpty ? "border-neutral-200" : tone.border.className,
       )}
+      style={isEmpty ? undefined : tone.border.style}
     >
       <div className="flex items-center gap-3">
         <span
-          className={cn("h-2.5 w-2.5 shrink-0 rounded-full", style.dot)}
+          className={cn("h-2.5 w-2.5 shrink-0 rounded-full", tone.dot.className)}
+          style={tone.dot.style}
           aria-hidden
         />
         <div>
@@ -30,8 +35,9 @@ export function DayCard({ day }: DayCardProps) {
             <span
               className={cn(
                 "inline-flex rounded-full px-2.5 py-1 text-xs font-medium",
-                style.chip,
+                tone.block.className,
               )}
+              style={tone.block.style}
             >
               {day.title}
             </span>

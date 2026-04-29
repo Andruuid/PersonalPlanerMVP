@@ -11,8 +11,16 @@ import {
   safeRevalidatePath,
   type ActionResult,
 } from "./_shared";
+import { DEFAULT_SERVICE_BLOCK_HEX } from "@/lib/planning/block-appearance";
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+const BLOCK_HEX_RE = /^#[0-9A-Fa-f]{6}$/;
+
+function normalizeBlockColorHex(raw: string | undefined): string {
+  const t = (raw ?? "").trim();
+  const withHash = t.startsWith("#") ? t : `#${t}`;
+  return withHash.toUpperCase();
+}
 
 const baseSchema = z.object({
   name: z.string().min(1, "Name erforderlich").max(80),
@@ -43,6 +51,7 @@ const baseSchema = z.object({
     .max(50, "Maximal 50")
     .optional()
     .nullable(),
+  blockColorHex: z.string().regex(BLOCK_HEX_RE, "Ungültige Block-Farbe"),
   isActive: z.boolean().default(true),
 });
 
@@ -78,6 +87,10 @@ function rawFromForm(formData: FormData): Record<string, unknown> {
     comment: readOptionalString(formData.get("comment")),
     defaultDays: readDefaultDaysMask(formData),
     requiredCount: readPositiveIntOrNull(formData.get("requiredCount")),
+    blockColorHex: normalizeBlockColorHex(
+      readOptionalString(formData.get("blockColorHex")) ??
+        DEFAULT_SERVICE_BLOCK_HEX,
+    ),
     isActive: readBooleanFlag(formData.get("isActive")),
   };
 }
@@ -121,6 +134,7 @@ export async function createServiceAction(
       defaultDays: data.defaultDays ?? null,
       requiredCount: data.requiredCount ?? null,
       isActive: data.isActive,
+      blockColorHex: data.blockColorHex,
     },
   });
 
@@ -139,6 +153,7 @@ export async function createServiceAction(
       defaultDays: service.defaultDays,
       requiredCount: service.requiredCount,
       isActive: service.isActive,
+      blockColorHex: service.blockColorHex,
     },
   });
 
@@ -198,6 +213,7 @@ export async function updateServiceAction(
       defaultDays: data.defaultDays ?? null,
       requiredCount: data.requiredCount ?? null,
       isActive: data.isActive,
+      blockColorHex: data.blockColorHex,
     },
   });
 
@@ -216,6 +232,7 @@ export async function updateServiceAction(
       defaultDays: before.defaultDays,
       requiredCount: before.requiredCount,
       isActive: before.isActive,
+      blockColorHex: before.blockColorHex,
     },
     newValue: {
       name: updated.name,
@@ -227,6 +244,7 @@ export async function updateServiceAction(
       defaultDays: updated.defaultDays,
       requiredCount: updated.requiredCount,
       isActive: updated.isActive,
+      blockColorHex: updated.blockColorHex,
     },
   });
 

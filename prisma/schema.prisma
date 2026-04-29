@@ -274,6 +274,7 @@ model ServiceTemplate {
   comment        String?
   defaultDays    Int?        // bitmask: Mon=1, Tue=2, ..., Sun=64
   requiredCount  Int?
+  blockColorHex   String?
   isActive       Boolean     @default(true)
   planEntries    PlanEntry[]
   createdAt      DateTime    @default(now())

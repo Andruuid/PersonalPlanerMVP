@@ -35,6 +35,8 @@ export interface PlanEntryView {
   oneTimeLabel: string | null;
   absenceType: AbsenceType | null;
   shiftKey: ShiftKey;
+  /** Bei SHIFT: gespeicherte Vorlagenfarbe (#RRGGBB), sonst null */
+  serviceBlockColorHex: string | null;
   title: string;
   subtitle: string | null;
 }
@@ -65,6 +67,7 @@ export interface ServiceOption {
   endTime: string;
   breakMinutes: number;
   comment: string | null;
+  blockColorHex: string | null;
 }
 
 export interface RequestView {

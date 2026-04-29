@@ -34,6 +34,10 @@ interface SnapshotEntry {
   serviceName: string | null;
   startTime: string | null;
   endTime: string | null;
+  /** Ab Publish; neues Feld */
+  serviceBlockColorHex?: string | null;
+  /** Legacy Snapshots (früher chip) */
+  serviceChipColorHex?: string | null;
   oneTimeStart: string | null;
   oneTimeEnd: string | null;
   oneTimeLabel: string | null;
@@ -153,11 +157,14 @@ function buildDayView({
   let title = "Frei";
   let timeRange: string | null = null;
   let subtitle: string | null = null;
+  let serviceBlockColorHex: string | null = null;
 
   if (entry) {
     if (entry.kind === "SHIFT") {
       shiftKey = shiftKeyForServiceCode(entry.serviceCode ?? undefined);
       title = entry.serviceName ?? "Dienst";
+      serviceBlockColorHex =
+        entry.serviceBlockColorHex ?? entry.serviceChipColorHex ?? null;
       if (entry.startTime && entry.endTime) {
         timeRange = `${entry.startTime} – ${entry.endTime}`;
       }
@@ -195,6 +202,7 @@ function buildDayView({
     isWeekend,
     holidayName,
     shiftKey,
+    serviceBlockColorHex,
     title,
     timeRange,
     subtitle,

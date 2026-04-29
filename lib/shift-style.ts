@@ -13,7 +13,7 @@ export type ShiftKey =
 
 export interface ShiftStyle {
   label: string;
-  chip: string;
+  block: string;
   badge: string;
   border: string;
   dot: string;
@@ -22,14 +22,14 @@ export interface ShiftStyle {
 export const SHIFT_STYLES: Record<ShiftKey, ShiftStyle> = {
   FRUEH: {
     label: "Frühdienst",
-    chip: "bg-sky-50 text-sky-900 ring-1 ring-sky-200 hover:bg-sky-100",
+    block: "bg-sky-50 text-sky-900 ring-1 ring-sky-200 hover:bg-sky-100",
     badge: "bg-sky-100 text-sky-900",
     border: "border-sky-300",
     dot: "bg-sky-500",
   },
   SPAET: {
     label: "Spätdienst",
-    chip:
+    block:
       "bg-indigo-50 text-indigo-900 ring-1 ring-indigo-200 hover:bg-indigo-100",
     badge: "bg-indigo-100 text-indigo-900",
     border: "border-indigo-300",
@@ -37,7 +37,7 @@ export const SHIFT_STYLES: Record<ShiftKey, ShiftStyle> = {
   },
   SAMSTAG: {
     label: "Samstagsdienst",
-    chip:
+    block:
       "bg-teal-50 text-teal-900 ring-1 ring-teal-200 hover:bg-teal-100",
     badge: "bg-teal-100 text-teal-900",
     border: "border-teal-300",
@@ -45,7 +45,7 @@ export const SHIFT_STYLES: Record<ShiftKey, ShiftStyle> = {
   },
   FERIEN: {
     label: "Ferien",
-    chip:
+    block:
       "bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200 hover:bg-emerald-100",
     badge: "bg-emerald-100 text-emerald-900",
     border: "border-emerald-300",
@@ -53,7 +53,7 @@ export const SHIFT_STYLES: Record<ShiftKey, ShiftStyle> = {
   },
   FREI_VERLANGT: {
     label: "Frei verlangt",
-    chip:
+    block:
       "bg-amber-50 text-amber-900 ring-1 ring-amber-200 hover:bg-amber-100",
     badge: "bg-amber-100 text-amber-900",
     border: "border-amber-300",
@@ -61,7 +61,7 @@ export const SHIFT_STYLES: Record<ShiftKey, ShiftStyle> = {
   },
   TZT: {
     label: "TZT",
-    chip:
+    block:
       "bg-violet-50 text-violet-900 ring-1 ring-violet-200 hover:bg-violet-100",
     badge: "bg-violet-100 text-violet-900",
     border: "border-violet-300",
@@ -69,7 +69,7 @@ export const SHIFT_STYLES: Record<ShiftKey, ShiftStyle> = {
   },
   UEZ_BEZUG: {
     label: "UEZ-Bezug",
-    chip:
+    block:
       "bg-orange-50 text-orange-950 ring-1 ring-orange-200 hover:bg-orange-100",
     badge: "bg-orange-100 text-orange-950",
     border: "border-orange-300",
@@ -77,7 +77,7 @@ export const SHIFT_STYLES: Record<ShiftKey, ShiftStyle> = {
   },
   KRANK: {
     label: "Krank",
-    chip:
+    block:
       "bg-rose-50 text-rose-900 ring-1 ring-rose-200 hover:bg-rose-100",
     badge: "bg-rose-100 text-rose-900",
     border: "border-rose-300",
@@ -85,7 +85,7 @@ export const SHIFT_STYLES: Record<ShiftKey, ShiftStyle> = {
   },
   FEIERTAG: {
     label: "Feiertag",
-    chip:
+    block:
       "bg-slate-100 text-slate-700 ring-1 ring-slate-200",
     badge: "bg-slate-200 text-slate-800",
     border: "border-slate-300",
@@ -93,7 +93,7 @@ export const SHIFT_STYLES: Record<ShiftKey, ShiftStyle> = {
   },
   FREI: {
     label: "Frei",
-    chip:
+    block:
       "bg-neutral-50 text-neutral-500 ring-1 ring-neutral-200",
     badge: "bg-neutral-100 text-neutral-700",
     border: "border-neutral-200",
@@ -101,7 +101,7 @@ export const SHIFT_STYLES: Record<ShiftKey, ShiftStyle> = {
   },
   EMPTY: {
     label: "Ziehen oder auswählen",
-    chip:
+    block:
       "border border-dashed border-neutral-300 text-neutral-500 bg-white hover:bg-neutral-50",
     badge: "bg-neutral-50 text-neutral-500",
     border: "border-neutral-300",

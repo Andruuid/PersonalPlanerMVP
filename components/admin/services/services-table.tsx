@@ -11,6 +11,7 @@ import {
   type ServiceFormDefaults,
 } from "./service-form";
 import { setServiceActiveAction } from "@/server/services";
+import { parseBlockColorHex } from "@/lib/planning/block-appearance";
 
 export interface ServiceRow {
   id: string;
@@ -23,6 +24,7 @@ export interface ServiceRow {
   defaultDays: number | null;
   requiredCount: number | null;
   isActive: boolean;
+  blockColorHex: string | null;
 }
 
 interface Props {
@@ -82,6 +84,7 @@ export function ServicesTable({ services }: Props) {
           <table className="min-w-full divide-y divide-neutral-200 text-sm">
             <thead className="bg-neutral-50 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
               <tr>
+                <th className="px-4 py-3">Farbe</th>
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Kürzel</th>
                 <th className="px-4 py-3">Zeit</th>
@@ -95,15 +98,27 @@ export function ServicesTable({ services }: Props) {
               {services.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     className="px-4 py-8 text-center text-sm text-neutral-500"
                   >
                     Noch keine Dienstvorlagen angelegt.
                   </td>
                 </tr>
               ) : null}
-              {services.map((s) => (
+              {services.map((s) => {
+                const hex = parseBlockColorHex(s.blockColorHex);
+                return (
                 <tr key={s.id} className="hover:bg-neutral-50/60">
+                  <td className="px-4 py-3 align-middle">
+                    <span
+                      className="inline-block h-4 w-4 rounded-full ring-1 ring-neutral-200"
+                      style={
+                        hex ? { backgroundColor: hex } : { backgroundColor: "#d4d4d8" }
+                      }
+                      title={hex ?? "Keine Farbe"}
+                      aria-hidden
+                    />
+                  </td>
                   <td className="px-4 py-3 font-medium text-neutral-900">
                     {s.name}
                   </td>
@@ -161,7 +176,8 @@ export function ServicesTable({ services }: Props) {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -174,12 +190,14 @@ export function ServicesTable({ services }: Props) {
         <DialogContent className="sm:max-w-xl">
           {dialog.mode === "create" ? (
             <ServiceForm
+              key="create-service"
               mode="create"
               defaults={createDefaults()}
               onSuccess={close}
             />
           ) : dialog.mode === "edit" ? (
             <ServiceForm
+              key={dialog.service.id}
               mode="edit"
               defaults={editDefaultsFromRow(dialog.service)}
               onSuccess={close}
@@ -202,6 +220,7 @@ function createDefaults(): ServiceFormDefaults {
     defaultDays: null,
     requiredCount: null,
     isActive: true,
+    blockColorHex: null,
   };
 }
 
@@ -217,5 +236,6 @@ function editDefaultsFromRow(row: ServiceRow): ServiceFormDefaults {
     defaultDays: row.defaultDays,
     requiredCount: row.requiredCount,
     isActive: row.isActive,
+    blockColorHex: row.blockColorHex,
   };
 }

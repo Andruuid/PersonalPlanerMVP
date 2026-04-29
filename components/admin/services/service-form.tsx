@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import {
   DialogClose,
   DialogDescription,
@@ -19,6 +20,11 @@ import {
 } from "@/server/services";
 import type { ActionResult } from "@/server/_shared";
 import { bitmaskHasWeekday } from "@/lib/services/coverage";
+import {
+  DEFAULT_SERVICE_BLOCK_HEX,
+  SERVICE_BLOCK_PRESET_HEX,
+  parseBlockColorHex,
+} from "@/lib/planning/block-appearance";
 
 const WEEKDAY_LABELS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"] as const;
 
@@ -33,6 +39,7 @@ export interface ServiceFormDefaults {
   defaultDays: number | null;
   requiredCount: number | null;
   isActive: boolean;
+  blockColorHex: string | null;
 }
 
 interface ServiceFormProps {
@@ -53,6 +60,17 @@ export function ServiceForm({
 }: ServiceFormProps) {
   const [errors, setErrors] = useState<FormErrors | null>(null);
   const [pending, startTransition] = useTransition();
+
+  const resolvedDefaultHex =
+    parseBlockColorHex(defaults.blockColorHex) ?? DEFAULT_SERVICE_BLOCK_HEX;
+  const [blockColor, setBlockColor] = useState(
+    () => resolvedDefaultHex.toLowerCase(),
+  );
+
+  function hiddenBlockHex(): string {
+    const t = blockColor.trim().replace(/^#/, "");
+    return `#${t}`.toUpperCase();
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -89,7 +107,7 @@ export function ServiceForm({
             : "Dienstvorlage bearbeiten"}
         </DialogTitle>
         <DialogDescription>
-          Vorlagen werden in der Wochenplanung als Chips bereitgestellt.
+          Vorlagen werden in der Wochenplanung als Blöcke bereitgestellt.
         </DialogDescription>
       </DialogHeader>
 
@@ -115,6 +133,52 @@ export function ServiceForm({
           hint="Eindeutiges Kürzel — A-Z, 0-9, _ und -"
           style={{ textTransform: "uppercase" }}
         />
+        <div className="sm:col-span-2 space-y-2">
+          <div className="flex items-center gap-1.5">
+            <Label htmlFor="blockColorPick">Block-Farbe</Label>
+            <HelpIconTooltip text="Wird in der Wochenplanung für Blöcke und Zellen verwendet." />
+          </div>
+          <input type="hidden" name="blockColorHex" value={hiddenBlockHex()} />
+          <div className="flex flex-wrap items-center gap-3">
+            <input
+              type="color"
+              id="blockColorPick"
+              value={
+                blockColor.startsWith("#")
+                  ? blockColor
+                  : `#${blockColor}`
+              }
+              onChange={(e) => setBlockColor(e.target.value.toLowerCase())}
+              className="h-10 w-14 cursor-pointer rounded-md border border-neutral-300 bg-white p-1"
+              aria-label="Block-Farbe wählen"
+            />
+            <div className="flex flex-wrap gap-2">
+              {SERVICE_BLOCK_PRESET_HEX.map((hex) => (
+                <button
+                  key={hex}
+                  type="button"
+                  className={cn(
+                    "h-8 w-8 rounded-full ring-2 ring-offset-1 transition-transform hover:scale-105 focus-visible:outline focus-visible:ring-2 focus-visible:ring-neutral-400",
+                    hiddenBlockHex() === hex
+                      ? "ring-neutral-800"
+                      : "ring-transparent",
+                  )}
+                  style={{ backgroundColor: hex }}
+                  title={hex}
+                  onClick={() => setBlockColor(hex.toLowerCase())}
+                  aria-label={`Farbe ${hex}`}
+                />
+              ))}
+            </div>
+          </div>
+          {fieldErr.blockColorHex ? (
+            <p className="text-xs text-rose-700">{fieldErr.blockColorHex}</p>
+          ) : (
+            <p className="text-xs text-neutral-500">
+              Frei wählbar oder Vorschlag antippen.
+            </p>
+          )}
+        </div>
         <Field
           label="Startzeit"
           name="startTime"

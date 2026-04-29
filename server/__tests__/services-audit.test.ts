@@ -46,6 +46,7 @@ function buildBaseFormData(): FormData {
   fd.set("endTime", "15:30");
   fd.set("breakMinutes", "30");
   fd.set("comment", "");
+  fd.set("blockColorHex", "#0EA5E9");
   fd.set("isActive", "on");
   return fd;
 }
@@ -76,6 +77,7 @@ describe("service template defaultDays/requiredCount", () => {
       defaultDays: 21,
       requiredCount: 2,
       isActive: true,
+      blockColorHex: "#0EA5E9",
     });
 
     const result = await createServiceAction(undefined, fd);
@@ -86,6 +88,7 @@ describe("service template defaultDays/requiredCount", () => {
         data: expect.objectContaining({
           defaultDays: 21,
           requiredCount: 2,
+          blockColorHex: "#0EA5E9",
         }),
       }),
     );
@@ -116,6 +119,7 @@ describe("service template defaultDays/requiredCount", () => {
       defaultDays: null,
       requiredCount: null,
       isActive: true,
+      blockColorHex: "#0EA5E9",
     });
 
     await createServiceAction(undefined, fd);
@@ -125,6 +129,7 @@ describe("service template defaultDays/requiredCount", () => {
         data: expect.objectContaining({
           defaultDays: null,
           requiredCount: null,
+          blockColorHex: "#0EA5E9",
         }),
       }),
     );
@@ -150,6 +155,7 @@ describe("service template defaultDays/requiredCount", () => {
       defaultDays: 1, // Mo only
       requiredCount: 1,
       isActive: true,
+      blockColorHex: "#0EA5E9",
     });
 
     prismaMock.serviceTemplate.update.mockResolvedValue({
@@ -163,6 +169,7 @@ describe("service template defaultDays/requiredCount", () => {
       defaultDays: 21,
       requiredCount: 3,
       isActive: true,
+      blockColorHex: "#0EA5E9",
     });
 
     const result = await updateServiceAction(undefined, fd);
@@ -173,6 +180,7 @@ describe("service template defaultDays/requiredCount", () => {
         data: expect.objectContaining({
           defaultDays: 21,
           requiredCount: 3,
+          blockColorHex: "#0EA5E9",
         }),
       }),
     );

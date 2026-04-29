@@ -29,6 +29,7 @@ interface SnapshotEntry {
   serviceName: string | null;
   startTime: string | null;
   endTime: string | null;
+  serviceBlockColorHex: string | null;
   breakMinutes: number | null;
   oneTimeStart: string | null;
   oneTimeEnd: string | null;
@@ -312,6 +313,7 @@ export async function buildWeekSnapshot(
             startTime: true,
             endTime: true,
             breakMinutes: true,
+            blockColorHex: true,
           },
         },
       },
@@ -363,6 +365,7 @@ export async function buildWeekSnapshot(
     serviceName: e.serviceTemplate?.name ?? null,
     startTime: e.serviceTemplate?.startTime ?? null,
     endTime: e.serviceTemplate?.endTime ?? null,
+    serviceBlockColorHex: e.serviceTemplate?.blockColorHex ?? null,
     breakMinutes: e.serviceTemplate?.breakMinutes ?? null,
     oneTimeStart: e.oneTimeStart,
     oneTimeEnd: e.oneTimeEnd,

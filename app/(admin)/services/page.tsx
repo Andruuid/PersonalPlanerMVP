@@ -26,6 +26,7 @@ export default async function ServicesPage() {
     defaultDays: s.defaultDays,
     requiredCount: s.requiredCount,
     isActive: s.isActive,
+    blockColorHex: s.blockColorHex,
   }));
 
   return (
@@ -33,7 +34,7 @@ export default async function ServicesPage() {
       <PageHeader
         caption="Stammdaten"
         title="Dienste"
-        description="Dienstvorlagen pflegen — Frühdienst, Spätdienst, Samstagsdienst und mehr. Vorlagen werden in der Wochenplanung als Drag-Chips angezeigt."
+        description="Dienstvorlagen pflegen — Frühdienst, Spätdienst, Samstagsdienst und mehr. Vorlagen werden in der Wochenplanung als Drag-Blöcke angezeigt."
       />
 
       <ServicesTable services={rows} />

@@ -46,7 +46,7 @@ test.describe("Admin: Sidebar erreicht Hauptmodule (Smoke)", () => {
     await expect(table).toContainText("Keller");
   });
 
-  test("Menüpunkt „Dienste“: Dienstvorlagen (Grundlage für Raster-Chips in der Planung)", async ({
+  test("Menüpunkt „Dienste“: Dienstvorlagen (Grundlage für Raster-Blöcke in der Planung)", async ({
     page,
   }) => {
     /**

@@ -117,6 +117,7 @@ export function QuickActionsProvider({
               defaultDays: null,
               requiredCount: null,
               isActive: true,
+              blockColorHex: null,
             }}
             onSuccess={close}
           />

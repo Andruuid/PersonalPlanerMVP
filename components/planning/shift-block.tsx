@@ -1,14 +1,14 @@
 import { cn } from "@/lib/utils";
 import { getShiftStyle, type ShiftKey } from "@/lib/shift-style";
 
-interface ShiftChipProps {
+interface ShiftBlockProps {
   shiftKey: ShiftKey;
   label?: string;
   size?: "sm" | "md";
   className?: string;
 }
 
-export function ShiftChip({ shiftKey, label, size = "md", className }: ShiftChipProps) {
+export function ShiftBlock({ shiftKey, label, size = "md", className }: ShiftBlockProps) {
   const style = getShiftStyle(shiftKey);
   const text = label ?? style.label;
   return (
@@ -18,7 +18,7 @@ export function ShiftChip({ shiftKey, label, size = "md", className }: ShiftChip
         size === "sm"
           ? "px-2.5 py-1 text-xs"
           : "px-3 py-1.5 text-xs",
-        style.chip,
+        style.block,
         className,
       )}
     >

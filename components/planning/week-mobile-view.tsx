@@ -8,7 +8,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { getShiftStyle } from "@/lib/shift-style";
+import { planEntryBlockAppearance } from "@/lib/planning/block-appearance";
 import {
   entryKey,
   type DayView,
@@ -134,7 +134,7 @@ function MobileEmployeeDayCard({
   const key = entryKey(employee.id, dayIso);
   const entry: PlanEntryView | null = entries[key] ?? null;
   const selected = selectedKey === key;
-  const style = entry ? getShiftStyle(entry.shiftKey) : null;
+  const block = entry ? planEntryBlockAppearance(entry) : null;
 
   return (
     <article className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-3">
@@ -171,7 +171,7 @@ function MobileEmployeeDayCard({
         ) : null}
       </div>
 
-      {entry && style ? (
+      {entry && block ? (
         <button
           type="button"
           onClick={() => onOpenAssign(employee.id, dayIso)}
@@ -186,8 +186,9 @@ function MobileEmployeeDayCard({
           <span
             className={cn(
               "inline-flex max-w-full flex-col rounded-full px-3 py-1.5 text-xs font-medium",
-              style.chip,
+              block.className,
             )}
+            style={block.style}
           >
             <span className="truncate">{entry.title}</span>
           </span>

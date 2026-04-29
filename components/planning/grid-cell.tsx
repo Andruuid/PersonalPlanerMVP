@@ -3,7 +3,7 @@
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
-import { getShiftStyle } from "@/lib/shift-style";
+import { planEntryBlockAppearance } from "@/lib/planning/block-appearance";
 import type { PlanEntryView } from "./types";
 
 interface GridCellProps {
@@ -47,7 +47,7 @@ export function GridCell({
       )}
     >
       {entry ? (
-        <DraggableChip
+        <DraggableBlock
           entry={entry}
           locked={locked}
           onSelect={onSelect}
@@ -77,20 +77,21 @@ export function GridCell({
   );
 }
 
-interface DraggableChipProps {
+interface DraggableBlockProps {
   entry: PlanEntryView;
   locked: boolean;
   onSelect: () => void;
   onOpenAssign: () => void;
 }
 
-function DraggableChip({
+function DraggableBlock({
   entry,
   locked,
   onSelect,
   onOpenAssign,
-}: DraggableChipProps) {
-  const style = getShiftStyle(entry.shiftKey);
+}: DraggableBlockProps) {
+  const block = planEntryBlockAppearance(entry);
+
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
       id: `entry::${entry.id}`,
@@ -106,7 +107,7 @@ function DraggableChip({
     <button
       ref={setNodeRef}
       type="button"
-      style={transformStyle}
+      style={{ ...transformStyle, ...block.style }}
       onClick={(e) => {
         if (e.detail === 2) {
           onOpenAssign();
@@ -118,7 +119,7 @@ function DraggableChip({
       title={entry.subtitle ?? entry.title}
       className={cn(
         "inline-flex w-full max-w-[140px] flex-col items-center rounded-full px-3 py-1.5 text-xs font-medium",
-        style.chip,
+        block.className,
         locked ? "cursor-default" : "cursor-grab active:cursor-grabbing",
         isDragging ? "opacity-60" : null,
       )}

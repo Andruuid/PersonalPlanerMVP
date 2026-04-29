@@ -17,6 +17,8 @@ export interface MyDayView {
   isWeekend: boolean;
   holidayName: string | null;
   shiftKey: ShiftKey;
+  /** Aus Publish-Snapshot; bei SHIFT gesetzt */
+  serviceBlockColorHex: string | null;
   title: string;
   timeRange: string | null;
   subtitle: string | null;
