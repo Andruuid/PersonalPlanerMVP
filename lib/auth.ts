@@ -10,16 +10,19 @@ declare module "next-auth" {
     user: {
       id: string;
       role: Role;
+      tenantId: string;
       employeeId?: string | null;
     } & DefaultSession["user"];
   }
   interface User {
     role: Role;
+    tenantId: string;
     employeeId?: string | null;
   }
 }
 
 const credentialsSchema = z.object({
+  tenantSlug: z.string().trim().min(1),
   email: z.string().email(),
   password: z.string().min(1),
 });
@@ -37,16 +40,27 @@ export const {
     Credentials({
       name: "Credentials",
       credentials: {
+        tenantSlug: { label: "Betrieb", type: "text" },
         email: { label: "E-Mail", type: "email" },
         password: { label: "Passwort", type: "password" },
       },
       async authorize(raw) {
         const parsed = credentialsSchema.safeParse(raw);
         if (!parsed.success) return null;
-        const { email, password } = parsed.data;
+        const { tenantSlug, email, password } = parsed.data;
 
-        const user = await prisma.user.findUnique({
-          where: { email: email.toLowerCase() },
+        const slugNorm = tenantSlug.trim().toLowerCase();
+        const tenant = await prisma.tenant.findUnique({
+          where: { slug: slugNorm },
+          select: { id: true },
+        });
+        if (!tenant) return null;
+
+        const user = await prisma.user.findFirst({
+          where: {
+            tenantId: tenant.id,
+            email: email.toLowerCase(),
+          },
           include: { employee: { select: { id: true } } },
         });
         if (!user || !user.isActive) return null;
@@ -59,6 +73,7 @@ export const {
           email: user.email,
           name: user.email,
           role: user.role,
+          tenantId: user.tenantId,
           employeeId: user.employee?.id ?? null,
         };
       },
@@ -68,6 +83,7 @@ export const {
     async jwt({ token, user }) {
       if (user) {
         (token as Record<string, unknown>).role = user.role;
+        (token as Record<string, unknown>).tenantId = user.tenantId;
         (token as Record<string, unknown>).employeeId = user.employeeId ?? null;
         token.sub = user.id as string;
       }
@@ -78,6 +94,8 @@ export const {
         const t = token as Record<string, unknown>;
         session.user.id = (token.sub as string) ?? "";
         session.user.role = t.role as Role;
+        session.user.tenantId =
+          typeof t.tenantId === "string" ? t.tenantId : "";
         session.user.employeeId = (t.employeeId as string | null | undefined) ?? null;
       }
       return session;

@@ -7,7 +7,9 @@
  * `close()`. Tests are fully isolated — no state leaks between files or
  * cases.
  */
+import { invalidateAuditLogAppendOnlyCache } from "@/lib/audit/core";
 import { PrismaClient } from "@/lib/generated/prisma/client";
+
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 import { copyFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -40,8 +42,18 @@ export function makeTestDb(): TestDb {
   return {
     prisma,
     async reset(): Promise<void> {
+      // Tests need a hard reset between cases; drop append-only triggers first.
+      await prisma.$executeRawUnsafe(
+        'DROP TRIGGER IF EXISTS auditlog_no_update;',
+      );
+      await prisma.$executeRawUnsafe(
+        'DROP TRIGGER IF EXISTS auditlog_no_delete;',
+      );
+      invalidateAuditLogAppendOnlyCache(prisma);
       // FK-safe order: leaves first.
       await prisma.auditLog.deleteMany();
+      await prisma.ertCase.deleteMany();
+      await prisma.compensationCase.deleteMany();
       await prisma.booking.deleteMany();
       await prisma.accountBalance.deleteMany();
       await prisma.publishedSnapshot.deleteMany();
@@ -50,9 +62,14 @@ export function makeTestDb(): TestDb {
       await prisma.week.deleteMany();
       await prisma.holiday.deleteMany();
       await prisma.serviceTemplate.deleteMany();
+      await prisma.employeeExitSnapshot.deleteMany();
       await prisma.employee.deleteMany();
       await prisma.location.deleteMany();
       await prisma.user.deleteMany();
+      await prisma.tenant.deleteMany();
+      await prisma.tenant.create({
+        data: { id: "default", name: "Default Tenant", slug: "default" },
+      });
     },
     async close(): Promise<void> {
       await prisma.$disconnect();

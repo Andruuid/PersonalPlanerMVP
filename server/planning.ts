@@ -9,7 +9,12 @@ import {
   type UpsertPlanEntryInput,
   type QuickPickKey,
 } from "@/lib/planning/plan-entry-schemas";
-import { isoDateString, parseIsoDate } from "@/lib/time/week";
+import {
+  DEFAULT_HALF_DAY_OFF_MINUTES,
+  resolveDayFromEntries,
+  type AbsenceType,
+  type PlanEntryInput,
+} from "@/lib/time/priority";
 import {
   requireAdmin,
   fieldErrorsFromZod,
@@ -18,6 +23,45 @@ import {
   safeRevalidatePath,
   type ActionResult,
 } from "./_shared";
+import { archiveUntil } from "@/lib/archive";
+import { maybeSweepErtAfterPlanWrite } from "@/lib/ert/sweep";
+import { isoDateString, parseIsoDate } from "@/lib/time/week";
+import { buildWeekSnapshot } from "./weeks";
+
+/** Abwesenheiten, die in PUBLISHED-KW bei geänderter Tagespriorität einen neuen Snapshot auslösen. */
+const AUTO_REPUBLISH_TRIGGER_ABSENCES = new Set<AbsenceType>([
+  "SICK",
+  "ACCIDENT",
+  "PARENTAL_CARE",
+  "MILITARY_SERVICE",
+  "CIVIL_PROTECTION_SERVICE",
+  "CIVIL_SERVICE",
+]);
+
+function isWeekendIso(iso: string): boolean {
+  const d = new Date(`${iso}T00:00:00Z`);
+  const dow = d.getUTCDay();
+  return dow === 0 || dow === 6;
+}
+
+function planRowToInput(e: {
+  kind: string;
+  absenceType: string | null;
+  plannedMinutes: number;
+}): PlanEntryInput {
+  return {
+    kind: e.kind as PlanEntryInput["kind"],
+    absenceType: e.absenceType as AbsenceType | null,
+    plannedMinutes: e.plannedMinutes,
+  };
+}
+
+function resolvedDayEqual(
+  a: { kind: string; plannedMinutes: number },
+  b: { kind: string; plannedMinutes: number },
+): boolean {
+  return a.kind === b.kind && a.plannedMinutes === b.plannedMinutes;
+}
 
 function timeToMinutes(value: string): number {
   const [h, m] = value.split(":").map((p) => Number.parseInt(p, 10));
@@ -35,8 +79,10 @@ function shiftMinutes(
   return Math.max(0, span - breakMinutes);
 }
 
-async function ensureWeekEditable(weekId: string): Promise<ActionResult | null> {
-  const week = await prisma.week.findUnique({ where: { id: weekId } });
+async function ensureWeekEditable(weekId: string, tenantId: string): Promise<ActionResult | null> {
+  const week = await prisma.week.findFirst({
+    where: { id: weekId, tenantId, deletedAt: null },
+  });
   if (!week) return { ok: false, error: "Woche nicht gefunden." };
   if (week.status === "CLOSED") {
     return {
@@ -88,7 +134,7 @@ function entrySnapshot(entry: {
 
 export async function upsertPlanEntryAction(
   input: UpsertPlanEntryInput,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ autoRepublished?: boolean }>> {
   const admin = await requireAdmin();
 
   try {
@@ -102,7 +148,7 @@ export async function upsertPlanEntryAction(
     }
     const data = parsed.data;
 
-    const editable = await ensureWeekEditable(data.weekId);
+    const editable = await ensureWeekEditable(data.weekId, admin.tenantId);
     if (editable) return editable;
 
     const date = parseIsoDate(data.date);
@@ -110,9 +156,20 @@ export async function upsertPlanEntryAction(
 
     const employee = await prisma.employee.findUnique({
       where: { id: data.employeeId },
-      select: { id: true, isActive: true },
+      select: {
+        id: true,
+        tenantId: true,
+        isActive: true,
+        deletedAt: true,
+        locationId: true,
+      },
     });
-    if (!employee) return { ok: false, error: "Mitarbeitende:r nicht gefunden." };
+    if (!employee || employee.tenantId !== admin.tenantId) {
+      return { ok: false, error: "Mitarbeitende:r nicht gefunden." };
+    }
+    if (employee.deletedAt) {
+      return { ok: false, error: "Mitarbeitende:r ist archiviert." };
+    }
 
     let plannedMinutes = 0;
     let serviceTemplateId: string | null = null;
@@ -125,8 +182,13 @@ export async function upsertPlanEntryAction(
       | "SICK"
       | "ACCIDENT"
       | "FREE_REQUESTED"
+      | "UEZ_BEZUG"
       | "UNPAID"
       | "TZT"
+      | "PARENTAL_CARE"
+      | "MILITARY_SERVICE"
+      | "CIVIL_PROTECTION_SERVICE"
+      | "CIVIL_SERVICE"
       | "HOLIDAY_AUTO"
       | null = null;
 
@@ -134,7 +196,7 @@ export async function upsertPlanEntryAction(
       const tpl = await prisma.serviceTemplate.findUnique({
         where: { id: data.serviceTemplateId },
       });
-      if (!tpl || !tpl.isActive) {
+      if (!tpl || !tpl.isActive || tpl.tenantId !== admin.tenantId) {
         return {
           ok: false,
           error: "Dienstvorlage nicht gefunden oder inaktiv.",
@@ -152,9 +214,13 @@ export async function upsertPlanEntryAction(
         data.oneTimeEnd,
         data.oneTimeBreakMinutes,
       );
-    } else {
+    } else if (data.kind === "ABSENCE") {
       absenceType = data.absenceType;
+    } else if (data.kind === "HALF_DAY_OFF") {
+      plannedMinutes = DEFAULT_HALF_DAY_OFF_MINUTES;
     }
+
+    let autoRepublished = false;
 
     const result = await prisma.$transaction(async (tx) => {
       const existing = await tx.planEntry.findFirst({
@@ -162,29 +228,43 @@ export async function upsertPlanEntryAction(
           weekId: data.weekId,
           employeeId: data.employeeId,
           date,
+          deletedAt: null,
         },
       });
 
-      if (existing) {
-        await tx.planEntry.delete({ where: { id: existing.id } });
-      }
-
-      const created = await tx.planEntry.create({
-        data: {
-          weekId: data.weekId,
-          employeeId: data.employeeId,
-          date,
-          kind: data.kind,
-          serviceTemplateId,
-          oneTimeStart,
-          oneTimeEnd,
-          oneTimeBreakMinutes,
-          oneTimeLabel,
-          absenceType,
-          plannedMinutes,
-          comment: data.comment ?? null,
-        },
-      });
+      const created = existing
+        ? await tx.planEntry.update({
+            where: { id: existing.id },
+            data: {
+              kind: data.kind,
+              serviceTemplateId,
+              oneTimeStart,
+              oneTimeEnd,
+              oneTimeBreakMinutes,
+              oneTimeLabel,
+              absenceType,
+              plannedMinutes,
+              comment: data.comment ?? null,
+              deletedAt: null,
+              archivedUntil: null,
+            },
+          })
+        : await tx.planEntry.create({
+            data: {
+              weekId: data.weekId,
+              employeeId: data.employeeId,
+              date,
+              kind: data.kind,
+              serviceTemplateId,
+              oneTimeStart,
+              oneTimeEnd,
+              oneTimeBreakMinutes,
+              oneTimeLabel,
+              absenceType,
+              plannedMinutes,
+              comment: data.comment ?? null,
+            },
+          });
 
       return { created, replaced: existing };
     });
@@ -199,8 +279,75 @@ export async function upsertPlanEntryAction(
       comment: data.comment ?? null,
     });
 
+    if (
+      data.kind === "ABSENCE" &&
+      absenceType &&
+      AUTO_REPUBLISH_TRIGGER_ABSENCES.has(absenceType)
+    ) {
+      const weekRow = await prisma.week.findFirst({
+        where: { id: data.weekId, tenantId: admin.tenantId, deletedAt: null },
+        select: { id: true, status: true },
+      });
+      if (weekRow?.status === "PUBLISHED") {
+        const holiday = await prisma.holiday.findFirst({
+          where: {
+            tenantId: admin.tenantId,
+            locationId: employee.locationId,
+            date,
+          },
+          select: { id: true },
+        });
+        const isHoliday = Boolean(holiday);
+        const isWeekend = isWeekendIso(data.date);
+        const beforeRows = result.replaced ? [planRowToInput(result.replaced)] : [];
+        const afterRows = [planRowToInput(result.created)];
+        const resolvedBefore = resolveDayFromEntries(
+          beforeRows,
+          isHoliday,
+          isWeekend,
+        );
+        const resolvedAfter = resolveDayFromEntries(
+          afterRows,
+          isHoliday,
+          isWeekend,
+        );
+        if (!resolvedDayEqual(resolvedBefore, resolvedAfter)) {
+          const snapshot = await buildWeekSnapshot(data.weekId, admin.tenantId);
+          const publishedAt = new Date();
+          await prisma.publishedSnapshot.create({
+            data: {
+              tenantId: admin.tenantId,
+              weekId: data.weekId,
+              snapshotJson: JSON.stringify(snapshot),
+              publishedAt,
+            },
+          });
+          await writeAudit({
+            userId: admin.id,
+            action: "REPUBLISH_AUTO",
+            entity: "Week",
+            entityId: weekRow.id,
+            comment:
+              "Auto-Republish wegen prioritätsverändernden Eintrags (SICK/ACCIDENT)",
+          });
+          autoRepublished = true;
+          safeRevalidatePath("upsertPlanEntryAction", "/my-week");
+        }
+      }
+    }
+
+    await maybeSweepErtAfterPlanWrite(
+      prisma,
+      admin.tenantId,
+      data.employeeId,
+      data.date,
+    );
+
     safeRevalidatePath("upsertPlanEntryAction", "/planning");
-    return { ok: true };
+    return {
+      ok: true,
+      data: autoRepublished ? { autoRepublished: true } : undefined,
+    };
   } catch (err) {
     logServerError("upsertPlanEntryAction", err);
     return { ok: false, error: actionErrorFromDatabase(err) };
@@ -215,18 +362,24 @@ export async function deletePlanEntryAction(
   const admin = await requireAdmin();
 
   try {
-    const editable = await ensureWeekEditable(weekId);
+    const editable = await ensureWeekEditable(weekId, admin.tenantId);
     if (editable) return editable;
 
     const date = parseIsoDate(isoDate);
     if (!date) return { ok: false, error: "Datum ungültig." };
 
     const existing = await prisma.planEntry.findFirst({
-      where: { weekId, employeeId, date },
+      where: { weekId, employeeId, date, deletedAt: null },
     });
     if (!existing) return { ok: true };
 
-    await prisma.planEntry.delete({ where: { id: existing.id } });
+    await prisma.planEntry.update({
+      where: { id: existing.id },
+      data: {
+        deletedAt: new Date(),
+        archivedUntil: archiveUntil(),
+      },
+    });
 
     await writeAudit({
       userId: admin.id,
@@ -235,6 +388,13 @@ export async function deletePlanEntryAction(
       entityId: existing.id,
       oldValue: entrySnapshot(existing),
     });
+
+    await maybeSweepErtAfterPlanWrite(
+      prisma,
+      admin.tenantId,
+      employeeId,
+      isoDate,
+    );
 
     safeRevalidatePath("deletePlanEntryAction", "/planning");
     return { ok: true };
@@ -249,11 +409,14 @@ export async function quickSetPlanEntryAction(
   employeeId: string,
   isoDate: string,
   pick: QuickPickKey,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ autoRepublished?: boolean }>> {
+  const admin = await requireAdmin();
   try {
     if (QUICK_SHIFT_CODES.includes(pick as (typeof QUICK_SHIFT_CODES)[number])) {
       const tpl = await prisma.serviceTemplate.findUnique({
-        where: { code: pick },
+        where: {
+          tenantId_code: { tenantId: admin.tenantId, code: pick },
+        },
         select: { id: true, isActive: true },
       });
       if (!tpl || !tpl.isActive) {
@@ -276,7 +439,12 @@ export async function quickSetPlanEntryAction(
       employeeId,
       date: isoDate,
       kind: "ABSENCE",
-      absenceType: pick as "VACATION" | "FREE_REQUESTED" | "TZT" | "SICK",
+      absenceType: pick as
+        | "VACATION"
+        | "FREE_REQUESTED"
+        | "UEZ_BEZUG"
+        | "TZT"
+        | "SICK",
     });
   } catch (err) {
     logServerError("quickSetPlanEntryAction", err);
@@ -303,14 +471,30 @@ export async function movePlanEntryAction(
 
     const entry = await prisma.planEntry.findUnique({
       where: { id: entryId },
+      include: { week: { select: { tenantId: true } } },
     });
-    if (!entry) return { ok: false, error: "Eintrag nicht gefunden." };
+    if (!entry || entry.week.tenantId !== admin.tenantId) {
+      return { ok: false, error: "Eintrag nicht gefunden." };
+    }
+    if (entry.deletedAt) return { ok: false, error: "Eintrag ist archiviert." };
 
-    const editable = await ensureWeekEditable(entry.weekId);
+    const editable = await ensureWeekEditable(entry.weekId, admin.tenantId);
     if (editable) return editable;
 
     const newDate = parseIsoDate(toIsoDate);
     if (!newDate) return { ok: false, error: "Datum ungültig." };
+
+    const targetEmployee = await prisma.employee.findUnique({
+      where: { id: toEmployeeId },
+      select: { tenantId: true, deletedAt: true },
+    });
+    if (
+      !targetEmployee ||
+      targetEmployee.tenantId !== admin.tenantId ||
+      targetEmployee.deletedAt
+    ) {
+      return { ok: false, error: "Mitarbeitende:r nicht gefunden." };
+    }
 
     const sameSlot =
       entry.employeeId === toEmployeeId &&
@@ -323,10 +507,17 @@ export async function movePlanEntryAction(
           weekId: entry.weekId,
           employeeId: toEmployeeId,
           date: newDate,
+          deletedAt: null,
         },
       });
       if (target) {
-        await tx.planEntry.delete({ where: { id: target.id } });
+        await tx.planEntry.update({
+          where: { id: target.id },
+          data: {
+            deletedAt: new Date(),
+            archivedUntil: archiveUntil(),
+          },
+        });
       }
       const moved = await tx.planEntry.update({
         where: { id: entryId },
@@ -350,6 +541,14 @@ export async function movePlanEntryAction(
         date: isoDateString(result.moved.date),
       },
     });
+
+    await maybeSweepErtAfterPlanWrite(
+      prisma,
+      admin.tenantId,
+      entry.employeeId,
+      isoDateString(entry.date),
+    );
+    await maybeSweepErtAfterPlanWrite(prisma, admin.tenantId, toEmployeeId, toIsoDate);
 
     safeRevalidatePath("movePlanEntryAction", "/planning");
     return { ok: true };

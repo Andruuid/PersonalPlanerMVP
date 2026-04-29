@@ -55,9 +55,22 @@ export async function addHolidayAction(
     ),
   );
 
+  const location = await prisma.location.findUnique({
+    where: { id: data.locationId },
+    select: { tenantId: true, deletedAt: true },
+  });
+  if (!location || location.tenantId !== admin.tenantId || location.deletedAt) {
+    return {
+      ok: false,
+      error: "Standort nicht gefunden.",
+      fieldErrors: { locationId: "Standort nicht gefunden." },
+    };
+  }
+
   try {
     const created = await prisma.holiday.create({
       data: {
+        tenantId: admin.tenantId,
         locationId: data.locationId,
         date: dateUtc,
         name: data.name,
@@ -95,6 +108,9 @@ export async function deleteHolidayAction(
   const before = await prisma.holiday.findUnique({ where: { id: holidayId } });
   if (!before) {
     return { ok: false, error: "Feiertag nicht gefunden." };
+  }
+  if (before.tenantId !== admin.tenantId) {
+    return { ok: false, error: "Kein Zugriff auf diesen Feiertag." };
   }
 
   await prisma.holiday.delete({ where: { id: holidayId } });
@@ -137,8 +153,11 @@ export async function generateRegionHolidaysAction(
   const location = await prisma.location.findUnique({
     where: { id: locationId },
   });
-  if (!location) {
+  if (!location || location.deletedAt) {
     return { ok: false, error: "Standort nicht gefunden." };
+  }
+  if (location.tenantId !== admin.tenantId) {
+    return { ok: false, error: "Kein Zugriff auf diesen Standort." };
   }
 
   const defs = holidaysForRegion(location.holidayRegionCode, year);
@@ -146,7 +165,7 @@ export async function generateRegionHolidaysAction(
   const yearStart = new Date(Date.UTC(year, 0, 1));
   const yearEnd = new Date(Date.UTC(year + 1, 0, 1));
   const existing = await prisma.holiday.findMany({
-    where: { locationId, date: { gte: yearStart, lt: yearEnd } },
+    where: { tenantId: admin.tenantId, locationId, date: { gte: yearStart, lt: yearEnd } },
     select: { date: true },
   });
   const existingKeys = new Set(
@@ -162,7 +181,7 @@ export async function generateRegionHolidaysAction(
       continue;
     }
     await prisma.holiday.create({
-      data: { locationId, date: def.date, name: def.name },
+      data: { tenantId: admin.tenantId, locationId, date: def.date, name: def.name },
     });
     created += 1;
   }

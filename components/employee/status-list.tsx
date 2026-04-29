@@ -84,6 +84,15 @@ function RequestRow({
         </p>
       ) : null}
 
+      {request.status === "REJECTED" && request.decisionComment ? (
+        <div className="mt-2 rounded-lg border border-neutral-100 bg-neutral-50/80 px-2.5 py-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+            Begründung der Geschäftsleitung:
+          </p>
+          <p className="mt-1 text-xs text-neutral-700">{request.decisionComment}</p>
+        </div>
+      ) : null}
+
       {showCancel && request.status === "OPEN" ? (
         <div className="mt-2 flex justify-end">
           <Button

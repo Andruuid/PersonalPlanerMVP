@@ -10,8 +10,16 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { KpiBar } from "./kpi-bar";
 import { WeekGrid } from "./week-grid";
+import { WeekMobileView } from "./week-mobile-view";
 import { AssignmentDialog } from "./assignment-dialog";
 import { DetailPanel } from "./detail-panel";
 import { RequestsPanel } from "./requests-panel";
@@ -28,6 +36,7 @@ import {
   type ServiceOption,
   type WeekView,
 } from "./types";
+import type { PlanEntryByDate } from "@/lib/time/balance";
 import { movePlanEntryAction } from "@/server/planning";
 
 interface PlanningBoardProps {
@@ -39,6 +48,10 @@ interface PlanningBoardProps {
   requests: RequestView[];
   kpi: KpiSummary;
   locationName: string;
+  weekYear: number;
+  weekNumber: number;
+  streakContextsByEmployee: Record<string, PlanEntryByDate[]>;
+  holidayIsosForEmployee: Record<string, string[]>;
 }
 
 interface DialogState {
@@ -56,6 +69,10 @@ export function PlanningBoard({
   requests,
   kpi,
   locationName,
+  weekYear,
+  weekNumber,
+  streakContextsByEmployee,
+  holidayIsosForEmployee,
 }: PlanningBoardProps) {
   const locked = week.status === "CLOSED";
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
@@ -64,6 +81,7 @@ export function PlanningBoard({
     employeeId: "",
     isoDate: "",
   });
+  const [requestsSheetOpen, setRequestsSheetOpen] = useState(false);
   const [, startTransition] = useTransition();
 
   const sensors = useSensors(
@@ -87,11 +105,11 @@ export function PlanningBoard({
   }
 
   function openAssign(employeeId: string, isoDate: string) {
+    setSelectedKey(entryKey(employeeId, isoDate));
     if (locked) {
       toast.info("Diese Woche ist abgeschlossen.");
       return;
     }
-    setSelectedKey(entryKey(employeeId, isoDate));
     setDialog({ open: true, employeeId, isoDate });
   }
 
@@ -144,6 +162,11 @@ export function PlanningBoard({
     : null;
   const dialogDay = dialog.open ? dayMap.get(dialog.isoDate) ?? null : null;
 
+  const openRequestCount = useMemo(
+    () => requests.filter((r) => r.status === "OPEN").length,
+    [requests],
+  );
+
   return (
     <DndContext
       id={`planning-board-dnd-${week.id}`}
@@ -170,6 +193,26 @@ export function PlanningBoard({
 
           <KpiBar summary={kpi} />
 
+          <div className="flex flex-col gap-2 md:hidden">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full justify-center border-neutral-300"
+              onClick={() => setRequestsSheetOpen(true)}
+            >
+              Anträge ({openRequestCount})
+            </Button>
+          </div>
+
+          <WeekMobileView
+            employees={employees}
+            days={days}
+            entries={entries}
+            selectedKey={selectedKey}
+            locked={locked}
+            onOpenAssign={openAssign}
+          />
+
           <WeekGrid
             employees={employees}
             days={days}
@@ -182,7 +225,9 @@ export function PlanningBoard({
         </div>
 
         <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,16rem)_1fr] xl:grid-cols-[minmax(0,18rem)_1fr]">
-          <RequestsPanel requests={requests} />
+          <div className="hidden md:block">
+            <RequestsPanel requests={requests} />
+          </div>
           <DetailPanel
             weekId={week.id}
             selectedKey={selectedKey}
@@ -204,6 +249,8 @@ export function PlanningBoard({
         open={dialog.open}
         onOpenChange={(o) => setDialog((d) => ({ ...d, open: o }))}
         weekId={week.id}
+        weekYear={weekYear}
+        weekNumber={weekNumber}
         employeeId={dialog.employeeId}
         employeeName={
           dialogEmployee
@@ -214,7 +261,25 @@ export function PlanningBoard({
         longDate={dialogDay?.longDate ?? ""}
         services={services}
         initialEntry={dialogEntry}
+        streakContextEntries={
+          streakContextsByEmployee[dialog.employeeId] ?? []
+        }
+        holidayIsos={holidayIsosForEmployee[dialog.employeeId] ?? []}
       />
+
+      <Sheet open={requestsSheetOpen} onOpenChange={setRequestsSheetOpen}>
+        <SheetContent
+          side="bottom"
+          className="flex max-h-[90vh] flex-col gap-2 overflow-hidden"
+        >
+          <SheetHeader className="shrink-0 text-left">
+            <SheetTitle>Anträge</SheetTitle>
+          </SheetHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 pb-2">
+            <RequestsPanel requests={requests} embedded />
+          </div>
+        </SheetContent>
+      </Sheet>
     </DndContext>
   );
 }

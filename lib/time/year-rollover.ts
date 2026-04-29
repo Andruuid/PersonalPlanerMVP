@@ -1,4 +1,10 @@
-export type AccountType = "ZEITSALDO" | "FERIEN" | "UEZ" | "TZT";
+export type AccountType =
+  | "ZEITSALDO"
+  | "FERIEN"
+  | "UEZ"
+  | "TZT"
+  | "SONNTAG_FEIERTAG_KOMPENSATION"
+  | "PARENTAL_CARE";
 export type AccountUnit = "MINUTES" | "DAYS";
 
 export interface AccountStateInput {

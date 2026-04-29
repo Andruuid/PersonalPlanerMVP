@@ -15,7 +15,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "db:push:libsql": "tsx scripts/db-push-libsql.mts",
-    "db:copy:turso": "tsx scripts/turso-copy-data.mts"
+    "db:copy:turso": "tsx scripts/turso-copy-data.mts",
+    "db:purge:archived": "tsx scripts/purge-archived-data.mts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

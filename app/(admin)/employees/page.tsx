@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/server/_shared";
 import { isoDateString } from "@/lib/time/week";
 import { PageHeader } from "@/components/admin/page-header";
 import {
@@ -14,15 +15,28 @@ function dateForInput(d: Date | null | undefined): string {
 }
 
 export default async function EmployeesPage() {
-  const [employees, locations] = await Promise.all([
+  const admin = await requireAdmin();
+  const [employees, locations, tenant] = await Promise.all([
     prisma.employee.findMany({
-      orderBy: [{ isActive: "desc" }, { lastName: "asc" }, { firstName: "asc" }],
+      where: { tenantId: admin.tenantId },
+      orderBy: [{ isActive: "desc" }, { firstName: "asc" }, { lastName: "asc" }],
       include: {
-        user: { select: { email: true } },
+        user: { select: { email: true, isActive: true } },
         location: { select: { id: true, name: true } },
+        exitSnapshot: true,
       },
     }),
-    prisma.location.findMany({ orderBy: { name: "asc" } }),
+    prisma.location.findMany({
+      where: { tenantId: admin.tenantId, deletedAt: null },
+      orderBy: { name: "asc" },
+    }),
+    prisma.tenant.findUnique({
+      where: { id: admin.tenantId },
+      select: {
+        defaultWeeklyTargetMinutes: true,
+        defaultHazMinutesPerWeek: true,
+      },
+    }),
   ]);
 
   const rows: EmployeeRow[] = employees.map((e) => ({
@@ -39,7 +53,16 @@ export default async function EmployeesPage() {
     vacationDaysPerYear: e.vacationDaysPerYear,
     weeklyTargetMinutes: e.weeklyTargetMinutes,
     hazMinutesPerWeek: e.hazMinutesPerWeek,
+    tztModel: e.tztModel,
+    standardWorkDays: e.standardWorkDays,
     isActive: e.isActive,
+    userIsActive: e.user.isActive,
+    exitSnapshot: e.exitSnapshot
+      ? {
+          exitDate: e.exitSnapshot.exitDate.toISOString(),
+          snapshotJson: e.exitSnapshot.snapshotJson,
+        }
+      : null,
   }));
 
   return (
@@ -47,13 +70,17 @@ export default async function EmployeesPage() {
       <PageHeader
         caption="Stammdaten"
         title="Mitarbeitende"
-        description="Anlegen, bearbeiten und deaktivieren von Mitarbeitenden inklusive Pensum, Standort und Ferienanspruch. Alle Änderungen werden im Audit-Log protokolliert."
+        description="Anlegen, bearbeiten und deaktivieren von Mitarbeitenden inklusive Pensum, Standort und Ferienanspruch. Zusätzlich kann das Login-Konto separat gesperrt/entsperrt werden. Alle Änderungen werden im Audit-Log protokolliert."
       />
 
       <EmployeesTable
         employees={rows}
         locations={locations.map((l) => ({ id: l.id, name: l.name }))}
         defaultLocationId={locations[0]?.id ?? ""}
+        tenantTimeDefaults={{
+          defaultWeeklyTargetMinutes: tenant?.defaultWeeklyTargetMinutes ?? 2520,
+          defaultHazMinutesPerWeek: tenant?.defaultHazMinutesPerWeek ?? 2700,
+        }}
       />
     </div>
   );

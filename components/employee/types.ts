@@ -1,6 +1,12 @@
 import type { ShiftKey } from "@/lib/shift-style";
 
-export type RequestType = "VACATION" | "FREE_REQUESTED" | "TZT" | "FREE_DAY";
+export type RequestType =
+  | "VACATION"
+  | "FREE_REQUESTED"
+  | "UEZ_BEZUG"
+  | "TZT"
+  | "FREE_DAY"
+  | "PARENTAL_CARE";
 export type RequestStatus = "OPEN" | "APPROVED" | "REJECTED";
 
 export interface MyDayView {
@@ -33,6 +39,9 @@ export interface MyAccountsView {
   zeitsaldo: MyAccountValue | null;
   ferien: MyAccountValue | null;
   tzt: MyAccountValue | null;
+  uez: MyAccountValue | null;
+  sonntagFeiertagKompensation: MyAccountValue | null;
+  parentalCare: MyAccountValue | null;
 }
 
 export interface MyRequestView {
@@ -43,6 +52,7 @@ export interface MyRequestView {
   endIso: string;
   rangeLabel: string;
   comment: string | null;
+  decisionComment: string | null;
   decidedAt: string | null;
   createdAt: string;
 }
@@ -50,8 +60,10 @@ export interface MyRequestView {
 export const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
   VACATION: "Ferienantrag",
   FREE_REQUESTED: "Frei verlangt",
+  UEZ_BEZUG: "UEZ-Bezug",
   TZT: "TZT-Antrag",
   FREE_DAY: "Freier Tag",
+  PARENTAL_CARE: "Eltern-/Betreuungsurlaub",
 };
 
 export const REQUEST_STATUS_LABELS: Record<RequestStatus, string> = {

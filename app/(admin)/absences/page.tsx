@@ -1,5 +1,6 @@
 import { format } from "date-fns";
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/server/_shared";
 import { PageHeader } from "@/components/admin/page-header";
 import {
   AbsencesFilter,
@@ -28,6 +29,7 @@ const TYPE_VALUES: TypeFilter[] = [
   "ALL",
   "VACATION",
   "FREE_REQUESTED",
+  "UEZ_BEZUG",
   "TZT",
   "FREE_DAY",
 ];
@@ -55,16 +57,19 @@ function formatRange(start: Date, end: Date): string {
 }
 
 export default async function AbsencesPage({ searchParams }: PageProps) {
+  const admin = await requireAdmin();
   const raw = await searchParams;
   const status = pickStatus(raw.status);
   const type = pickType(raw.type);
   const employeeId = raw.employee ?? "ALL";
 
   const where: {
+    tenantId?: string;
     status?: AbsenceRequestStatus;
     type?: AbsenceRequestType;
     employeeId?: string;
   } = {};
+  where.tenantId = admin.tenantId;
   if (status !== "ALL") where.status = status;
   if (type !== "ALL") where.type = type;
   if (employeeId !== "ALL") where.employeeId = employeeId;
@@ -80,7 +85,7 @@ export default async function AbsencesPage({ searchParams }: PageProps) {
       },
     }),
     prisma.employee.findMany({
-      where: { isActive: true },
+      where: { tenantId: admin.tenantId, isActive: true, deletedAt: null },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
       select: { id: true, firstName: true, lastName: true },
     }),
@@ -88,6 +93,7 @@ export default async function AbsencesPage({ searchParams }: PageProps) {
       by: ["status"],
       _count: { _all: true },
       where: {
+        tenantId: admin.tenantId,
         ...(type !== "ALL" ? { type } : {}),
         ...(employeeId !== "ALL" ? { employeeId } : {}),
       },
@@ -103,7 +109,7 @@ export default async function AbsencesPage({ searchParams }: PageProps) {
   );
   const decidedByUsers = decidedByIds.length
     ? await prisma.user.findMany({
-        where: { id: { in: decidedByIds } },
+        where: { tenantId: admin.tenantId, id: { in: decidedByIds } },
         select: { id: true, email: true },
       })
     : [];
@@ -120,6 +126,7 @@ export default async function AbsencesPage({ searchParams }: PageProps) {
     endIso: format(r.endDate, "yyyy-MM-dd"),
     rangeLabel: formatRange(r.startDate, r.endDate),
     comment: r.comment,
+    decisionComment: r.decisionComment,
     createdAtLabel: format(r.createdAt, "dd.MM.yyyy HH:mm"),
     decidedAtLabel: r.decidedAt ? format(r.decidedAt, "dd.MM.yyyy HH:mm") : null,
     decidedByEmail: r.decidedById ? decidedByEmail.get(r.decidedById) ?? null : null,

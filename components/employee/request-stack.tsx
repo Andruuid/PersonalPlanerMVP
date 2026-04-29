@@ -3,9 +3,11 @@
 import { useState } from "react";
 import {
   CalendarHeart,
+  Baby,
   CalendarX,
   Hand,
   Hourglass,
+  Timer,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -34,15 +36,27 @@ const BUTTONS: ButtonSpec[] = [
     variant: "outline",
   },
   {
+    type: "UEZ_BEZUG",
+    label: "UEZ beziehen",
+    icon: Hourglass,
+    variant: "outline",
+  },
+  {
     type: "TZT",
     label: "TZT erfassen",
-    icon: Hourglass,
+    icon: Timer,
     variant: "outline",
   },
   {
     type: "FREE_DAY",
     label: "Freien Tag angeben",
     icon: CalendarX,
+    variant: "outline",
+  },
+  {
+    type: "PARENTAL_CARE",
+    label: "Eltern-/Betreuungsurlaub",
+    icon: Baby,
     variant: "outline",
   },
 ];

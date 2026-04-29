@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,16 +9,31 @@ import { loginAction, type LoginState } from "./actions";
 
 interface Props {
   callbackUrl?: string;
+  /** Aus /signup: vorgefüllter Betrieb-Slug */
+  defaultTenantSlug?: string;
 }
 
 const initialState: LoginState = { ok: false };
 
-export function LoginForm({ callbackUrl }: Props) {
+export function LoginForm({ callbackUrl, defaultTenantSlug }: Props) {
   const [state, formAction, pending] = useActionState(loginAction, initialState);
 
   return (
     <form action={formAction} className="space-y-4">
       <input type="hidden" name="callbackUrl" value={callbackUrl ?? ""} />
+
+      <div className="space-y-2">
+        <Label htmlFor="tenantSlug">Betrieb (Slug)</Label>
+        <Input
+          id="tenantSlug"
+          name="tenantSlug"
+          type="text"
+          autoComplete="organization"
+          required
+          placeholder="default"
+          defaultValue={defaultTenantSlug ?? undefined}
+        />
+      </div>
 
       <div className="space-y-2">
         <Label htmlFor="email">E-Mail</Label>
@@ -53,7 +69,17 @@ export function LoginForm({ callbackUrl }: Props) {
       </Button>
 
       <p className="pt-2 text-center text-xs text-neutral-500">
-        Demo-Konten:
+        <Link
+          href="/signup"
+          className="font-medium text-neutral-700 underline underline-offset-2 hover:text-neutral-900"
+        >
+          Neuen Betrieb registrieren →
+        </Link>
+      </p>
+
+      <p className="text-center text-xs text-neutral-500">
+        Demo: Slug{" "}
+        <span className="font-medium text-neutral-700">&quot;default&quot;</span>
         <br />
         <span className="font-medium text-neutral-700">admin@demo.ch</span> /
         admin123
@@ -62,6 +88,10 @@ export function LoginForm({ callbackUrl }: Props) {
           anna.keller@demo.ch
         </span>{" "}
         / demo123
+        <br />
+        Zusätzlich gleiche E-Mail unter Slug{" "}
+        <span className="font-medium text-neutral-700">&quot;demo&quot;</span>
+        .
       </p>
     </form>
   );

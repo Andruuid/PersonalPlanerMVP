@@ -7,6 +7,7 @@ export interface SessionUser {
   id: string;
   email: string;
   role: Role;
+  tenantId: string;
   employeeId?: string | null;
 }
 
@@ -19,6 +20,9 @@ export async function requireAdmin(): Promise<SessionUser> {
   if (!session?.user) {
     throw new Error("Unauthorized: not signed in");
   }
+  if (!session.user.tenantId) {
+    throw new Error("Unauthorized: tenant missing");
+  }
   if (session.user.role !== "ADMIN") {
     throw new Error("Forbidden: admin role required");
   }
@@ -26,6 +30,7 @@ export async function requireAdmin(): Promise<SessionUser> {
     id: session.user.id,
     email: session.user.email ?? "",
     role: session.user.role,
+    tenantId: session.user.tenantId,
     employeeId: session.user.employeeId ?? null,
   };
 }
@@ -35,6 +40,9 @@ export async function requireEmployee(): Promise<SessionUser> {
   if (!session?.user) {
     throw new Error("Unauthorized: not signed in");
   }
+  if (!session.user.tenantId) {
+    throw new Error("Unauthorized: tenant missing");
+  }
   if (!session.user.employeeId) {
     throw new Error("Forbidden: linked employee profile required");
   }
@@ -42,6 +50,7 @@ export async function requireEmployee(): Promise<SessionUser> {
     id: session.user.id,
     email: session.user.email ?? "",
     role: session.user.role,
+    tenantId: session.user.tenantId,
     employeeId: session.user.employeeId,
   };
 }

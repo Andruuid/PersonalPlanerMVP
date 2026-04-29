@@ -5,6 +5,7 @@ export type ShiftKey =
   | "FERIEN"
   | "FREI_VERLANGT"
   | "TZT"
+  | "UEZ_BEZUG"
   | "KRANK"
   | "FEIERTAG"
   | "FREI"
@@ -66,6 +67,14 @@ export const SHIFT_STYLES: Record<ShiftKey, ShiftStyle> = {
     border: "border-violet-300",
     dot: "bg-violet-500",
   },
+  UEZ_BEZUG: {
+    label: "UEZ-Bezug",
+    chip:
+      "bg-orange-50 text-orange-950 ring-1 ring-orange-200 hover:bg-orange-100",
+    badge: "bg-orange-100 text-orange-950",
+    border: "border-orange-300",
+    dot: "bg-orange-500",
+  },
   KRANK: {
     label: "Krank",
     chip:
@@ -119,7 +128,12 @@ const ABSENCE_TO_SHIFT: Record<string, ShiftKey> = {
   VACATION: "FERIEN",
   SICK: "KRANK",
   ACCIDENT: "KRANK",
+  PARENTAL_CARE: "FERIEN",
+  MILITARY_SERVICE: "FREI_VERLANGT",
+  CIVIL_PROTECTION_SERVICE: "FREI_VERLANGT",
+  CIVIL_SERVICE: "FREI_VERLANGT",
   FREE_REQUESTED: "FREI_VERLANGT",
+  UEZ_BEZUG: "UEZ_BEZUG",
   UNPAID: "FREI",
   TZT: "TZT",
   HOLIDAY_AUTO: "FEIERTAG",

@@ -16,3 +16,11 @@ export function vacationDaysDebit(days: Array<{ kind: DayKind }>): number {
   }
   return count;
 }
+
+export function parentalCareDaysDebit(days: Array<{ kind: DayKind }>): number {
+  let count = 0;
+  for (const d of days) {
+    if (d.kind === "PARENTAL_CARE") count += 1;
+  }
+  return count;
+}

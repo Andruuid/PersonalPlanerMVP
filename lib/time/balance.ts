@@ -1,13 +1,31 @@
-import { isoDateString, isoWeekDays } from "./week";
-import { resolveDay, type PlanEntryInput, type DayKind } from "./priority";
+import { addDays } from "date-fns";
+import { isoDateString, isoWeekDays, startOfIsoWeek } from "./week";
 import {
-  STANDARD_WORK_DAYS,
+  resolveDayFromEntries,
+  type DayKind,
+} from "./priority";
+import {
   anrechenbarIstMinutes,
+  baseDailySollMinutes,
   dailySollMinutes,
+  type TztModel,
 } from "./soll";
-import { actualWorkMinutes, weeklyUezContribution } from "./overtime";
-import { vacationDaysDebit } from "./vacation";
+import {
+  actualWorkMinutes,
+  weeklyUesIndicator,
+  weeklyUezContribution,
+} from "./overtime";
+import { parentalCareDaysDebit, vacationDaysDebit } from "./vacation";
 import type { HolidayLookup } from "./holidays";
+import {
+  buildIntervalsFromEntries,
+  buildLaborDayFactsForRange,
+  type PlanEntryWithShiftTimes,
+  countConsecutiveWorkDays,
+  requiresHalfDayOff,
+  validateDailyRest,
+  validateWeeklyRest,
+} from "./rest-checks";
 
 export interface DayComputation {
   iso: string;
@@ -18,6 +36,8 @@ export interface DayComputation {
   sollMinutes: number;
   istMinutes: number;
   plannedMinutes: number;
+  /** Spec visibility: holiday on a workday yields a day-credit equal to base Soll. */
+  holidayCreditMinutes: number;
   contributionMinutes: number;
 }
 
@@ -27,21 +47,34 @@ export interface WeeklyComputation {
   days: DayComputation[];
   totalSollMinutes: number;
   totalIstMinutes: number;
+  totalHolidayCreditMinutes: number;
+  holidayWorkMinutes: number;
+  holidayCompensationMinutes: number;
+  holidayErtOpen: boolean;
   weeklyZeitsaldoDeltaMinutes: number;
   weeklyWorkMinutes: number;
+  weeklyUesAusweisMinutes: number;
   weeklyUezDeltaMinutes: number;
   vacationDaysDebit: number;
+  parentalCareDaysDebit: number;
+  dailyRestViolations: Array<{ date: string; gapMinutes: number }>;
+  weeklyRestOk: boolean;
+  weeklyRestLongestGapMinutes: number;
+  maxConsecutiveWorkDays: number;
+  consecutiveWorkDayViolations: string[];
+  /** True wenn Arbeit auf > 5 verschiedenen Tagen verteilt ohne HALF_DAY_OFF in KW */
+  halfDayOffMissing: boolean;
 }
 
 export interface EmployeeWeekConfig {
   weeklyTargetMinutes: number;
   hazMinutesPerWeek: number;
-  standardWorkDays?: number;
+  tztModel?: TztModel;
+  standardWorkDays: number;
 }
 
-export interface PlanEntryByDate extends PlanEntryInput {
-  date: string;
-}
+/** Plan row for Zeitlogik; optional shift times enable Ruhezeit-Checks. */
+export type PlanEntryByDate = PlanEntryWithShiftTimes;
 
 function isWeekendIso(iso: string): boolean {
   const date = new Date(`${iso}T00:00:00Z`);
@@ -52,9 +85,11 @@ function isWeekendIso(iso: string): boolean {
 /**
  * Compute the full weekly balance breakdown for one employee.
  *
- * `entries` may contain at most one plan entry per date — the caller is
- * responsible for that invariant (the DB has the (week, employee, date)
- * uniqueness enforced via the upsertPlanEntryAction).
+ * `entries` may contain multiple rows per date. Day resolution applies
+ * deterministic conflict priority (e.g. SICK/ACCIDENT win over TZT).
+ *
+ * `streakContextEntries`: Plan-Zeilen im Fenster bis 14 Kalendertage vor Mo–So
+ * der KW (gleicher:d Mitarbeitende:r), zur Prüfung auf max. 6 Arbeitstage in Folge.
  */
 export function computeWeeklyBalance(
   year: number,
@@ -62,27 +97,37 @@ export function computeWeeklyBalance(
   entries: PlanEntryByDate[],
   holidays: HolidayLookup,
   config: EmployeeWeekConfig,
+  streakContextEntries?: PlanEntryByDate[],
 ): WeeklyComputation {
-  const standardWorkDays = config.standardWorkDays ?? STANDARD_WORK_DAYS;
-  const byDate = new Map<string, PlanEntryByDate>();
-  for (const e of entries) byDate.set(e.date, e);
+  const standardWorkDays = config.standardWorkDays;
+  const tztModel = config.tztModel ?? "DAILY_QUOTA";
+  const byDate = new Map<string, PlanEntryByDate[]>();
+  for (const e of entries) {
+    const list = byDate.get(e.date) ?? [];
+    list.push(e);
+    byDate.set(e.date, list);
+  }
 
-  const days = isoWeekDays(year, weekNumber).map((d) => {
+  const wd = isoWeekDays(year, weekNumber);
+  const weekStart = startOfIsoWeek(year, weekNumber);
+  const days = wd.map((d) => {
     const iso = d.iso;
     const isWeekend = isWeekendIso(iso);
     const isHoliday = holidays.has(iso);
     const holidayName = holidays.nameOf(iso);
-    const entry = byDate.get(iso) ?? null;
-    const resolved = resolveDay(entry, isHoliday, isWeekend);
+    const dayEntries = byDate.get(iso) ?? [];
+    const resolved = resolveDayFromEntries(dayEntries, isHoliday, isWeekend);
     const sollMinutes = dailySollMinutes(
       resolved.kind,
       config.weeklyTargetMinutes,
+      tztModel,
       standardWorkDays,
     );
     const istMinutes = anrechenbarIstMinutes(
       resolved.kind,
       resolved.plannedMinutes,
       config.weeklyTargetMinutes,
+      tztModel,
       standardWorkDays,
     );
     const dayCalc: DayComputation = {
@@ -94,6 +139,10 @@ export function computeWeeklyBalance(
       sollMinutes,
       istMinutes,
       plannedMinutes: resolved.plannedMinutes,
+      holidayCreditMinutes:
+        resolved.kind === "HOLIDAY" && !isWeekend
+          ? baseDailySollMinutes(config.weeklyTargetMinutes, standardWorkDays)
+          : 0,
       contributionMinutes: istMinutes - sollMinutes,
     };
     return dayCalc;
@@ -101,10 +150,49 @@ export function computeWeeklyBalance(
 
   const totalSoll = days.reduce((acc, d) => acc + d.sollMinutes, 0);
   const totalIst = days.reduce((acc, d) => acc + d.istMinutes, 0);
-  const weeklyZeitsaldoDelta = totalIst - totalSoll;
+  const totalHolidayCredit = days.reduce(
+    (acc, d) => acc + d.holidayCreditMinutes,
+    0,
+  );
+  const holidayWorkMinutes = days
+    .filter((d) => d.kind === "HOLIDAY_WORK")
+    .reduce((acc, d) => acc + d.plannedMinutes, 0);
+  const holidayCompensationMinutes =
+    holidayWorkMinutes > 0 && holidayWorkMinutes <= 300 ? holidayWorkMinutes : 0;
+  const holidayErtOpen = holidayWorkMinutes > 300;
   const weeklyWork = actualWorkMinutes(days);
+  const nonWorkAnrechenbarIst = totalIst - weeklyWork;
+  const cappedWorkForZeitsaldo = Math.min(weeklyWork, config.hazMinutesPerWeek);
+  const weeklyZeitsaldoDelta =
+    cappedWorkForZeitsaldo + nonWorkAnrechenbarIst - totalSoll;
+  const weeklyUesAusweis = weeklyUesIndicator(
+    weeklyWork,
+    totalSoll,
+    config.hazMinutesPerWeek,
+  );
   const weeklyUez = weeklyUezContribution(weeklyWork, config.hazMinutesPerWeek);
   const vacation = vacationDaysDebit(days);
+  const parentalCare = parentalCareDaysDebit(days);
+
+  const weekEndExclusive = addDays(weekStart, 7);
+  const restIntervals = buildIntervalsFromEntries(entries);
+  const { violations: dailyRestViolations } = validateDailyRest(restIntervals);
+  const weeklyRest = validateWeeklyRest(restIntervals, weekStart, weekEndExclusive);
+
+  const mergedForStreak: PlanEntryByDate[] = streakContextEntries?.length
+    ? [...streakContextEntries, ...entries]
+    : [...entries];
+
+  const streakFrom = isoDateString(addDays(weekStart, -14));
+  const streakTo = wd[6]!.iso;
+  const laborFacts = buildLaborDayFactsForRange(streakFrom, streakTo, mergedForStreak, holidays);
+  const streakResult = countConsecutiveWorkDays(
+    laborFacts.map((row) => ({ date: row.date, isWorkDay: row.isWorkDay })),
+  );
+  const weekIsos = new Set(wd.map((d) => d.iso));
+  const weekFacts = laborFacts.filter((f) => weekIsos.has(f.date));
+
+  const halfDayOffMissing = requiresHalfDayOff(weekFacts);
 
   return {
     year,
@@ -112,10 +200,22 @@ export function computeWeeklyBalance(
     days,
     totalSollMinutes: totalSoll,
     totalIstMinutes: totalIst,
+    totalHolidayCreditMinutes: totalHolidayCredit,
+    holidayWorkMinutes,
+    holidayCompensationMinutes,
+    holidayErtOpen,
     weeklyZeitsaldoDeltaMinutes: weeklyZeitsaldoDelta,
     weeklyWorkMinutes: weeklyWork,
+    weeklyUesAusweisMinutes: weeklyUesAusweis,
     weeklyUezDeltaMinutes: weeklyUez,
     vacationDaysDebit: vacation,
+    parentalCareDaysDebit: parentalCare,
+    dailyRestViolations,
+    weeklyRestOk: weeklyRest.ok,
+    weeklyRestLongestGapMinutes: weeklyRest.longestGapMinutes,
+    maxConsecutiveWorkDays: streakResult.maxConsecutiveWorkDays,
+    consecutiveWorkDayViolations: streakResult.violationDates,
+    halfDayOffMissing,
   };
 }
 

@@ -42,6 +42,10 @@ interface ProviderProps {
   locations: LocationOption[];
   defaultLocationId: string;
   employees: EmployeePickOption[];
+  tenantTimeDefaults: {
+    defaultWeeklyTargetMinutes: number;
+    defaultHazMinutesPerWeek: number;
+  };
   children: ReactNode;
 }
 
@@ -51,6 +55,7 @@ export function QuickActionsProvider({
   locations,
   defaultLocationId,
   employees,
+  tenantTimeDefaults,
   children,
 }: ProviderProps) {
   const [dialog, setDialog] = useState<DialogState>("closed");
@@ -83,8 +88,10 @@ export function QuickActionsProvider({
               exitDate: "",
               locationId: defaultLocationId,
               vacationDaysPerYear: 25,
-              weeklyTargetMinutes: 2520,
-              hazMinutesPerWeek: 2700,
+              weeklyTargetMinutes: tenantTimeDefaults.defaultWeeklyTargetMinutes,
+              hazMinutesPerWeek: tenantTimeDefaults.defaultHazMinutesPerWeek,
+              tztModel: "DAILY_QUOTA",
+              standardWorkDays: null,
               isActive: true,
             }}
             locations={locations}
@@ -107,6 +114,8 @@ export function QuickActionsProvider({
               endTime: "17:00",
               breakMinutes: 30,
               comment: "",
+              defaultDays: null,
+              requiredCount: null,
               isActive: true,
             }}
             onSuccess={close}

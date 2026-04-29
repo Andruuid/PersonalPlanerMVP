@@ -27,6 +27,8 @@ enum PlanEntryKind {
   SHIFT
   ONE_TIME_SHIFT
   ABSENCE
+  VFT
+  HALF_DAY_OFF
 }
 
 enum AbsenceType {
@@ -34,16 +36,23 @@ enum AbsenceType {
   SICK
   ACCIDENT
   FREE_REQUESTED
+  UEZ_BEZUG
   UNPAID
   TZT
+  PARENTAL_CARE
+  MILITARY_SERVICE
+  CIVIL_PROTECTION_SERVICE
+  CIVIL_SERVICE
   HOLIDAY_AUTO
 }
 
 enum RequestType {
   VACATION
   FREE_REQUESTED
+  UEZ_BEZUG
   TZT
   FREE_DAY
+  PARENTAL_CARE
 }
 
 enum RequestStatus {
@@ -52,11 +61,25 @@ enum RequestStatus {
   REJECTED
 }
 
+enum PrivacyRequestType {
+  EXPORT
+  ERASURE
+}
+
+enum PrivacyRequestStatus {
+  OPEN
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
 enum AccountType {
   ZEITSALDO
   FERIEN
   UEZ
   TZT
+  SONNTAG_FEIERTAG_KOMPENSATION
+  PARENTAL_CARE
 }
 
 enum AccountUnit {
@@ -67,41 +90,117 @@ enum AccountUnit {
 enum BookingType {
   OPENING
   AUTO_WEEKLY
+  FREE_REQUESTED
   MANUAL_CREDIT
   MANUAL_DEBIT
   CORRECTION
   CARRYOVER
+  // Bezug von SONNTAG_FEIERTAG_KOMPENSATION-Stunden (negativer Eintrag,
+  // der den Restsaldo der fristgebundenen Kompensation reduziert).
+  COMPENSATION_REDEMPTION
+  // Verfall nicht eingelöster Sonn-/Feiertags-Kompensation nach Frist (negativ).
+  COMPENSATION_EXPIRED
+  // Explizite Auszahlung von Überstundenersatzzeit (UEZ); negativer Eintrag.
+  UEZ_PAYOUT
+  // Bezug von UEZ (Wochenabschluss): geplanter freier Tag zulasten UEZ-Konto.
+  UEZ_REDEMPTION
+}
+
+/// TZT accounting variant (Spec: Modell 1 = Tageskontingent, Modell 2 = Sollzeit-Reduktion).
+enum TztModel {
+  DAILY_QUOTA
+  TARGET_REDUCTION
+}
+
+enum ErtCaseStatus {
+  OPEN
+  FULFILLED
+  OVERDUE
+}
+
+enum CompensationCaseStatus {
+  OPEN
+  REDEEMED
+  EXPIRED
 }
 
 // ---------- Core entities ----------
 
 model User {
   id           String     @id @default(cuid())
-  email        String     @unique
+  tenantId     String
+  tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  email        String
   passwordHash String
   role         Role
   isActive     Boolean    @default(true)
   employee     Employee?
   bookings     Booking[]  @relation("BookingCreatedBy")
+  privacyDecisions PrivacyRequest[] @relation("PrivacyRequestDecidedBy")
   auditLogs    AuditLog[]
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
+
+  @@unique([tenantId, email])
+}
+
+model Tenant {
+  id            String              @id @default(cuid())
+  name          String
+  slug          String              @unique
+  /// Standard-Arbeitstage/Woche für Verteilung des Wochensolls (Spec Stammdatum Betrieb).
+  defaultStandardWorkDays Int       @default(5)
+  /// Vorschlagswert Vollzeit-Wochensoll (Minuten), z. B. bei neuen Mitarbeitenden.
+  defaultWeeklyTargetMinutes Int    @default(2520)
+  /// Vorschlagswert HAZ/Woche (Minuten) je Betrieb.
+  defaultHazMinutesPerWeek Int       @default(2700)
+  /// Untergrenze Zeitsaldo (Minuten); null = keine administrative Untergrenze / kein Block.
+  zeitsaldoMinLimitMinutes Int?
+  /// UEZ-Auszahlungsregel: ALLOWED | WITH_NOTICE | BLOCKED
+  uezPayoutPolicy String             @default("ALLOWED")
+  /// Kalendertage bis ERT-Ausgleich (Ruhezeit) fällig (Spec: typ. 4 Wochen).
+  ertDueDays Int                     @default(28)
+  /// Kalendertage bis zur Einlösung Sonntags-/Feiertags-Kompensation (Spec: typ. 6 Mt.).
+  compensationDueDays Int              @default(180)
+  createdAt     DateTime            @default(now())
+  deletedAt     DateTime?
+  archivedUntil DateTime?
+  users         User[]
+  employees     Employee[]
+  locations     Location[]
+  serviceTemplates ServiceTemplate[]
+  weeks         Week[]
+  holidays      Holiday[]
+  bookings      Booking[]
+  absenceRequests AbsenceRequest[]
+  accountBalances AccountBalance[]
+  privacyRequests PrivacyRequest[]
+  ertCases      ErtCase[]
+  compensationCases CompensationCase[]
+  publishedSnapshots PublishedSnapshot[]
+  employeeExitSnapshots EmployeeExitSnapshot[]
 }
 
 model Location {
   id                 String     @id @default(cuid())
+  tenantId           String
+  tenant             Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   name               String
   holidayRegionCode  String
   employees          Employee[]
   holidays           Holiday[]
+  deletedAt          DateTime?
+  archivedUntil      DateTime?
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
 }
 
 model Employee {
   id                   String            @id @default(cuid())
+  tenantId             String
+  tenant               Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   userId               String            @unique
-  user                 User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                 User              @relation(fields: [userId], references: [id], onDelete: Restrict)
   firstName            String
   lastName             String
   roleLabel            String?           // e.g. "Verkauf", "Backoffice"
@@ -113,17 +212,47 @@ model Employee {
   vacationDaysPerYear  Float             @default(25)
   weeklyTargetMinutes  Int               @default(2520) // 42h * 60
   hazMinutesPerWeek    Int               @default(2700) // 45h * 60
+  tztModel             TztModel          @default(DAILY_QUOTA)
+  /// Null = Tenant-defaultStandardWorkDays verwenden.
+  standardWorkDays     Int?
   isActive             Boolean           @default(true)
+  deletedAt            DateTime?
+  archivedUntil        DateTime?
   planEntries          PlanEntry[]
   absenceRequests      AbsenceRequest[]
+  privacyRequests      PrivacyRequest[]
   accountBalances      AccountBalance[]
   bookings             Booking[]
+  ertCases             ErtCase[]
+  compensationCases    CompensationCase[]
+  exitSnapshot         EmployeeExitSnapshot?
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
 }
 
+model PrivacyRequest {
+  id          String               @id @default(cuid())
+  tenantId    String
+  tenant      Tenant               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employeeId  String
+  employee    Employee             @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type        PrivacyRequestType
+  status      PrivacyRequestStatus @default(OPEN)
+  note        String?
+  decidedById String?
+  decidedBy   User?                @relation("PrivacyRequestDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+  decidedAt   DateTime?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@index([employeeId, createdAt])
+  @@index([status, type])
+}
+
 model Holiday {
   id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   date        DateTime
   name        String
   locationId  String
@@ -135,8 +264,10 @@ model Holiday {
 
 model ServiceTemplate {
   id             String      @id @default(cuid())
+  tenantId       String
+  tenant         Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   name           String
-  code           String      @unique
+  code           String
   startTime      String      // "07:00"
   endTime        String      // "15:30"
   breakMinutes   Int         @default(30)
@@ -147,21 +278,27 @@ model ServiceTemplate {
   planEntries    PlanEntry[]
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
+
+  @@unique([tenantId, code])
 }
 
 model Week {
   id            String              @id @default(cuid())
+  tenantId      String
+  tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   year          Int
   weekNumber    Int
   status        WeekStatus          @default(DRAFT)
   publishedAt   DateTime?
   closedAt      DateTime?
+  deletedAt     DateTime?
+  archivedUntil DateTime?
   planEntries   PlanEntry[]
   snapshots     PublishedSnapshot[]
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
 
-  @@unique([year, weekNumber])
+  @@unique([tenantId, year, weekNumber])
 }
 
 model PlanEntry {
@@ -181,6 +318,8 @@ model PlanEntry {
   absenceType         AbsenceType?
   plannedMinutes      Int              @default(0)
   comment             String?
+  deletedAt           DateTime?
+  archivedUntil       DateTime?
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
 
@@ -189,6 +328,8 @@ model PlanEntry {
 
 model PublishedSnapshot {
   id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   weekId       String
   week         Week     @relation(fields: [weekId], references: [id], onDelete: Cascade)
   snapshotJson String
@@ -197,13 +338,16 @@ model PublishedSnapshot {
 
 model AbsenceRequest {
   id            String         @id @default(cuid())
+  tenantId      String
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   employeeId    String
   employee      Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   type          RequestType
   startDate     DateTime
   endDate       DateTime
-  status        RequestStatus  @default(OPEN)
-  comment       String?
+  status          RequestStatus  @default(OPEN)
+  comment         String?
+  decisionComment String? // Admin-Begründung bei Genehmigung/Ablehnung (für MA sichtbar bei Ablehnung)
   decidedAt     DateTime?
   decidedById   String?
   createdAt     DateTime       @default(now())
@@ -212,6 +356,8 @@ model AbsenceRequest {
 
 model AccountBalance {
   id            String      @id @default(cuid())
+  tenantId      String
+  tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   employeeId    String
   employee      Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   accountType   AccountType
@@ -226,6 +372,8 @@ model AccountBalance {
 
 model Booking {
   id              String       @id @default(cuid())
+  tenantId        String
+  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   employeeId      String
   employee        Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   accountType     AccountType
@@ -242,6 +390,7 @@ model Booking {
 
 model AuditLog {
   id         String   @id @default(cuid())
+  tenantId   String
   userId     String
   user       User     @relation(fields: [userId], references: [id])
   action     String   // CREATE, UPDATE, DELETE, PUBLISH, CLOSE, ...
@@ -253,5 +402,58 @@ model AuditLog {
   createdAt  DateTime @default(now())
 
   @@index([entity, entityId])
+  @@index([tenantId, createdAt])
   @@index([createdAt])
+}
+
+model ErtCase {
+  id               String        @id @default(cuid())
+  tenantId         String
+  tenant           Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employeeId       String
+  employee         Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  triggerDate      DateTime
+  holidayWorkMinutes Int
+  status           ErtCaseStatus @default(OPEN)
+  dueAt            DateTime
+  fulfilledAt      DateTime?
+  note             String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@unique([employeeId, triggerDate])
+  @@index([employeeId, status, dueAt])
+}
+
+model CompensationCase {
+  id                 String                   @id @default(cuid())
+  tenantId           String
+  tenant             Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employeeId         String
+  employee           Employee                 @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  triggerDate        DateTime
+  holidayWorkMinutes Int
+  status             CompensationCaseStatus    @default(OPEN)
+  dueAt              DateTime
+  redeemedAt         DateTime?
+  note               String?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+
+  @@unique([employeeId, triggerDate])
+  @@index([employeeId, status, dueAt])
+}
+
+/// Kontenabschluss-Snapshot zum Austrittsdatum (Spec: echte Konten abschliessen).
+model EmployeeExitSnapshot {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employeeId   String   @unique
+  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  exitDate     DateTime
+  snapshotJson String
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId])
 }

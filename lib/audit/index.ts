@@ -6,6 +6,7 @@
  * that server actions call directly.
  */
 import { prisma } from "@/lib/db";
+import { auth } from "@/lib/auth";
 import { writeAuditCore, type AuditPayload } from "./core";
 
 export type {
@@ -25,9 +26,16 @@ export {
   writeAuditCore,
 } from "./core";
 
-export async function writeAudit(payload: AuditPayload): Promise<void> {
+export async function writeAudit(
+  payload: Omit<AuditPayload, "tenantId">,
+): Promise<void> {
   try {
-    await writeAuditCore(prisma, payload);
+    const session = await auth();
+    const tenantId = session?.user?.tenantId;
+    if (!tenantId) {
+      throw new Error("Missing tenant in session for writeAudit");
+    }
+    await writeAuditCore(prisma, { ...payload, tenantId });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     const stack = err instanceof Error ? err.stack : "";

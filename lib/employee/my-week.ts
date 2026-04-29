@@ -9,14 +9,20 @@ import {
 } from "@/lib/shift-style";
 import type { WeekSnapshot } from "@/server/weeks";
 import type { MyDayView, MyWeekHeader } from "@/components/employee/types";
+import type { SessionUser } from "@/server/_shared";
 
 const ABSENCE_LABEL: Record<string, string> = {
   VACATION: "Ferien",
   SICK: "Krank",
   ACCIDENT: "Unfall",
   FREE_REQUESTED: "Frei verlangt",
+  UEZ_BEZUG: "UEZ-Bezug",
   UNPAID: "Unbezahlt",
   TZT: "TZT",
+  PARENTAL_CARE: "Eltern-/Betreuungsurlaub",
+  MILITARY_SERVICE: "Militärdienst",
+  CIVIL_PROTECTION_SERVICE: "Zivilschutz",
+  CIVIL_SERVICE: "Zivildienst",
   HOLIDAY_AUTO: "Feiertag",
 };
 
@@ -51,8 +57,11 @@ interface ResolveOptions {
  *  2. Otherwise, use the current ISO week.
  *
  * The page reads only PublishedSnapshot so reset-to-draft preserves the view.
+ * Feiertage: mit `snapshot.holidays` pro Standort eingefroren (Publish/Republish);
+ * ohne dieses Feld (ältere Snapshots) oder ohne PublishedSnapshot → live prisma.holiday.
  */
 export async function loadMyWeek(
+  user: Pick<SessionUser, "tenantId">,
   employeeId: string,
   locationId: string,
   current: { year: number; weekNumber: number },
@@ -61,8 +70,8 @@ export async function loadMyWeek(
   const year = options.year ?? current.year;
   const weekNumber = options.weekNumber ?? current.weekNumber;
 
-  const week = await prisma.week.findUnique({
-    where: { year_weekNumber: { year, weekNumber } },
+  const week = await prisma.week.findFirst({
+    where: { tenantId: user.tenantId, year, weekNumber, deletedAt: null },
     include: {
       snapshots: {
         orderBy: { publishedAt: "desc" },
@@ -76,18 +85,25 @@ export async function loadMyWeek(
     : null;
 
   const days = isoWeekDays(year, weekNumber);
-  const startDate = startOfIsoWeek(year, weekNumber);
-  const endDate = days[6].date;
 
-  const holidayRows = await prisma.holiday.findMany({
-    where: {
-      locationId,
-      date: { gte: startDate, lte: endDate },
-    },
-  });
   const holidayByIso = new Map<string, string>();
-  for (const h of holidayRows) {
-    holidayByIso.set(format(h.date, "yyyy-MM-dd"), h.name);
+  if (snapshot?.holidays) {
+    for (const h of snapshot.holidays[locationId] ?? []) {
+      holidayByIso.set(h.iso, h.name);
+    }
+  } else {
+    const startDate = startOfIsoWeek(year, weekNumber);
+    const endDate = days[6].date;
+    const holidayRows = await prisma.holiday.findMany({
+      where: {
+        tenantId: user.tenantId,
+        locationId,
+        date: { gte: startDate, lte: endDate },
+      },
+    });
+    for (const h of holidayRows) {
+      holidayByIso.set(format(h.date, "yyyy-MM-dd"), h.name);
+    }
   }
 
   const entriesByDate = new Map<string, SnapshotEntry>();
@@ -153,6 +169,10 @@ function buildDayView({
         timeRange = `${entry.oneTimeStart} – ${entry.oneTimeEnd}`;
       }
       subtitle = entry.comment ?? null;
+    } else if (entry.kind === "VFT") {
+      shiftKey = "FREI";
+      title = "VFT";
+      subtitle = entry.comment ?? "Verschobener freier Tag";
     } else if (entry.kind === "ABSENCE" && entry.absenceType) {
       shiftKey = shiftKeyForAbsence(entry.absenceType);
       title = ABSENCE_LABEL[entry.absenceType] ?? "Abwesenheit";

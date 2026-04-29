@@ -26,10 +26,23 @@ const absenceSchema = z.object({
     "SICK",
     "ACCIDENT",
     "FREE_REQUESTED",
+    "UEZ_BEZUG",
     "UNPAID",
     "TZT",
+    "PARENTAL_CARE",
+    "MILITARY_SERVICE",
+    "CIVIL_PROTECTION_SERVICE",
+    "CIVIL_SERVICE",
     "HOLIDAY_AUTO",
   ]),
+});
+
+const vftSchema = z.object({
+  kind: z.literal("VFT"),
+});
+
+const halfDaySchema = z.object({
+  kind: z.literal("HALF_DAY_OFF"),
 });
 
 const baseSchema = z.object({
@@ -43,6 +56,8 @@ export const upsertSchema = z.discriminatedUnion("kind", [
   shiftSchema.merge(baseSchema),
   oneTimeSchema.merge(baseSchema),
   absenceSchema.merge(baseSchema),
+  vftSchema.merge(baseSchema),
+  halfDaySchema.merge(baseSchema),
 ]);
 
 export type UpsertPlanEntryInput = z.infer<typeof upsertSchema>;

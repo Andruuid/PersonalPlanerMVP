@@ -1,10 +1,17 @@
 "use server";
 
-import { addDays, getISOWeek, getISOWeekYear } from "date-fns";
+import { addDays, format, getISOWeek, getISOWeekYear } from "date-fns";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import { isoDateString, parseIsoDate } from "@/lib/time/week";
+import {
+  evaluateRequestEntitlement,
+  requestedSollDaysByYear,
+  type RequestEntitlementInput,
+  type RequestAccountType,
+} from "@/lib/requests/entitlement";
+import { effectiveStandardWorkDays } from "@/lib/time/soll";
 import {
   fieldErrorsFromZod,
   readOptionalString,
@@ -13,15 +20,53 @@ import {
   safeRevalidatePath,
   type ActionResult,
 } from "./_shared";
+import { archiveUntil } from "@/lib/archive";
+
+const DECISION_COMMENT_MAX = 300;
+
+type ParsedDecisionComment =
+  | { ok: true; text: string | null }
+  | { ok: false; error: string };
+
+function parseDecisionComment(raw?: string | null): ParsedDecisionComment {
+  if (raw == null || raw === "") {
+    return { ok: true, text: null };
+  }
+  const t = raw.trim();
+  if (t === "") {
+    return { ok: true, text: null };
+  }
+  if (t.length > DECISION_COMMENT_MAX) {
+    return {
+      ok: false,
+      error: `Begründung maximal ${DECISION_COMMENT_MAX} Zeichen.`,
+    };
+  }
+  return { ok: true, text: t };
+}
 
 const REQUEST_TO_ABSENCE: Record<
-  "VACATION" | "FREE_REQUESTED" | "TZT" | "FREE_DAY",
-  "VACATION" | "FREE_REQUESTED" | "TZT" | "UNPAID"
+  | "VACATION"
+  | "FREE_REQUESTED"
+  | "UEZ_BEZUG"
+  | "TZT"
+  | "FREE_DAY"
+  | "PARENTAL_CARE",
+  | "VACATION"
+  | "FREE_REQUESTED"
+  | "UEZ_BEZUG"
+  | "TZT"
+  | "UNPAID"
+  | "PARENTAL_CARE"
 > = {
   VACATION: "VACATION",
   FREE_REQUESTED: "FREE_REQUESTED",
+  UEZ_BEZUG: "UEZ_BEZUG",
   TZT: "TZT",
-  FREE_DAY: "UNPAID",
+  // "Freier Tag" should behave like a regular free-requested day
+  // (Zeitsaldo impact), not like unpaid leave (Soll reduction).
+  FREE_DAY: "FREE_REQUESTED",
+  PARENTAL_CARE: "PARENTAL_CARE",
 };
 
 function* daysInRange(start: Date, end: Date): Generator<Date> {
@@ -32,36 +77,141 @@ function* daysInRange(start: Date, end: Date): Generator<Date> {
   }
 }
 
+interface IsoWeekKey {
+  year: number;
+  weekNumber: number;
+}
+
+function isoWeeksInRange(start: Date, end: Date): IsoWeekKey[] {
+  const seen = new Set<string>();
+  const out: IsoWeekKey[] = [];
+  for (const day of daysInRange(start, end)) {
+    const year = getISOWeekYear(day);
+    const weekNumber = getISOWeek(day);
+    const key = `${year}-${weekNumber}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push({ year, weekNumber });
+    }
+  }
+  return out;
+}
+
+interface WeeksTouchedSummary {
+  year: number;
+  weekNumber: number;
+  status: "DRAFT" | "PUBLISHED" | "CLOSED";
+}
+
+/**
+ * Resolves the status of every ISO week that the request range touches. Weeks
+ * that don't yet exist in the DB are reported as DRAFT (their effective state
+ * before any planning has happened).
+ */
+async function resolveWeeksTouched(
+  tenantId: string,
+  weekKeys: IsoWeekKey[],
+): Promise<WeeksTouchedSummary[]> {
+  if (weekKeys.length === 0) return [];
+  const rows = await prisma.week.findMany({
+    where: {
+      tenantId,
+      OR: weekKeys.map(({ year, weekNumber }) => ({ year, weekNumber })),
+    },
+    select: { year: true, weekNumber: true, status: true },
+  });
+  const byKey = new Map<string, WeeksTouchedSummary["status"]>();
+  for (const row of rows) {
+    byKey.set(`${row.year}-${row.weekNumber}`, row.status);
+  }
+  return weekKeys.map(({ year, weekNumber }) => ({
+    year,
+    weekNumber,
+    status: byKey.get(`${year}-${weekNumber}`) ?? "DRAFT",
+  }));
+}
+
 export async function approveRequestAction(
   requestId: string,
+  decisionComment?: string | null,
 ): Promise<ActionResult> {
   const admin = await requireAdmin();
+
+  const parsedComment = parseDecisionComment(decisionComment);
+  if (!parsedComment.ok) {
+    return { ok: false, error: parsedComment.error };
+  }
 
   const request = await prisma.absenceRequest.findUnique({
     where: { id: requestId },
   });
-  if (!request) return { ok: false, error: "Antrag nicht gefunden." };
+  if (!request || request.tenantId !== admin.tenantId) {
+    return { ok: false, error: "Antrag nicht gefunden." };
+  }
   if (request.status !== "OPEN") {
     return { ok: false, error: "Antrag wurde bereits bearbeitet." };
   }
+  const employee = await prisma.employee.findFirst({
+    where: {
+      id: request.employeeId,
+      tenantId: admin.tenantId,
+      isActive: true,
+      deletedAt: null,
+    },
+    select: { id: true },
+  });
+  if (!employee) {
+    return { ok: false, error: "Mitarbeitende:r ist archiviert." };
+  }
+
+  const weekKeys = isoWeeksInRange(request.startDate, request.endDate);
+  const weeksTouched = await resolveWeeksTouched(admin.tenantId, weekKeys);
+  if (weeksTouched.some((w) => w.status === "CLOSED")) {
+    return {
+      ok: false,
+      error:
+        "Antrag berührt eine abgeschlossene Woche und kann so nicht genehmigt werden. Bitte Woche zuerst wieder öffnen oder Antrag passend zuschneiden.",
+    };
+  }
 
   const absenceType = REQUEST_TO_ABSENCE[request.type];
+  let replacedEntryCount = 0;
+  const replacedEntrySamples: Array<{
+    date: string;
+    previousKind: string;
+    previousAbsenceType: string | null;
+  }> = [];
 
   await prisma.$transaction(async (tx) => {
     for (const day of daysInRange(request.startDate, request.endDate)) {
       const year = getISOWeekYear(day);
       const weekNumber = getISOWeek(day);
       const weekRow = await tx.week.findUnique({
-        where: { year_weekNumber: { year, weekNumber } },
+        where: {
+          tenantId_year_weekNumber: {
+            tenantId: admin.tenantId,
+            year,
+            weekNumber,
+          },
+        },
       });
-      const week =
-        weekRow ??
-        (await tx.week.create({
-          data: { year, weekNumber, status: "DRAFT" },
-        }));
+      const week = weekRow
+        ? weekRow.deletedAt
+          ? await tx.week.update({
+              where: { id: weekRow.id },
+              data: { deletedAt: null, archivedUntil: null },
+            })
+          : weekRow
+        : await tx.week.create({
+            data: { tenantId: admin.tenantId, year, weekNumber, status: "DRAFT" },
+          });
 
       if (week.status === "CLOSED") {
-        continue;
+        // Defense in depth: a week could have been closed between the
+        // pre-flight check above and the transaction. Aborting rolls back
+        // any plan entries we already wrote in this loop instead of silently
+        // skipping the day (which would still flip the request to APPROVED).
+        throw new Error("CLOSED_WEEK_RACE");
       }
 
       const existing = await tx.planEntry.findFirst({
@@ -69,10 +219,28 @@ export async function approveRequestAction(
           weekId: week.id,
           employeeId: request.employeeId,
           date: day,
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          kind: true,
+          absenceType: true,
+          date: true,
         },
       });
       if (existing) {
-        await tx.planEntry.delete({ where: { id: existing.id } });
+        replacedEntryCount += 1;
+        if (replacedEntrySamples.length < 20) {
+          replacedEntrySamples.push({
+            date: isoDateString(existing.date),
+            previousKind: existing.kind,
+            previousAbsenceType: existing.absenceType ?? null,
+          });
+        }
+        await tx.planEntry.update({
+          where: { id: existing.id },
+          data: { deletedAt: new Date(), archivedUntil: archiveUntil() },
+        });
       }
       await tx.planEntry.create({
         data: {
@@ -93,6 +261,7 @@ export async function approveRequestAction(
         status: "APPROVED",
         decidedAt: new Date(),
         decidedById: admin.id,
+        decisionComment: parsedComment.text,
       },
     });
   });
@@ -102,12 +271,19 @@ export async function approveRequestAction(
     action: "APPROVE",
     entity: "AbsenceRequest",
     entityId: requestId,
-    oldValue: { status: request.status },
+    oldValue: {
+      status: request.status,
+      decisionComment: request.decisionComment ?? null,
+    },
     newValue: {
       status: "APPROVED",
       absenceType,
       from: isoDateString(request.startDate),
       to: isoDateString(request.endDate),
+      replacedPlanEntries: replacedEntryCount,
+      replacedPlanEntrySamples: replacedEntrySamples,
+      weeksTouched,
+      decisionComment: parsedComment.text,
     },
   });
 
@@ -119,16 +295,34 @@ export async function approveRequestAction(
 
 export async function rejectRequestAction(
   requestId: string,
+  reason?: string | null,
 ): Promise<ActionResult> {
   const admin = await requireAdmin();
+
+  const parsedReason = parseDecisionComment(reason);
+  if (!parsedReason.ok) {
+    return { ok: false, error: parsedReason.error };
+  }
 
   const request = await prisma.absenceRequest.findUnique({
     where: { id: requestId },
   });
-  if (!request) return { ok: false, error: "Antrag nicht gefunden." };
+  if (!request || request.tenantId !== admin.tenantId) {
+    return { ok: false, error: "Antrag nicht gefunden." };
+  }
   if (request.status !== "OPEN") {
     return { ok: false, error: "Antrag wurde bereits bearbeitet." };
   }
+
+  // Rejecting is intentionally not gated by CLOSED weeks (an admin must
+  // always be able to reject an open request), but we record which weeks the
+  // request range touched so the audit trail shows whether the rejection
+  // covered closed weeks.
+  const weeksTouched = await resolveWeeksTouched(
+    admin.tenantId,
+    isoWeeksInRange(request.startDate, request.endDate),
+  );
+  const touchedClosedWeek = weeksTouched.some((w) => w.status === "CLOSED");
 
   await prisma.absenceRequest.update({
     where: { id: requestId },
@@ -136,6 +330,7 @@ export async function rejectRequestAction(
       status: "REJECTED",
       decidedAt: new Date(),
       decidedById: admin.id,
+      decisionComment: parsedReason.text,
     },
   });
 
@@ -144,8 +339,16 @@ export async function rejectRequestAction(
     action: "REJECT",
     entity: "AbsenceRequest",
     entityId: requestId,
-    oldValue: { status: request.status },
-    newValue: { status: "REJECTED" },
+    oldValue: {
+      status: request.status,
+      decisionComment: request.decisionComment ?? null,
+    },
+    newValue: {
+      status: "REJECTED",
+      weeksTouched,
+      touchedClosedWeek,
+      decisionComment: parsedReason.text,
+    },
   });
 
   safeRevalidatePath("rejectRequestAction", "/planning");
@@ -156,7 +359,14 @@ export async function rejectRequestAction(
 
 const createRequestSchema = z
   .object({
-    type: z.enum(["VACATION", "FREE_REQUESTED", "TZT", "FREE_DAY"]),
+    type: z.enum([
+      "VACATION",
+      "FREE_REQUESTED",
+      "UEZ_BEZUG",
+      "TZT",
+      "FREE_DAY",
+      "PARENTAL_CARE",
+    ]),
     startDate: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/, "Startdatum erforderlich"),
@@ -197,9 +407,116 @@ export async function createAbsenceRequestAction(
     return { ok: false, error: "Datum ungültig." };
   }
 
+  const employeeId = employee.employeeId!;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (endDate < today) {
+    const weeksTouched = await resolveWeeksTouched(
+      employee.tenantId,
+      isoWeeksInRange(startDate, endDate),
+    );
+    if (
+      weeksTouched.length > 0 &&
+      weeksTouched.every((w) => w.status === "CLOSED")
+    ) {
+      return {
+        ok: false,
+        error: "Beantragter Zeitraum liegt komplett in abgeschlossenen Wochen.",
+      };
+    }
+  }
+
+  const employeeRow = await prisma.employee.findFirst({
+    where: {
+      id: employeeId,
+      tenantId: employee.tenantId,
+      isActive: true,
+      deletedAt: null,
+    },
+    select: {
+      weeklyTargetMinutes: true,
+      vacationDaysPerYear: true,
+      tztModel: true,
+      standardWorkDays: true,
+      locationId: true,
+      tenant: { select: { defaultStandardWorkDays: true } },
+    },
+  });
+  if (!employeeRow) {
+    return { ok: false, error: "Mitarbeitende:r nicht gefunden." };
+  }
+
+  const effectiveStd = effectiveStandardWorkDays(
+    employeeRow.standardWorkDays,
+    employeeRow.tenant.defaultStandardWorkDays,
+  );
+
+  const holidayRows = await prisma.holiday.findMany({
+    where: {
+      tenantId: employee.tenantId,
+      locationId: employeeRow.locationId,
+      date: { gte: startDate, lte: endDate },
+    },
+    select: { date: true },
+  });
+  const holidayIsosByYear = new Map<number, Set<string>>();
+  for (const h of holidayRows) {
+    const iso = format(h.date, "yyyy-MM-dd");
+    const year = Number(iso.slice(0, 4));
+    let set = holidayIsosByYear.get(year);
+    if (!set) {
+      set = new Set<string>();
+      holidayIsosByYear.set(year, set);
+    }
+    set.add(iso);
+  }
+
+  const sollDaysByYear = requestedSollDaysByYear(
+    startDate,
+    endDate,
+    effectiveStd,
+    holidayIsosByYear,
+  );
+  const years = Array.from(sollDaysByYear.keys());
+
+  const balances = await prisma.accountBalance.findMany({
+    where: {
+      tenantId: employee.tenantId,
+      employeeId,
+      year: { in: years.length > 0 ? years : [startDate.getFullYear()] },
+      accountType: {
+        in: ["ZEITSALDO", "FERIEN", "UEZ", "TZT", "PARENTAL_CARE"],
+      },
+    },
+    select: { year: true, accountType: true, currentValue: true },
+  });
+
+  const balancesByYear: RequestEntitlementInput["balancesByYear"] = {};
+  for (const row of balances) {
+    const y = (balancesByYear[row.year] ??= {});
+    y[row.accountType as RequestAccountType] = row.currentValue;
+  }
+
+  const entitlement = evaluateRequestEntitlement({
+    type: data.type,
+    startDate,
+    endDate,
+    weeklyTargetMinutes: employeeRow.weeklyTargetMinutes,
+    standardWorkDays: effectiveStd,
+    holidayIsosByYear,
+    tztModel: employeeRow.tztModel,
+    vacationDaysPerYear: employeeRow.vacationDaysPerYear,
+    balancesByYear,
+  });
+  if (!entitlement.ok) {
+    return { ok: false, error: entitlement.error ?? "Anspruch nicht ausreichend." };
+  }
+
   const created = await prisma.absenceRequest.create({
     data: {
-      employeeId: employee.employeeId!,
+      tenantId: employee.tenantId,
+      employeeId,
       type: data.type,
       startDate,
       endDate,
@@ -237,7 +554,9 @@ export async function cancelOwnRequestAction(
   const request = await prisma.absenceRequest.findUnique({
     where: { id: requestId },
   });
-  if (!request) return { ok: false, error: "Antrag nicht gefunden." };
+  if (!request || request.tenantId !== employee.tenantId) {
+    return { ok: false, error: "Antrag nicht gefunden." };
+  }
   if (request.employeeId !== employee.employeeId) {
     return { ok: false, error: "Kein Zugriff auf diesen Antrag." };
   }
@@ -278,7 +597,9 @@ export async function reopenRequestAction(
   const request = await prisma.absenceRequest.findUnique({
     where: { id: requestId },
   });
-  if (!request) return { ok: false, error: "Antrag nicht gefunden." };
+  if (!request || request.tenantId !== admin.tenantId) {
+    return { ok: false, error: "Antrag nicht gefunden." };
+  }
 
   await prisma.absenceRequest.update({
     where: { id: requestId },
@@ -286,6 +607,7 @@ export async function reopenRequestAction(
       status: "OPEN",
       decidedAt: null,
       decidedById: null,
+      decisionComment: null,
       comment: comment ?? request.comment,
     },
   });
@@ -295,8 +617,11 @@ export async function reopenRequestAction(
     action: "REOPEN",
     entity: "AbsenceRequest",
     entityId: requestId,
-    oldValue: { status: request.status },
-    newValue: { status: "OPEN" },
+    oldValue: {
+      status: request.status,
+      decisionComment: request.decisionComment ?? null,
+    },
+    newValue: { status: "OPEN", decisionComment: null },
   });
 
   safeRevalidatePath("reopenRequestAction", "/planning");

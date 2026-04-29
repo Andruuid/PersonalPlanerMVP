@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { resolveDay } from "../priority";
+import { resolveDay, resolveDayFromEntries } from "../priority";
 
 describe("resolveDay", () => {
-  it("treats holidays as HOLIDAY regardless of plan entry", () => {
+  it("treats holidays as HOLIDAY when there is no holiday shift", () => {
     expect(resolveDay(null, true, false).kind).toBe("HOLIDAY");
     expect(
       resolveDay(
@@ -17,7 +17,7 @@ describe("resolveDay", () => {
         true,
         false,
       ).kind,
-    ).toBe("HOLIDAY");
+    ).toBe("HOLIDAY_WORK");
   });
 
   it("returns WEEKEND_OFF on weekends with no shift", () => {
@@ -51,8 +51,13 @@ describe("resolveDay", () => {
       ["SICK", "SICK"],
       ["ACCIDENT", "ACCIDENT"],
       ["FREE_REQUESTED", "FREE_REQUESTED"],
+      ["UEZ_BEZUG", "UEZ_BEZUG"],
       ["UNPAID", "UNPAID"],
       ["TZT", "TZT_ABSENCE"],
+      ["PARENTAL_CARE", "PARENTAL_CARE"],
+      ["MILITARY_SERVICE", "SERVICE"],
+      ["CIVIL_PROTECTION_SERVICE", "SERVICE"],
+      ["CIVIL_SERVICE", "SERVICE"],
       ["HOLIDAY_AUTO", "HOLIDAY"],
     ] as const;
     for (const [absence, kind] of map) {
@@ -73,5 +78,95 @@ describe("resolveDay", () => {
     );
     expect(r.kind).toBe("WORK");
     expect(r.plannedMinutes).toBe(270);
+  });
+
+  it("resolves VFT as dedicated planning day kind", () => {
+    const r = resolveDay({ kind: "VFT", plannedMinutes: 0 }, false, false);
+    expect(r.kind).toBe("VFT");
+    expect(r.plannedMinutes).toBe(0);
+  });
+
+  it("resolves SICK over TZT when both absences are present", () => {
+    const r = resolveDayFromEntries(
+      [
+        { kind: "ABSENCE", absenceType: "TZT", plannedMinutes: 0 },
+        { kind: "ABSENCE", absenceType: "SICK", plannedMinutes: 0 },
+      ],
+      false,
+      false,
+    );
+    expect(r.kind).toBe("SICK");
+  });
+
+  it("resolves ACCIDENT over TZT when both absences are present", () => {
+    const r = resolveDayFromEntries(
+      [
+        { kind: "ABSENCE", absenceType: "TZT", plannedMinutes: 0 },
+        { kind: "ABSENCE", absenceType: "ACCIDENT", plannedMinutes: 0 },
+      ],
+      false,
+      false,
+    );
+    expect(r.kind).toBe("ACCIDENT");
+  });
+
+  it("prioritizes VACATION over TZT on the same weekday", () => {
+    const r = resolveDayFromEntries(
+      [
+        { kind: "ABSENCE", absenceType: "TZT", plannedMinutes: 0 },
+        { kind: "ABSENCE", absenceType: "VACATION", plannedMinutes: 0 },
+      ],
+      false,
+      false,
+    );
+    expect(r.kind).toBe("VACATION");
+  });
+
+  it("prioritizes TZT over FREE_REQUESTED on the same weekday", () => {
+    const r = resolveDayFromEntries(
+      [
+        { kind: "ABSENCE", absenceType: "FREE_REQUESTED", plannedMinutes: 0 },
+        { kind: "ABSENCE", absenceType: "TZT", plannedMinutes: 0 },
+      ],
+      false,
+      false,
+    );
+    expect(r.kind).toBe("TZT_ABSENCE");
+  });
+
+  it("prioritizes TZT over UEZ_BEZUG on the same weekday", () => {
+    const r = resolveDayFromEntries(
+      [
+        { kind: "ABSENCE", absenceType: "UEZ_BEZUG", plannedMinutes: 0 },
+        { kind: "ABSENCE", absenceType: "TZT", plannedMinutes: 0 },
+      ],
+      false,
+      false,
+    );
+    expect(r.kind).toBe("TZT_ABSENCE");
+  });
+
+  it("prioritizes UEZ_BEZUG over FREE_REQUESTED on the same weekday", () => {
+    const r = resolveDayFromEntries(
+      [
+        { kind: "ABSENCE", absenceType: "FREE_REQUESTED", plannedMinutes: 0 },
+        { kind: "ABSENCE", absenceType: "UEZ_BEZUG", plannedMinutes: 0 },
+      ],
+      false,
+      false,
+    );
+    expect(r.kind).toBe("UEZ_BEZUG");
+  });
+
+  it("prioritizes FREE_REQUESTED over UNPAID on the same weekday", () => {
+    const r = resolveDayFromEntries(
+      [
+        { kind: "ABSENCE", absenceType: "UNPAID", plannedMinutes: 0 },
+        { kind: "ABSENCE", absenceType: "FREE_REQUESTED", plannedMinutes: 0 },
+      ],
+      false,
+      false,
+    );
+    expect(r.kind).toBe("FREE_REQUESTED");
   });
 });

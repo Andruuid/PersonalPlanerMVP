@@ -1,14 +1,24 @@
 import type { ShiftKey } from "@/lib/shift-style";
 
-export type EntryKind = "SHIFT" | "ONE_TIME_SHIFT" | "ABSENCE";
+export type EntryKind =
+  | "SHIFT"
+  | "ONE_TIME_SHIFT"
+  | "ABSENCE"
+  | "VFT"
+  | "HALF_DAY_OFF";
 
 export type AbsenceType =
   | "VACATION"
   | "SICK"
   | "ACCIDENT"
   | "FREE_REQUESTED"
+  | "UEZ_BEZUG"
   | "UNPAID"
   | "TZT"
+  | "PARENTAL_CARE"
+  | "MILITARY_SERVICE"
+  | "CIVIL_PROTECTION_SERVICE"
+  | "CIVIL_SERVICE"
   | "HOLIDAY_AUTO";
 
 export interface PlanEntryView {
@@ -34,6 +44,9 @@ export interface EmployeeView {
   firstName: string;
   lastName: string;
   roleLabel: string | null;
+  /** Kombiniert Ruhezeit + Arbeitstage/Halbtag (ArG Hinweise) */
+  planningViolationTooltip: string | null;
+  hasPlanningViolations: boolean;
 }
 
 export interface DayView {
@@ -41,6 +54,7 @@ export interface DayView {
   weekdayLabel: string;
   shortDate: string;
   longDate: string;
+  understaffed?: boolean;
 }
 
 export interface ServiceOption {
@@ -55,7 +69,7 @@ export interface ServiceOption {
 
 export interface RequestView {
   id: string;
-  type: "VACATION" | "FREE_REQUESTED" | "TZT" | "FREE_DAY";
+  type: "VACATION" | "FREE_REQUESTED" | "UEZ_BEZUG" | "TZT" | "FREE_DAY" | "PARENTAL_CARE";
   status: "OPEN" | "APPROVED" | "REJECTED";
   startDate: string;
   endDate: string;
@@ -78,7 +92,17 @@ export interface KpiSummary {
   openRequests: number;
   unassignedCells: number;
   activeEmployees: number;
+  uesAusweisMinutes: number;
+  understaffedSlots: number;
+  understaffedRequired: number;
+  understaffedPlanned: number;
   statusLabel: string;
+  /** Summe aus täglichen Verstößen + 1 pro Person bei unzureichender Wochenruhe */
+  restViolationCount: number;
+  /** Verstosse max. Arbeitstage in Folge (KW, alle MA zusammen gezählt) */
+  consecutiveWorkStreakKwViolationCount: number;
+  /** Mitarbeitende ohne angemerkten Halbtag wenn > 5 Arbeitstag(e) verteilt */
+  halfDayOffMissingEmployees: number;
 }
 
 export type EntryMap = Record<string, PlanEntryView>;

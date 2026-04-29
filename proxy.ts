@@ -4,7 +4,7 @@ import { authConfig } from "@/lib/auth.config";
 
 const { auth } = NextAuth(authConfig);
 
-const PUBLIC_PATHS = ["/login", "/api/auth"];
+const PUBLIC_PATHS = ["/login", "/signup", "/api/auth"];
 const ADMIN_PATHS = [
   "/dashboard",
   "/planning",
@@ -13,6 +13,8 @@ const ADMIN_PATHS = [
   "/absences",
   "/accounts",
   "/settings",
+  "/compensation-cases",
+  "/privacy",
   "/audit",
 ];
 const EMPLOYEE_PATHS = ["/my-week", "/my-requests", "/my-accounts"];
@@ -29,6 +31,11 @@ export default auth((req) => {
 
   if (pathMatches(pathname, PUBLIC_PATHS)) {
     if (pathname === "/login" && req.auth) {
+      const role = req.auth.user?.role;
+      const target = role === "ADMIN" ? "/dashboard" : "/my-week";
+      return NextResponse.redirect(new URL(target, nextUrl));
+    }
+    if (pathname === "/signup" && req.auth) {
       const role = req.auth.user?.role;
       const target = role === "ADMIN" ? "/dashboard" : "/my-week";
       return NextResponse.redirect(new URL(target, nextUrl));

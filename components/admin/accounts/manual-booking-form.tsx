@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { HelpIconTooltip } from "@/components/ui/help-icon-tooltip";
 import {
   DialogClose,
   DialogDescription,
@@ -22,9 +23,12 @@ export interface EmployeePickOption {
 
 export interface ManualBookingFormDefaults {
   employeeId: string;
-  accountType: "ZEITSALDO" | "FERIEN" | "UEZ" | "TZT";
+  // SONNTAG_FEIERTAG_KOMPENSATION ist hier bewusst nicht erlaubt: Bewegungen
+  // entstehen ausschliesslich aus dem Wochenabschluss (AUTO_WEEKLY) oder dem
+  // Bezug-Workflow (`redeemCompensationAction`).
+  accountType: "ZEITSALDO" | "FERIEN" | "UEZ" | "TZT" | "PARENTAL_CARE";
   date: string;
-  bookingType: "MANUAL_CREDIT" | "MANUAL_DEBIT" | "CORRECTION";
+  bookingType: "MANUAL_CREDIT" | "MANUAL_DEBIT" | "CORRECTION" | "OPENING";
   comment?: string;
 }
 
@@ -43,6 +47,11 @@ const ACCOUNT_OPTIONS: Array<{
   { value: "FERIEN", label: "Ferien", hint: "Wert in Tagen (z. B. 0.5 = halber Tag)" },
   { value: "UEZ", label: "UEZ", hint: "Wert in Minuten" },
   { value: "TZT", label: "TZT", hint: "Wert in Tagen" },
+  {
+    value: "PARENTAL_CARE",
+    label: "Eltern-/Betreuungsurlaub",
+    hint: "Wert in Tagen",
+  },
 ];
 
 const TYPE_OPTIONS: Array<{
@@ -52,6 +61,7 @@ const TYPE_OPTIONS: Array<{
   { value: "MANUAL_CREDIT", label: "Gutschrift (+)" },
   { value: "MANUAL_DEBIT", label: "Belastung (−)" },
   { value: "CORRECTION", label: "Korrektur" },
+  { value: "OPENING", label: "Anfangsbestand" },
 ];
 
 export function ManualBookingForm({ employees, defaults, onSuccess }: Props) {
@@ -61,6 +71,7 @@ export function ManualBookingForm({ employees, defaults, onSuccess }: Props) {
   } | null>(null);
   const [pending, startTransition] = useTransition();
   const [accountType, setAccountType] = useState(defaults.accountType);
+  const [bookingType, setBookingType] = useState(defaults.bookingType);
 
   const accountHint =
     ACCOUNT_OPTIONS.find((o) => o.value === accountType)?.hint ?? "";
@@ -123,7 +134,11 @@ export function ManualBookingForm({ employees, defaults, onSuccess }: Props) {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="accountType">Konto</Label>
+          <LabelWithHelp
+            htmlFor="accountType"
+            label="Konto"
+            tooltip="Legt Einheit und Kontologik fest: Zeitsaldo/UEZ in Minuten, Ferien/TZT in Tagen."
+          />
           <select
             id="accountType"
             name="accountType"
@@ -147,11 +162,20 @@ export function ManualBookingForm({ employees, defaults, onSuccess }: Props) {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="bookingType">Buchungsart</Label>
+          <LabelWithHelp
+            htmlFor="bookingType"
+            label="Buchungsart"
+            tooltip="Gutschrift erzwingt ein Plus, Belastung ein Minus; Korrektur und Anfangsbestand übernehmen das eingegebene Vorzeichen. Anfangsbestand passt zusätzlich den Eröffnungswert des Kontos an."
+          />
           <select
             id="bookingType"
             name="bookingType"
-            defaultValue={defaults.bookingType}
+            value={bookingType}
+            onChange={(e) =>
+              setBookingType(
+                e.target.value as ManualBookingFormDefaults["bookingType"],
+              )
+            }
             className="flex h-9 w-full rounded-md border border-neutral-300 bg-white px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900"
           >
             {TYPE_OPTIONS.map((o) => (
@@ -163,7 +187,11 @@ export function ManualBookingForm({ employees, defaults, onSuccess }: Props) {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="date">Datum</Label>
+          <LabelWithHelp
+            htmlFor="date"
+            label="Datum"
+            tooltip="Buchungsdatum für Kontoführung und Historie."
+          />
           <Input
             id="date"
             name="date"
@@ -177,7 +205,11 @@ export function ManualBookingForm({ employees, defaults, onSuccess }: Props) {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="value">Wert</Label>
+          <LabelWithHelp
+            htmlFor="value"
+            label="Wert"
+            tooltip="Betrag erfassen; die Buchungsart steuert die Richtung (+/-)."
+          />
           <Input
             id="value"
             name="value"
@@ -195,7 +227,11 @@ export function ManualBookingForm({ employees, defaults, onSuccess }: Props) {
         </div>
 
         <div className="space-y-1.5 sm:col-span-2">
-          <Label htmlFor="comment">Kommentar (Pflicht)</Label>
+          <LabelWithHelp
+            htmlFor="comment"
+            label="Kommentar (Pflicht)"
+            tooltip="Wird im Audit-Log gespeichert und soll den Buchungsgrund nachvollziehbar beschreiben."
+          />
           <textarea
             id="comment"
             name="comment"
@@ -228,5 +264,22 @@ export function ManualBookingForm({ employees, defaults, onSuccess }: Props) {
         </Button>
       </DialogFooter>
     </form>
+  );
+}
+
+function LabelWithHelp({
+  htmlFor,
+  label,
+  tooltip,
+}: {
+  htmlFor: string;
+  label: string;
+  tooltip: string;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <Label htmlFor={htmlFor}>{label}</Label>
+      <HelpIconTooltip text={tooltip} />
+    </div>
   );
 }

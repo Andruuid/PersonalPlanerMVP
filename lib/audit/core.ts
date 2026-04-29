@@ -10,12 +10,51 @@
  */
 
 import type { PrismaClient } from "@/lib/generated/prisma/client";
+import type * as PrismaNs from "@/lib/generated/prisma/internal/prismaNamespace";
+
+/** Full client or interactive transaction client (append-only audit writes). */
+type AuditWriteClient = PrismaClient | PrismaNs.TransactionClient;
+
+const auditTriggersInstalled = new WeakSet<AuditWriteClient>();
+
+/**
+ * Invalidate the append-only trigger install cache — required when the
+ * underlying SQLite database drops those triggers without discarding this
+ * `PrismaClient` (see `lib/test/db.ts` reset).
+ */
+export function invalidateAuditLogAppendOnlyCache(
+  prisma: AuditWriteClient,
+): void {
+  auditTriggersInstalled.delete(prisma);
+}
+
+async function ensureAuditLogAppendOnly(prisma: AuditWriteClient): Promise<void> {
+  if (auditTriggersInstalled.has(prisma)) {
+    return;
+  }
+  await prisma.$executeRawUnsafe(`
+    CREATE TRIGGER IF NOT EXISTS auditlog_no_update
+    BEFORE UPDATE ON "AuditLog"
+    BEGIN
+      SELECT RAISE(ABORT, 'AuditLog is append-only');
+    END;
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE TRIGGER IF NOT EXISTS auditlog_no_delete
+    BEFORE DELETE ON "AuditLog"
+    BEGIN
+      SELECT RAISE(ABORT, 'AuditLog is append-only');
+    END;
+  `);
+  auditTriggersInstalled.add(prisma);
+}
 
 // ---------------------------------------------------------------------------
 // Write
 // ---------------------------------------------------------------------------
 
 export interface AuditPayload {
+  tenantId: string;
   userId: string;
   action: string;
   entity: string;
@@ -23,14 +62,18 @@ export interface AuditPayload {
   oldValue?: unknown;
   newValue?: unknown;
   comment?: string | null;
+  /** Optional explicit timestamp (primarily for deterministic tests). */
+  createdAt?: Date;
 }
 
 export async function writeAuditCore(
-  prisma: PrismaClient,
+  prisma: AuditWriteClient,
   payload: AuditPayload,
 ): Promise<void> {
+  await ensureAuditLogAppendOnly(prisma);
   await prisma.auditLog.create({
     data: {
+      tenantId: payload.tenantId,
       userId: payload.userId,
       action: payload.action,
       entity: payload.entity,
@@ -40,6 +83,7 @@ export async function writeAuditCore(
       newValue:
         payload.newValue === undefined ? null : JSON.stringify(payload.newValue),
       comment: payload.comment ?? null,
+      createdAt: payload.createdAt,
     },
   });
 }
@@ -49,6 +93,7 @@ export async function writeAuditCore(
 // ---------------------------------------------------------------------------
 
 export interface AuditFilter {
+  tenantId?: string;
   userId?: string;
   entity?: string;
   action?: string;
@@ -66,6 +111,7 @@ export interface AuditPageOpts {
 
 export interface AuditRow {
   id: string;
+  tenantId: string;
   userId: string;
   userEmail: string;
   action: string;
@@ -111,11 +157,13 @@ export async function listAuditLogs(
   const pageIndex = Math.max(1, Math.floor(page.page));
 
   const where: {
+    tenantId?: string;
     userId?: string;
     entity?: string;
     action?: string;
     createdAt?: { gte?: Date; lt?: Date };
   } = {};
+  if (filter.tenantId) where.tenantId = filter.tenantId;
   if (filter.userId) where.userId = filter.userId;
   if (filter.entity) where.entity = filter.entity;
   if (filter.action) where.action = filter.action;
@@ -146,6 +194,7 @@ export async function listAuditLogs(
   return {
     rows: rows.map((r) => ({
       id: r.id,
+      tenantId: r.tenantId,
       userId: r.userId,
       userEmail: r.user.email,
       action: r.action,
@@ -168,6 +217,7 @@ export async function listAuditLogs(
 // ---------------------------------------------------------------------------
 
 export interface AuditFacets {
+  tenantIds: string[];
   users: Array<{ id: string; email: string }>;
   entities: string[];
   actions: string[];
@@ -175,26 +225,40 @@ export interface AuditFacets {
 
 export async function loadAuditFacets(
   prisma: PrismaClient,
+  tenantId?: string,
 ): Promise<AuditFacets> {
-  const [entityRows, actionRows, userRows] = await Promise.all([
+  const auditWhere = tenantId ? { tenantId } : undefined;
+  const userWhere = tenantId
+    ? { tenantId, auditLogs: { some: { tenantId } } }
+    : { auditLogs: { some: {} } };
+  const [tenantRows, entityRows, actionRows, userRows] = await Promise.all([
     prisma.auditLog.findMany({
+      where: auditWhere,
+      distinct: ["tenantId"],
+      select: { tenantId: true },
+      orderBy: { tenantId: "asc" },
+    }),
+    prisma.auditLog.findMany({
+      where: auditWhere,
       distinct: ["entity"],
       select: { entity: true },
       orderBy: { entity: "asc" },
     }),
     prisma.auditLog.findMany({
+      where: auditWhere,
       distinct: ["action"],
       select: { action: true },
       orderBy: { action: "asc" },
     }),
     prisma.user.findMany({
-      where: { auditLogs: { some: {} } },
+      where: userWhere,
       select: { id: true, email: true },
       orderBy: { email: "asc" },
     }),
   ]);
 
   return {
+    tenantIds: tenantRows.map((r) => r.tenantId),
     users: userRows,
     entities: entityRows.map((r) => r.entity),
     actions: actionRows.map((r) => r.action),

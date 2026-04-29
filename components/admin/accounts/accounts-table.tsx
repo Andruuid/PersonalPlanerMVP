@@ -1,19 +1,27 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, History } from "lucide-react";
+import { Plus, History, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { HelpIconTooltip } from "@/components/ui/help-icon-tooltip";
 import {
   ManualBookingForm,
   type EmployeePickOption,
   type ManualBookingFormDefaults,
 } from "./manual-booking-form";
 import {
+  CompensationRedemptionForm,
+  type CompensationRedemptionDefaults,
+} from "./compensation-redemption-form";
+import { UezPayoutForm, type UezPayoutDefaults } from "./uez-payout-form";
+import {
   ACCOUNT_DISPLAY,
   formatAccountValue,
+  formatMinutesAsHours,
 } from "./format";
+import { BOOKING_TYPE_LABEL } from "@/components/shared/booking-type-copy";
 import type { AccountSummary, AdminAccountsRow } from "@/server/accounts";
 import type { AccountType } from "@/lib/generated/prisma/enums";
 
@@ -23,11 +31,20 @@ interface Props {
   todayIso: string;
 }
 
-const ACCOUNT_ORDER: AccountType[] = ["ZEITSALDO", "FERIEN", "UEZ", "TZT"];
+const ACCOUNT_ORDER: AccountType[] = [
+  "ZEITSALDO",
+  "FERIEN",
+  "UEZ",
+  "TZT",
+  "SONNTAG_FEIERTAG_KOMPENSATION",
+  "PARENTAL_CARE",
+];
 
 type DialogState =
   | { mode: "closed" }
-  | { mode: "manual-booking"; preset: Partial<ManualBookingFormDefaults> };
+  | { mode: "manual-booking"; preset: Partial<ManualBookingFormDefaults> }
+  | { mode: "redeem-compensation"; preset: CompensationRedemptionDefaults }
+  | { mode: "uez-payout"; preset: UezPayoutDefaults };
 
 export function AccountsTable({ rows, year, todayIso }: Props) {
   const [dialog, setDialog] = useState<DialogState>({ mode: "closed" });
@@ -42,6 +59,14 @@ export function AccountsTable({ rows, year, todayIso }: Props) {
     preset: Partial<ManualBookingFormDefaults> = {},
   ) {
     setDialog({ mode: "manual-booking", preset });
+  }
+
+  function openRedeem(preset: CompensationRedemptionDefaults) {
+    setDialog({ mode: "redeem-compensation", preset });
+  }
+
+  function openUezPayout(preset: UezPayoutDefaults) {
+    setDialog({ mode: "uez-payout", preset });
   }
 
   return (
@@ -67,9 +92,22 @@ export function AccountsTable({ rows, year, todayIso }: Props) {
                 <th className="px-4 py-3">Mitarbeitende:r</th>
                 {ACCOUNT_ORDER.map((accountType) => (
                   <th key={accountType} className="px-4 py-3">
-                    {ACCOUNT_DISPLAY[accountType].label}
+                    <HeaderWithHelp
+                      label={ACCOUNT_DISPLAY[accountType].label}
+                      tooltip={
+                        accountType === "SONNTAG_FEIERTAG_KOMPENSATION"
+                          ? `Aktueller Kontostand und Eröffnungswert für ${ACCOUNT_DISPLAY[accountType].label}. Nach Einlösungsfrist ohne Bezug wird der Rest automatisch verbucht; in der Buchungs-Historie erscheint das als „${BOOKING_TYPE_LABEL.COMPENSATION_EXPIRED}“ (rot).`
+                          : `Aktueller Kontostand und Eröffnungswert für ${ACCOUNT_DISPLAY[accountType].label}.`
+                      }
+                    />
                   </th>
                 ))}
+                <th className="px-4 py-3">
+                  <HeaderWithHelp
+                    label="UES-Ausweis"
+                    tooltip="Arbeitszeit zwischen Wochen-Soll und HAZ, kumuliert für das gewählte Jahr (Ausweis, keine Buchung)."
+                  />
+                </th>
                 <th className="px-4 py-3 text-right">Aktionen</th>
               </tr>
             </thead>
@@ -77,7 +115,7 @@ export function AccountsTable({ rows, year, todayIso }: Props) {
               {rows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={ACCOUNT_ORDER.length + 2}
+                    colSpan={ACCOUNT_ORDER.length + 3}
                     className="px-4 py-10 text-center text-sm text-neutral-500"
                   >
                     Noch keine Mitarbeitenden angelegt.
@@ -108,10 +146,38 @@ export function AccountsTable({ rows, year, todayIso }: Props) {
                     const account = row.accounts[accountType];
                     return (
                       <td key={accountType} className="px-4 py-3">
-                        <AccountCell account={account} />
+                        {accountType === "UEZ" ? (
+                          <div className="space-y-2">
+                            <AccountCell account={account} />
+                            {account.currentValue > 0 ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-7 px-2 text-xs"
+                                onClick={() =>
+                                  openUezPayout({
+                                    employeeId: row.employeeId,
+                                    date: todayIso,
+                                    availableMinutes: account.currentValue,
+                                  })
+                                }
+                              >
+                                Auszahlen
+                              </Button>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <AccountCell account={account} />
+                        )}
                       </td>
                     );
                   })}
+                  <td className="px-4 py-3">
+                    <div className="text-base font-semibold tabular-nums text-neutral-900">
+                      {formatMinutesAsHours(row.uesAusweisMinutesYear)}
+                    </div>
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-2">
                       <Button
@@ -128,6 +194,32 @@ export function AccountsTable({ rows, year, todayIso }: Props) {
                       >
                         <Plus className="mr-1 h-3.5 w-3.5" />
                         Buchung
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={
+                          row.accounts.SONNTAG_FEIERTAG_KOMPENSATION
+                            .currentValue <= 0
+                        }
+                        title={
+                          row.accounts.SONNTAG_FEIERTAG_KOMPENSATION
+                            .currentValue <= 0
+                            ? "Kein Kompensationsguthaben vorhanden."
+                            : "Sonn-/Feiertagskompensation einlösen"
+                        }
+                        onClick={() =>
+                          openRedeem({
+                            employeeId: row.employeeId,
+                            date: todayIso,
+                            availableMinutes:
+                              row.accounts.SONNTAG_FEIERTAG_KOMPENSATION
+                                .currentValue,
+                          })
+                        }
+                      >
+                        <Minus className="mr-1 h-3.5 w-3.5" />
+                        Kompensation einlösen
                       </Button>
                       <Button asChild size="sm" variant="ghost">
                         <a
@@ -165,9 +257,36 @@ export function AccountsTable({ rows, year, todayIso }: Props) {
               onSuccess={close}
             />
           ) : null}
+          {dialog.mode === "redeem-compensation" ? (
+            <CompensationRedemptionForm
+              employees={employees}
+              defaults={dialog.preset}
+              onSuccess={close}
+            />
+          ) : null}
+          {dialog.mode === "uez-payout" ? (
+            <UezPayoutForm
+              employees={employees}
+              defaults={dialog.preset}
+              onSuccess={close}
+            />
+          ) : null}
         </DialogContent>
       </Dialog>
     </section>
+  );
+}
+
+function HeaderWithHelp({ label, tooltip }: { label: string; tooltip: string }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span>{label}</span>
+      <HelpIconTooltip
+        text={tooltip}
+        ariaLabel="Spaltenhilfe anzeigen"
+        contentClassName="max-w-72 normal-case"
+      />
+    </span>
   );
 }
 

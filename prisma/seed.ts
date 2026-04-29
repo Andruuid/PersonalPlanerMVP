@@ -29,12 +29,12 @@ interface DemoEmployee {
 const DEMO_LOCATIONS: Array<{
   id: string;
   name: string;
-  holidayRegionCode: string;
+  holidayRegionCode: "EVANGELISCH" | "KATHOLISCH";
 }> = [
-  { id: "loc-luzern", name: "Standort Luzern", holidayRegionCode: "LU" },
-  { id: "loc-bern", name: "Standort Bern", holidayRegionCode: "BE" },
-  { id: "loc-zuerich", name: "Standort Zürich", holidayRegionCode: "ZH" },
-  { id: "loc-basel", name: "Standort Basel", holidayRegionCode: "BS" },
+  { id: "loc-luzern", name: "Standort Luzern", holidayRegionCode: "KATHOLISCH" },
+  { id: "loc-bern", name: "Standort Bern", holidayRegionCode: "KATHOLISCH" },
+  { id: "loc-zuerich", name: "Standort Zürich", holidayRegionCode: "EVANGELISCH" },
+  { id: "loc-basel", name: "Standort Basel", holidayRegionCode: "KATHOLISCH" },
 ];
 
 const DEMO_EMPLOYEES: DemoEmployee[] = [
@@ -83,13 +83,31 @@ const DEMO_EMPLOYEES: DemoEmployee[] = [
 async function main() {
   console.log("Seeding database...");
 
+  const defaultTenant = await prisma.tenant.upsert({
+    where: { slug: "default" },
+    update: { name: "Default Tenant" },
+    create: { name: "Default Tenant", slug: "default" },
+  });
+  const demoTenant = await prisma.tenant.upsert({
+    where: { slug: "demo" },
+    update: { name: "Demo Tenant" },
+    create: { name: "Demo Tenant", slug: "demo" },
+  });
+  // Use the default tenant so auth lookups (tenantId: "default") match.
+  const tenantId = defaultTenant.id;
+
   const year = new Date().getFullYear();
   for (const loc of DEMO_LOCATIONS) {
     await prisma.location.upsert({
       where: { id: loc.id },
-      update: { name: loc.name, holidayRegionCode: loc.holidayRegionCode },
+      update: {
+        tenantId,
+        name: loc.name,
+        holidayRegionCode: loc.holidayRegionCode,
+      },
       create: {
         id: loc.id,
+        tenantId,
         name: loc.name,
         holidayRegionCode: loc.holidayRegionCode,
       },
@@ -100,8 +118,8 @@ async function main() {
     for (const h of holidaysForRegion(loc.holidayRegionCode, year)) {
       await prisma.holiday.upsert({
         where: { locationId_date: { locationId: loc.id, date: h.date } },
-        update: { name: h.name },
-        create: { locationId: loc.id, date: h.date, name: h.name },
+        update: { tenantId, name: h.name },
+        create: { tenantId, locationId: loc.id, date: h.date, name: h.name },
       });
     }
   }
@@ -135,42 +153,59 @@ async function main() {
   ];
   for (const s of services) {
     await prisma.serviceTemplate.upsert({
-      where: { code: s.code },
-      update: s,
-      create: s,
+      where: { tenantId_code: { tenantId, code: s.code } },
+      update: { ...s, tenantId },
+      create: { ...s, tenantId },
     });
   }
 
   // Admin user.
   const adminPwd = await bcrypt.hash("admin123", 10);
-  await prisma.user.upsert({
-    where: { email: "admin@demo.ch" },
-    update: { passwordHash: adminPwd, role: "ADMIN", isActive: true },
-    create: {
-      email: "admin@demo.ch",
-      passwordHash: adminPwd,
-      role: "ADMIN",
-      isActive: true,
-    },
+  const existingAdmin = await prisma.user.findFirst({
+    where: { tenantId, email: "admin@demo.ch" },
   });
+  if (existingAdmin) {
+    await prisma.user.update({
+      where: { id: existingAdmin.id },
+      data: { tenantId, passwordHash: adminPwd, role: "ADMIN", isActive: true },
+    });
+  } else {
+    await prisma.user.create({
+      data: {
+        tenantId,
+        email: "admin@demo.ch",
+        passwordHash: adminPwd,
+        role: "ADMIN",
+        isActive: true,
+      },
+    });
+  }
 
   // Demo employees + their User accounts.
   for (const e of DEMO_EMPLOYEES) {
     const pwd = await bcrypt.hash(e.password, 10);
-    const user = await prisma.user.upsert({
-      where: { email: e.email },
-      update: { passwordHash: pwd, role: "EMPLOYEE", isActive: true },
-      create: {
-        email: e.email,
-        passwordHash: pwd,
-        role: "EMPLOYEE",
-        isActive: true,
-      },
+    const existingUser = await prisma.user.findFirst({
+      where: { tenantId, email: e.email },
     });
+    const user = existingUser
+      ? await prisma.user.update({
+          where: { id: existingUser.id },
+          data: { tenantId, passwordHash: pwd, role: "EMPLOYEE", isActive: true },
+        })
+      : await prisma.user.create({
+          data: {
+            tenantId,
+            email: e.email,
+            passwordHash: pwd,
+            role: "EMPLOYEE",
+            isActive: true,
+          },
+        });
 
     await prisma.employee.upsert({
       where: { userId: user.id },
       update: {
+      tenantId,
         firstName: e.firstName,
         lastName: e.lastName,
         roleLabel: e.roleLabel,
@@ -180,6 +215,7 @@ async function main() {
         locationId: e.locationId,
       },
       create: {
+        tenantId,
         userId: user.id,
         firstName: e.firstName,
         lastName: e.lastName,
@@ -194,6 +230,34 @@ async function main() {
     });
   }
 
+  // Same email as default-tenant admin on `demo` slug — proves tenant-scoped uniqueness + login.
+  const demoTenantPwd = await bcrypt.hash("admin123", 10);
+  const demoSlugAdmin = await prisma.user.findFirst({
+    where: { tenantId: demoTenant.id, email: "admin@demo.ch" },
+  });
+  if (demoSlugAdmin) {
+    await prisma.user.update({
+      where: { id: demoSlugAdmin.id },
+      data: {
+        passwordHash: demoTenantPwd,
+        role: "ADMIN",
+        isActive: true,
+      },
+    });
+  } else {
+    await prisma.user.create({
+      data: {
+        tenantId: demoTenant.id,
+        email: "admin@demo.ch",
+        passwordHash: demoTenantPwd,
+        role: "ADMIN",
+        isActive: true,
+      },
+    });
+  }
+
+  console.log(`Seeded demo data for tenant "${defaultTenant.slug}".`);
+  console.log(`Ensured fallback tenant "${demoTenant.slug}" exists.`);
   console.log("Seed complete.");
 }
 

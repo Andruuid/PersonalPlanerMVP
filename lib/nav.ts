@@ -1,9 +1,11 @@
 import {
   CalendarDays,
+  CalendarHeart,
   ClipboardList,
   Coins,
   FileClock,
   Home,
+  ScrollText,
   Settings,
   ShieldCheck,
   UserPlus,
@@ -26,7 +28,13 @@ export const ADMIN_NAV: NavItem[] = [
   { href: "/absences", label: "Abwesenheiten", icon: FileClock },
   { href: "/accounts", label: "Zeitkonten", icon: Wallet },
   { href: "/settings", label: "Einstellungen", icon: Settings },
-  { href: "/audit", label: "Audit-Log", icon: ShieldCheck },
+  {
+    href: "/compensation-cases",
+    label: "Sonn-/Feiertagskomp.",
+    icon: CalendarHeart,
+  },
+  { href: "/privacy", label: "Datenschutz", icon: ShieldCheck },
+  { href: "/audit", label: "Audit-Log", icon: ScrollText },
 ];
 
 export const EMPLOYEE_NAV: NavItem[] = [

@@ -53,6 +53,7 @@ Admin landet nach dem Login auf `/dashboard`, Mitarbeitende auf `/my-week`.
 | `npm run db:studio`   | Prisma Studio                                      |
 | `npm run db:push:libsql` | Migrationen auf eine libSQL/Turso-DB anwenden  |
 | `npm run db:copy:turso`  | Optional: Daten zwischen zwei Turso-DBs kopieren (sonst neu + Seed) |
+| `npm run db:purge:archived` | Löscht archivierte Datensätze nach Ablauf der 10-Jahres-Frist (`-- --dry-run` für Vorschau) |
 
 ## Datenmodell-Highlights
 
@@ -70,7 +71,7 @@ Admin landet nach dem Login auf `/dashboard`, Mitarbeitende auf `/my-week`.
 - **Mitarbeitersicht + Anträge:** „Meine Woche", Antragsstellung (Ferien, Frei, TZT, Freier Tag), Genehmigungs-Loop.
 - **Zeitlogik + Konten:** Sollzeit, Zeitsaldo, UEZ, Ferien und TZT mit AUTO_WEEKLY-Buchungen, manuellen Buchungen und Jahreswechsel-Carryover.
 - **Audit-Log:** Vollständige Historie aller Änderungen mit Filter, Pagination und Vorher/Nachher-Diff.
-- **Dashboard:** Kennzahlen (offene Anträge, aktuelle Woche, aktive Mitarbeitende, Audit-Aktivität) und letzte Audit-Einträge auf einen Blick.
+- **Dashboard:** Kennzahlen (offene Anträge, Backlog vergangener offener Wochen, aktuelle Woche, aktive Mitarbeitende, Audit-Aktivität) und letzte Audit-Einträge auf einen Blick.
 
 ## Deployment auf Netlify (Demo)
 
@@ -140,6 +141,45 @@ Provider-Wechsel.
 
 > Hinweis: Für die Demo ist Turso die schnellere Wahl, weil der Code
 > ohne Schema- oder Adapter-Änderungen funktioniert.
+
+### ERT — geplanter Tages‑Cron (empfohlen)
+
+ERT-Fälle können bei Planänderungen sofort berechnet werden; zusätzlich
+stellt die App einen Cron‑Endpoint bereit (`GET /api/cron/ert-sweep`).
+Lege einen geheimen Wert **`CRON_SECRET`** in Netlify (Environment variables)
+fest und konfiguriere eine **Scheduled Function**, die diese URL **täglich**
+mithilfe eines `Authorization: Bearer <CRON_SECRET>`-Headers aufruft —
+damit ERT‑Status (**OPEN**, **OVERDUE**, **FULFILLED**) auch ohne ständige
+Planungsaktivität konsistent bleiben.
+
+### Vergangene veröffentlichte Wochen — Tages‑Cron (empfohlen)
+
+Spezifikation: Sobald eine Kalenderwoche vorbei ist, werden die Zeitkonten
+berechnet. Dazu schließt ein zweiter Cron‑Endpoint (`GET /api/cron/auto-close`)
+pro Mandanten alle **vergangenen** ISO‑Wochen mit Status **Veröffentlicht**
+automatisch ab (`recalcWeekClose`, dann `CLOSED` samt Audit‑Eintrag
+**AUTO_CLOSE**). Entwürfe (**DRAFT**) bleiben unberührt.
+
+Konfiguriere dieselbe **`CRON_SECRET`**‑Variable und eine **weitere**
+Scheduled Function mit täglichem Aufruf und `Authorization: Bearer <CRON_SECRET>`.
+
+### Jahreswechsel — Cron am 01.01. (empfohlen)
+
+`GET /api/cron/year-end` führt pro Mandanten die Jahreswechsel‑Logik
+(`applyYearEndCarryover`, idempotent wie der manuelle Admin‑Button) nur am **1. Januar**
+(Europe/Zurich) aus und schreibt pro Mandant einen Audit‑Eintrag **YEAR_END_CARRYOVER_AUTO**.
+Welcher Admin‑User gebucht wird, ist der erste aktive ADMIN des Mandanten (wie beim
+Auto‑Wochenschluss).
+
+Lege wieder **`CRON_SECRET`** an und einen **jährlichen** Scheduled Function‑Aufruf am
+01.01. (einmal täglicher Aufruf reicht ebenfalls — der Endpoint ist sonst ein No‑Op).
+Authorization: `Authorization: Bearer <CRON_SECRET>`.
+
+Für lokale/integration Tests ohne Kalenderdatum: Umgebungsvariable **`AUTO_YEAR_END_FORCE=1`**
+ersetzt den 01.01.‑Filter (gleiche `fromYear`‑Ableitung wie am „echten“ Jahresbeginn nach
+Timezone).
+
+Der Admin‑Dialog **„Jahreswechsel“** bleibt als manueller Override erhalten.
 
 ## CI
 

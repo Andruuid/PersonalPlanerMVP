@@ -20,6 +20,8 @@ export interface ServiceRow {
   endTime: string;
   breakMinutes: number;
   comment: string | null;
+  defaultDays: number | null;
+  requiredCount: number | null;
   isActive: boolean;
 }
 
@@ -197,6 +199,8 @@ function createDefaults(): ServiceFormDefaults {
     endTime: "17:00",
     breakMinutes: 30,
     comment: "",
+    defaultDays: null,
+    requiredCount: null,
     isActive: true,
   };
 }
@@ -210,6 +214,8 @@ function editDefaultsFromRow(row: ServiceRow): ServiceFormDefaults {
     endTime: row.endTime,
     breakMinutes: row.breakMinutes,
     comment: row.comment ?? "",
+    defaultDays: row.defaultDays,
+    requiredCount: row.requiredCount,
     isActive: row.isActive,
   };
 }

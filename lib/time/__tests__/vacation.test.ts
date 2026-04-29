@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { vacationDaysDebit } from "../vacation";
+import { parentalCareDaysDebit, vacationDaysDebit } from "../vacation";
 
 describe("vacationDaysDebit", () => {
   it("counts only VACATION days", () => {
@@ -22,5 +22,18 @@ describe("vacationDaysDebit", () => {
         { kind: "HOLIDAY" },
       ]),
     ).toBe(0);
+  });
+});
+
+describe("parentalCareDaysDebit", () => {
+  it("counts only PARENTAL_CARE days", () => {
+    expect(
+      parentalCareDaysDebit([
+        { kind: "PARENTAL_CARE" },
+        { kind: "PARENTAL_CARE" },
+        { kind: "WORK" },
+        { kind: "HOLIDAY" },
+      ]),
+    ).toBe(2);
   });
 });

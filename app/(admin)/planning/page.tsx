@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { format, parse as parseFns, addDays } from "date-fns";
 import { prisma } from "@/lib/db";
 import {
   currentIsoWeek,
@@ -6,7 +6,7 @@ import {
   isoWeekDays,
   startOfIsoWeek,
 } from "@/lib/time/week";
-import { getOrCreateWeek } from "@/server/weeks";
+import { getOrCreateWeekForTenant } from "@/server/week-helpers";
 import { PlanningBoard } from "@/components/planning/planning-board";
 import {
   entryKey,
@@ -22,6 +22,19 @@ import {
   shiftKeyForServiceCode,
   type ShiftKey,
 } from "@/lib/shift-style";
+import {
+  computeWeeklyBalance,
+  type PlanEntryByDate,
+  type WeeklyComputation,
+} from "@/lib/time/balance";
+import { effectiveStandardWorkDays } from "@/lib/time/soll";
+import type { AbsenceType } from "@/lib/time/priority";
+import { buildHolidayLookup } from "@/lib/time/holidays";
+import { requireAdmin } from "@/server/_shared";
+import {
+  hasCoverageRequirement,
+  isUnderstaffed,
+} from "@/lib/services/coverage";
 
 export const metadata = { title: "Wochenplanung · PersonalPlaner" };
 
@@ -95,6 +108,12 @@ function entryView(raw: {
   } else if (raw.kind === "ONE_TIME_SHIFT") {
     shiftKey = "FRUEH";
     title = raw.oneTimeLabel ?? "Einmal-Dienst";
+  } else if (raw.kind === "VFT") {
+    shiftKey = "FREI";
+    title = "VFT";
+  } else if (raw.kind === "HALF_DAY_OFF") {
+    shiftKey = "FREI";
+    title = "Freier Halbtag";
   } else if (raw.kind === "ABSENCE" && raw.absenceType) {
     shiftKey = shiftKeyForAbsence(raw.absenceType);
     const labelMap: Record<string, string> = {
@@ -102,8 +121,13 @@ function entryView(raw: {
       SICK: "Krank",
       ACCIDENT: "Unfall",
       FREE_REQUESTED: "Frei verlangt",
+      UEZ_BEZUG: "UEZ-Bezug",
       UNPAID: "Unbezahlt",
       TZT: "TZT",
+      PARENTAL_CARE: "Eltern-/Betreuungsurlaub",
+      MILITARY_SERVICE: "Militärdienst",
+      CIVIL_PROTECTION_SERVICE: "Zivilschutz",
+      CIVIL_SERVICE: "Zivildienst",
       HOLIDAY_AUTO: "Feiertag",
     };
     title = labelMap[raw.absenceType] ?? "Abwesenheit";
@@ -132,6 +156,87 @@ function entryView(raw: {
   return view;
 }
 
+function fmtGapMinutesRest(m: number): string {
+  const h = Math.floor(m / 60);
+  const min = m % 60;
+  if (min === 0) return `${h}h`;
+  return `${h}h ${min}min`;
+}
+
+function formatRestViolationTooltip(c: WeeklyComputation): string | null {
+  const lines: string[] = [];
+  for (const v of c.dailyRestViolations) {
+    const ddmm = parseFns(v.date, "yyyy-MM-dd", new Date());
+    const dl = Number.isNaN(ddmm.getTime())
+      ? v.date
+      : format(ddmm, "dd.MM.");
+    lines.push(
+      `Tägliche Ruhezeit: am ${dl} nur ${fmtGapMinutesRest(v.gapMinutes)} zwischen den Schichten (mind. 11h).`,
+    );
+  }
+  if (!c.weeklyRestOk) {
+    lines.push(
+      `Wöchentliche Ruhezeit: längste zusammenhängende Ruhe ${fmtGapMinutesRest(c.weeklyRestLongestGapMinutes)} (mind. 35h).`,
+    );
+  }
+  return lines.length ? lines.join("\n") : null;
+}
+
+function formatLaborComplianceTooltip(
+  c: WeeklyComputation,
+  kwIsos: Set<string>,
+): string | null {
+  const streakInKw = c.consecutiveWorkDayViolations.filter((iso) =>
+    kwIsos.has(iso),
+  );
+  const lines: string[] = [];
+  if (streakInKw.length > 0) {
+    lines.push(
+      `Mehr als 6 Arbeitstage in Folge (betrifft Datum: ${streakInKw.join(", ")}).`,
+    );
+  }
+  if (c.halfDayOffMissing) {
+    lines.push(
+      "Pflicht: freier Halbtag nicht geplant (> 5 Arbeitstage mit Verteilung in der Woche).",
+    );
+  }
+  return lines.length ? lines.join("\n") : null;
+}
+
+function planEntryToBalanceRow(e: {
+  date: Date;
+  kind: string;
+  absenceType: string | null;
+  plannedMinutes: number;
+  serviceTemplate: {
+    startTime: string;
+    endTime: string;
+  } | null;
+  oneTimeStart: string | null;
+  oneTimeEnd: string | null;
+}): PlanEntryByDate {
+  const shiftStartTime =
+    e.kind === "SHIFT" && e.serviceTemplate
+      ? e.serviceTemplate.startTime
+      : e.kind === "ONE_TIME_SHIFT"
+        ? e.oneTimeStart
+        : null;
+  const shiftEndTime =
+    e.kind === "SHIFT" && e.serviceTemplate
+      ? e.serviceTemplate.endTime
+      : e.kind === "ONE_TIME_SHIFT"
+        ? e.oneTimeEnd
+        : null;
+  return {
+    date: isoDateString(e.date),
+    kind: e.kind as PlanEntryByDate["kind"],
+    absenceType: (e.absenceType as AbsenceType | null | undefined) ?? null,
+    plannedMinutes: e.plannedMinutes,
+    shiftStartTime,
+    shiftEndTime,
+  };
+}
+
 function rangeLabel(startDate: Date, endDate: Date): string {
   const sameDay = startDate.toDateString() === endDate.toDateString();
   if (sameDay) {
@@ -145,10 +250,11 @@ function rangeLabel(startDate: Date, endDate: Date): string {
 }
 
 export default async function PlanningPage({ searchParams }: PageProps) {
+  const admin = await requireAdmin();
   const raw = await searchParams;
   const { year, weekNumber } = pickWeek(raw);
 
-  const week = await getOrCreateWeek(year, weekNumber);
+  const week = await getOrCreateWeekForTenant(admin.tenantId, year, weekNumber);
   const days = isoWeekDays(year, weekNumber);
   const startDate = startOfIsoWeek(year, weekNumber);
   const endDate = days[6].date;
@@ -156,18 +262,23 @@ export default async function PlanningPage({ searchParams }: PageProps) {
   const [employees, services, planEntries, openRequests, locations] =
     await Promise.all([
       prisma.employee.findMany({
-        where: { isActive: true },
+        where: { tenantId: admin.tenantId, isActive: true, deletedAt: null },
         orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
         include: {
           location: { select: { name: true } },
+          tenant: { select: { defaultStandardWorkDays: true } },
         },
       }),
       prisma.serviceTemplate.findMany({
-        where: { isActive: true },
+        where: { tenantId: admin.tenantId, isActive: true },
         orderBy: { name: "asc" },
       }),
       prisma.planEntry.findMany({
-        where: { weekId: week.id },
+        where: {
+          weekId: week.id,
+          deletedAt: null,
+          employee: { tenantId: admin.tenantId, deletedAt: null },
+        },
         include: {
           serviceTemplate: {
             select: {
@@ -184,6 +295,7 @@ export default async function PlanningPage({ searchParams }: PageProps) {
       }),
       prisma.absenceRequest.findMany({
         where: {
+          tenantId: admin.tenantId,
           OR: [
             { status: "OPEN" },
             {
@@ -201,8 +313,46 @@ export default async function PlanningPage({ searchParams }: PageProps) {
           employee: { select: { firstName: true, lastName: true } },
         },
       }),
-      prisma.location.findMany({ orderBy: { name: "asc" }, take: 1 }),
+      prisma.location.findMany({
+        where: { tenantId: admin.tenantId, deletedAt: null },
+        orderBy: { name: "asc" },
+        take: 1,
+      }),
     ]);
+
+  const streakPrefetchPlanEntries = await prisma.planEntry.findMany({
+    where: {
+      deletedAt: null,
+      date: {
+        gte: addDays(startDate, -14),
+        lt: startDate,
+      },
+      employee: { tenantId: admin.tenantId, deletedAt: null },
+    },
+    include: {
+      serviceTemplate: {
+        select: {
+          code: true,
+          name: true,
+          startTime: true,
+          endTime: true,
+          breakMinutes: true,
+          comment: true,
+        },
+      },
+      employee: { select: { firstName: true, lastName: true } },
+    },
+  });
+
+  const streakPrefetchByEmp = new Map<string, PlanEntryByDate[]>();
+  for (const e of streakPrefetchPlanEntries) {
+    const row = planEntryToBalanceRow(e);
+    const list = streakPrefetchByEmp.get(e.employeeId) ?? [];
+    list.push(row);
+    streakPrefetchByEmp.set(e.employeeId, list);
+  }
+
+  const kwIsoDates = new Set(days.map((d) => d.iso));
 
   const entries: EntryMap = {};
   for (const e of planEntries) {
@@ -223,12 +373,132 @@ export default async function PlanningPage({ searchParams }: PageProps) {
   const totalCells = employees.length * days.length;
   const filledCells = Object.keys(entries).length;
   const unassignedCells = Math.max(0, totalCells - filledCells);
+  const locationIds = Array.from(new Set(employees.map((e) => e.locationId)));
+  const holidays = await prisma.holiday.findMany({
+    where: {
+      tenantId: admin.tenantId,
+      locationId: { in: locationIds },
+      date: {
+        gte: new Date(week.year - 1, 11, 1),
+        lt: new Date(week.year + 1, 1, 1),
+      },
+    },
+  });
+  const holidaysByLocation = new Map<string, ReturnType<typeof buildHolidayLookup>>();
+  for (const locId of locationIds) {
+    holidaysByLocation.set(
+      locId,
+      buildHolidayLookup(
+        holidays
+          .filter((h) => h.locationId === locId)
+          .map((h) => ({ date: h.date, name: h.name })),
+      ),
+    );
+  }
+  const entriesByEmployee = new Map<string, PlanEntryByDate[]>();
+  for (const e of planEntries) {
+    const list = entriesByEmployee.get(e.employeeId) ?? [];
+    list.push(planEntryToBalanceRow(e));
+    entriesByEmployee.set(e.employeeId, list);
+  }
+
+  const streakFullContextByEmp: Record<string, PlanEntryByDate[]> = {};
+  const holidayIsosForEmployee: Record<string, string[]> = {};
+  for (const emp of employees) {
+    streakFullContextByEmp[emp.id] = [
+      ...(streakPrefetchByEmp.get(emp.id) ?? []),
+      ...(entriesByEmployee.get(emp.id) ?? []),
+    ];
+    holidayIsosForEmployee[emp.id] = holidays
+      .filter((h) => h.locationId === emp.locationId)
+      .map((h) => isoDateString(h.date));
+  }
+
+  const planningByEmployee = new Map<
+    string,
+    { tooltip: string | null; hasPlanningViolations: boolean }
+  >();
+  let uesAusweisMinutes = 0;
+  let restViolationCount = 0;
+  let consecutiveWorkStreakKwViolationCount = 0;
+  let halfDayOffMissingEmployees = 0;
+  for (const employee of employees) {
+    const result = computeWeeklyBalance(
+      week.year,
+      week.weekNumber,
+      entriesByEmployee.get(employee.id) ?? [],
+      holidaysByLocation.get(employee.locationId) ?? buildHolidayLookup([]),
+      {
+        weeklyTargetMinutes: employee.weeklyTargetMinutes,
+        hazMinutesPerWeek: employee.hazMinutesPerWeek,
+        tztModel: employee.tztModel,
+        standardWorkDays: effectiveStandardWorkDays(
+          employee.standardWorkDays,
+          employee.tenant.defaultStandardWorkDays,
+        ),
+      },
+      streakPrefetchByEmp.get(employee.id) ?? [],
+    );
+    uesAusweisMinutes += result.weeklyUesAusweisMinutes;
+    restViolationCount +=
+      result.dailyRestViolations.length + (result.weeklyRestOk ? 0 : 1);
+    const restPart = formatRestViolationTooltip(result);
+    const laborPart = formatLaborComplianceTooltip(result, kwIsoDates);
+    const tooltip = [restPart, laborPart].filter(Boolean).join("\n\n") || null;
+    const hasRest =
+      result.dailyRestViolations.length > 0 || !result.weeklyRestOk;
+    const hasLabor = laborPart !== null;
+    const hasPlanningViolations = hasRest || hasLabor;
+    planningByEmployee.set(employee.id, {
+      tooltip,
+      hasPlanningViolations,
+    });
+    consecutiveWorkStreakKwViolationCount +=
+      result.consecutiveWorkDayViolations.filter((iso) =>
+        kwIsoDates.has(iso),
+      ).length;
+    if (result.halfDayOffMissing) halfDayOffMissingEmployees += 1;
+  }
+
+  // Coverage analysis: compare ServiceTemplate.requiredCount per weekday flagged
+  // by `defaultDays` against the planned SHIFT entries for that template + day.
+  const shiftCounts = new Map<string, number>();
+  for (const e of planEntries) {
+    if (e.kind !== "SHIFT" || !e.serviceTemplateId) continue;
+    const key = `${isoDateString(e.date)}__${e.serviceTemplateId}`;
+    shiftCounts.set(key, (shiftCounts.get(key) ?? 0) + 1);
+  }
+
+  const understaffedDays = new Set<string>();
+  let understaffedSlots = 0;
+  let understaffedRequired = 0;
+  let understaffedPlanned = 0;
+  for (let i = 0; i < days.length; i += 1) {
+    const day = days[i];
+    for (const template of services) {
+      if (!hasCoverageRequirement(template, i)) continue;
+      const planned = shiftCounts.get(`${day.iso}__${template.id}`) ?? 0;
+      if (isUnderstaffed(template, i, planned)) {
+        understaffedSlots += 1;
+        understaffedRequired += template.requiredCount ?? 0;
+        understaffedPlanned += planned;
+        understaffedDays.add(day.iso);
+      }
+    }
+  }
 
   const kpi: KpiSummary = {
     openRequests: openRequests.filter((r) => r.status === "OPEN").length,
     unassignedCells,
     activeEmployees: employees.length,
+    uesAusweisMinutes,
+    understaffedSlots,
+    understaffedRequired,
+    understaffedPlanned,
     statusLabel: STATUS_LABEL[week.status],
+    restViolationCount,
+    consecutiveWorkStreakKwViolationCount,
+    halfDayOffMissingEmployees,
   };
 
   const requestViews: RequestView[] = openRequests.map((r) => ({
@@ -273,18 +543,28 @@ export default async function PlanningPage({ searchParams }: PageProps) {
         weekdayLabel: d.weekdayLabel,
         shortDate: d.shortDate,
         longDate: d.longDate,
+        understaffed: understaffedDays.has(d.iso),
       }))}
-      employees={employees.map((e) => ({
-        id: e.id,
-        firstName: e.firstName,
-        lastName: e.lastName,
-        roleLabel: e.roleLabel,
-      }))}
+      employees={employees.map((e) => {
+        const pv = planningByEmployee.get(e.id);
+        return {
+          id: e.id,
+          firstName: e.firstName,
+          lastName: e.lastName,
+          roleLabel: e.roleLabel,
+          planningViolationTooltip: pv?.tooltip ?? null,
+          hasPlanningViolations: pv?.hasPlanningViolations ?? false,
+        };
+      })}
       entries={entries}
       services={serviceOptions}
       requests={requestViews}
       kpi={kpi}
       locationName={locationName}
+      weekYear={week.year}
+      weekNumber={week.weekNumber}
+      streakContextsByEmployee={streakFullContextByEmp}
+      holidayIsosForEmployee={holidayIsosForEmployee}
     />
   );
 }

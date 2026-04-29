@@ -6,12 +6,12 @@ import { writeAudit } from "@/lib/audit";
 import { isoDateString, parseIsoDate } from "@/lib/time/week";
 import {
   applyManualBooking,
+  applyUezPayout,
   applyYearEndCarryover,
   deleteBooking,
   DeleteBookingError,
   ManualBookingError,
-  recalcWeekClose as coreRecalcWeekClose,
-  removeWeekClosingBookings as coreRemoveWeekClosingBookings,
+  UezPayoutError,
 } from "@/lib/bookings/core";
 import {
   fieldErrorsFromZod,
@@ -21,54 +21,33 @@ import {
   type ActionResult,
 } from "./_shared";
 
-/**
- * Idempotent recalc of AUTO_WEEKLY bookings for a closed week.
- *
- * Thin wrapper: delegates to `lib/bookings/core` for the DB work and adds
- * the audit log entry on top.
- */
-export async function recalcWeekClose(
-  weekId: string,
-  closedByUserId: string,
-): Promise<void> {
-  const result = await coreRecalcWeekClose(prisma, weekId, closedByUserId);
-
-  await writeAudit({
-    userId: closedByUserId,
-    action: "RECALC_WEEK",
-    entity: "Week",
-    entityId: weekId,
-    newValue: {
-      employeesAffected: result.employeesAffected,
-      bookingsCreated: result.bookingsCreated,
-    },
-  });
-}
-
-export async function removeWeekClosingBookings(
-  weekId: string,
-  reopenedByUserId: string,
-): Promise<void> {
-  const result = await coreRemoveWeekClosingBookings(prisma, weekId);
-
-  await writeAudit({
-    userId: reopenedByUserId,
-    action: "REVERT_RECALC_WEEK",
-    entity: "Week",
-    entityId: weekId,
-    newValue: { bookingsRemoved: result.bookingsRemoved },
-  });
-}
+// Real, persistable accounts per Spec — these can carry an opening balance
+// and accept manual bookings. SONNTAG_FEIERTAG_KOMPENSATION is a fristgebundener
+// offener Fall (Spec): Bewegungen entstehen ausschliesslich aus AUTO_WEEKLY
+// (Wochenabschluss) oder dem expliziten Bezug-Workflow
+// (`server/compensations.ts` → BookingType.COMPENSATION_REDEMPTION). Direkte
+// MANUAL_CREDIT/MANUAL_DEBIT/CORRECTION/OPENING-Buchungen sind dort
+// semantisch falsch und werden hier zurückgewiesen.
+const MANUAL_BOOKING_ACCOUNT_TYPES = [
+  "ZEITSALDO",
+  "FERIEN",
+  "UEZ",
+  "TZT",
+  "PARENTAL_CARE",
+] as const;
 
 const manualBookingSchema = z.object({
   employeeId: z.string().min(1, "Mitarbeitende:r erforderlich"),
-  accountType: z.enum(["ZEITSALDO", "FERIEN", "UEZ", "TZT"]),
+  accountType: z.enum(MANUAL_BOOKING_ACCOUNT_TYPES, {
+    message:
+      "Manuelle Buchung für dieses Konto nicht zulässig. Sonn-/Feiertagskompensation wird automatisch aus dem Wochenabschluss gebildet und über den Bezug-Workflow eingelöst.",
+  }),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Datum ungültig"),
   value: z.coerce.number().refine((v) => v !== 0, {
     message: "Wert darf nicht 0 sein",
   }),
   bookingType: z
-    .enum(["MANUAL_CREDIT", "MANUAL_DEBIT", "CORRECTION"])
+    .enum(["MANUAL_CREDIT", "MANUAL_DEBIT", "CORRECTION", "OPENING"])
     .default("MANUAL_CREDIT"),
   comment: z
     .string()
@@ -107,6 +86,7 @@ export async function manualBookingAction(
   try {
     const result = await applyManualBooking(prisma, {
       employeeId: data.employeeId,
+      tenantId: admin.tenantId,
       accountType: data.accountType,
       date,
       value: data.value,
@@ -126,6 +106,7 @@ export async function manualBookingAction(
         bookingType: data.bookingType,
         value: result.signedValue,
         date: data.date,
+        ...(data.bookingType === "OPENING" ? { isOpening: true } : {}),
       },
       comment: data.comment,
     });
@@ -141,13 +122,91 @@ export async function manualBookingAction(
   }
 }
 
+const uezPayoutSchema = z.object({
+  employeeId: z.string().min(1, "Mitarbeitende:r erforderlich"),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Datum ungültig"),
+  minutes: z.coerce
+    .number()
+    .int("Ganzzahl in Minuten erforderlich")
+    .positive("Minuten müssen grösser als 0 sein"),
+  comment: z
+    .string()
+    .min(3, "Bitte einen Grund angeben")
+    .max(300, "Maximal 300 Zeichen"),
+});
+
+/**
+ * Auszahlung von UEZ-Minuten: eine negative Buchung mit BookingType.UEZ_PAYOUT.
+ */
+export async function payoutUezAction(
+  _prev: ActionResult | undefined,
+  formData: FormData,
+): Promise<ActionResult> {
+  const admin = await requireAdmin();
+
+  const raw = {
+    employeeId: readOptionalString(formData.get("employeeId")) ?? "",
+    date: readOptionalString(formData.get("date")) ?? "",
+    minutes: formData.get("minutes"),
+    comment: readOptionalString(formData.get("comment")) ?? "",
+  };
+
+  const parsed = uezPayoutSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: "Bitte Eingaben prüfen.",
+      fieldErrors: fieldErrorsFromZod(parsed.error),
+    };
+  }
+  const data = parsed.data;
+
+  const date = parseIsoDate(data.date);
+  if (!date) return { ok: false, error: "Datum ungültig." };
+
+  try {
+    const result = await applyUezPayout(prisma, {
+      employeeId: data.employeeId,
+      tenantId: admin.tenantId,
+      date,
+      minutes: data.minutes,
+      comment: data.comment,
+      createdByUserId: admin.id,
+    });
+
+    await writeAudit({
+      userId: admin.id,
+      action: "UEZ_PAYOUT",
+      entity: "Booking",
+      entityId: result.bookingId,
+      newValue: {
+        employeeId: data.employeeId,
+        accountType: "UEZ",
+        bookingType: "UEZ_PAYOUT",
+        value: result.signedValue,
+        date: data.date,
+      },
+      comment: data.comment,
+    });
+
+    safeRevalidatePath("payoutUezAction", "/accounts");
+    safeRevalidatePath("payoutUezAction", "/my-accounts");
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof UezPayoutError) {
+      return { ok: false, error: err.message };
+    }
+    throw err;
+  }
+}
+
 export async function deleteBookingAction(
   bookingId: string,
 ): Promise<ActionResult> {
   const admin = await requireAdmin();
 
   try {
-    const result = await deleteBooking(prisma, bookingId);
+    const result = await deleteBooking(prisma, bookingId, admin.tenantId);
 
     await writeAudit({
       userId: admin.id,
@@ -199,6 +258,7 @@ export async function runYearEndCarryoverAction(
     prisma,
     parsed.data.fromYear,
     admin.id,
+    admin.tenantId,
   );
 
   await writeAudit({

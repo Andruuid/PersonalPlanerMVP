@@ -1,4 +1,10 @@
-import { Coins, PalmtreeIcon, TimerReset } from "lucide-react";
+import {
+  CalendarHeart,
+  Coins,
+  Hourglass,
+  PalmtreeIcon,
+  TimerReset,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { MyAccountValue, MyAccountsView } from "./types";
@@ -13,6 +19,12 @@ interface AccountCardConfig {
   icon: LucideIcon;
   iconClass: string;
   unitLabel: (value: MyAccountValue | null) => string;
+  /**
+   * If true, the card is only rendered when its value is non-null and
+   * non-zero. Used for accounts that are noisy unless actually populated
+   * (e.g. UEZ, Sonn-/Feiertagskompensation).
+   */
+  hideWhenEmpty?: boolean;
 }
 
 function formatMinutesAsHours(minutes: number): string {
@@ -56,6 +68,29 @@ const CARDS: AccountCardConfig[] = [
     iconClass: "bg-violet-100 text-violet-700",
     unitLabel: (v) => (v ? formatTztDays(v.value) : "0.0 Tage"),
   },
+  {
+    key: "uez",
+    label: "Überzeit (UEZ)",
+    icon: Hourglass,
+    iconClass: "bg-amber-100 text-amber-700",
+    unitLabel: (v) => (v ? formatMinutesAsHours(v.value) : "00:00"),
+    hideWhenEmpty: true,
+  },
+  {
+    key: "sonntagFeiertagKompensation",
+    label: "Sonn-/Feiertagskompensation",
+    icon: CalendarHeart,
+    iconClass: "bg-rose-100 text-rose-700",
+    unitLabel: (v) => (v ? formatMinutesAsHours(v.value) : "00:00"),
+    hideWhenEmpty: true,
+  },
+  {
+    key: "parentalCare",
+    label: "Eltern-/Betreuung",
+    icon: PalmtreeIcon,
+    iconClass: "bg-cyan-100 text-cyan-700",
+    unitLabel: (v) => (v ? formatDays(v.value) : "0.0 Tage"),
+  },
 ];
 
 export function AccountsPanel({ accounts }: AccountsPanelProps) {
@@ -73,7 +108,11 @@ export function AccountsPanel({ accounts }: AccountsPanelProps) {
       </header>
 
       <ul className="space-y-2.5">
-        {CARDS.map((card) => {
+        {CARDS.filter((card) => {
+          if (!card.hideWhenEmpty) return true;
+          const v = accounts[card.key];
+          return v !== null && v.value !== 0;
+        }).map((card) => {
           const Icon = card.icon;
           const value = accounts[card.key];
           return (

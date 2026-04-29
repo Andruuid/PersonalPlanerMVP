@@ -29,11 +29,43 @@ const baseSchema = z.object({
     .min(0, "Mindestens 0")
     .max(240, "Maximal 240"),
   comment: z.string().max(120).optional().nullable(),
+  defaultDays: z.coerce
+    .number()
+    .int("Ganzzahl")
+    .min(0, "Mindestens 0")
+    .max(127, "Maximal 127")
+    .optional()
+    .nullable(),
+  requiredCount: z.coerce
+    .number()
+    .int("Ganzzahl")
+    .min(0, "Mindestens 0")
+    .max(50, "Maximal 50")
+    .optional()
+    .nullable(),
   isActive: z.boolean().default(true),
 });
 
 const createSchema = baseSchema;
 const updateSchema = baseSchema.extend({ id: z.string().min(1) });
+
+function readDefaultDaysMask(formData: FormData): number | null {
+  let mask = 0;
+  for (let i = 0; i < 7; i += 1) {
+    if (readBooleanFlag(formData.get(`defaultDay${i}`))) {
+      mask |= 1 << i;
+    }
+  }
+  return mask === 0 ? null : mask;
+}
+
+function readPositiveIntOrNull(value: FormDataEntryValue | null): number | null {
+  const raw = readOptionalString(value);
+  if (raw === null) return null;
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n;
+}
 
 function rawFromForm(formData: FormData): Record<string, unknown> {
   return {
@@ -44,6 +76,8 @@ function rawFromForm(formData: FormData): Record<string, unknown> {
     endTime: readOptionalString(formData.get("endTime")) ?? "",
     breakMinutes: formData.get("breakMinutes"),
     comment: readOptionalString(formData.get("comment")),
+    defaultDays: readDefaultDaysMask(formData),
+    requiredCount: readPositiveIntOrNull(formData.get("requiredCount")),
     isActive: readBooleanFlag(formData.get("isActive")),
   };
 }
@@ -65,7 +99,7 @@ export async function createServiceAction(
   const data = parsed.data;
 
   const dup = await prisma.serviceTemplate.findUnique({
-    where: { code: data.code },
+    where: { tenantId_code: { tenantId: admin.tenantId, code: data.code } },
   });
   if (dup) {
     return {
@@ -78,11 +112,14 @@ export async function createServiceAction(
   const service = await prisma.serviceTemplate.create({
     data: {
       name: data.name,
+      tenantId: admin.tenantId,
       code: data.code,
       startTime: data.startTime,
       endTime: data.endTime,
       breakMinutes: data.breakMinutes,
       comment: data.comment ?? null,
+      defaultDays: data.defaultDays ?? null,
+      requiredCount: data.requiredCount ?? null,
       isActive: data.isActive,
     },
   });
@@ -99,6 +136,8 @@ export async function createServiceAction(
       endTime: service.endTime,
       breakMinutes: service.breakMinutes,
       comment: service.comment,
+      defaultDays: service.defaultDays,
+      requiredCount: service.requiredCount,
       isActive: service.isActive,
     },
   });
@@ -130,10 +169,13 @@ export async function updateServiceAction(
   if (!before) {
     return { ok: false, error: "Dienstvorlage nicht gefunden." };
   }
+  if (before.tenantId !== admin.tenantId) {
+    return { ok: false, error: "Kein Zugriff auf diese Dienstvorlage." };
+  }
 
   if (before.code !== data.code) {
     const dup = await prisma.serviceTemplate.findUnique({
-      where: { code: data.code },
+      where: { tenantId_code: { tenantId: admin.tenantId, code: data.code } },
     });
     if (dup && dup.id !== data.id) {
       return {
@@ -153,6 +195,8 @@ export async function updateServiceAction(
       endTime: data.endTime,
       breakMinutes: data.breakMinutes,
       comment: data.comment ?? null,
+      defaultDays: data.defaultDays ?? null,
+      requiredCount: data.requiredCount ?? null,
       isActive: data.isActive,
     },
   });
@@ -169,6 +213,8 @@ export async function updateServiceAction(
       endTime: before.endTime,
       breakMinutes: before.breakMinutes,
       comment: before.comment,
+      defaultDays: before.defaultDays,
+      requiredCount: before.requiredCount,
       isActive: before.isActive,
     },
     newValue: {
@@ -178,6 +224,8 @@ export async function updateServiceAction(
       endTime: updated.endTime,
       breakMinutes: updated.breakMinutes,
       comment: updated.comment,
+      defaultDays: updated.defaultDays,
+      requiredCount: updated.requiredCount,
       isActive: updated.isActive,
     },
   });
@@ -198,6 +246,9 @@ export async function setServiceActiveAction(
   });
   if (!before) {
     return { ok: false, error: "Dienstvorlage nicht gefunden." };
+  }
+  if (before.tenantId !== admin.tenantId) {
+    return { ok: false, error: "Kein Zugriff auf diese Dienstvorlage." };
   }
 
   const updated = await prisma.serviceTemplate.update({

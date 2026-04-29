@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/server/_shared";
 import { PageHeader } from "@/components/admin/page-header";
 import {
   ServicesTable,
@@ -8,7 +9,9 @@ import {
 export const metadata = { title: "Dienste · PersonalPlaner" };
 
 export default async function ServicesPage() {
+  const admin = await requireAdmin();
   const services = await prisma.serviceTemplate.findMany({
+    where: { tenantId: admin.tenantId },
     orderBy: [{ isActive: "desc" }, { name: "asc" }],
   });
 
@@ -20,6 +23,8 @@ export default async function ServicesPage() {
     endTime: s.endTime,
     breakMinutes: s.breakMinutes,
     comment: s.comment,
+    defaultDays: s.defaultDays,
+    requiredCount: s.requiredCount,
     isActive: s.isActive,
   }));
 

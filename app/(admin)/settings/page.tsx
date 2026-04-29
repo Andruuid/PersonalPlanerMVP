@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/server/_shared";
 import { isoDateString } from "@/lib/time/week";
 import { PageHeader } from "@/components/admin/page-header";
 import {
@@ -18,6 +19,7 @@ import {
   HolidaysList,
   type HolidayRow,
 } from "@/components/admin/settings/holidays-list";
+import { BusinessDataCard } from "@/components/admin/settings/business-data-card";
 
 export const metadata = { title: "Einstellungen · PersonalPlaner" };
 
@@ -36,9 +38,11 @@ interface PageProps {
 }
 
 export default async function SettingsPage({ searchParams }: PageProps) {
+  const admin = await requireAdmin();
   const params = await searchParams;
 
   const locations = await prisma.location.findMany({
+    where: { tenantId: admin.tenantId, deletedAt: null },
     orderBy: { name: "asc" },
     include: {
       _count: { select: { employees: true, holidays: true } },
@@ -70,6 +74,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
     const yearEnd = new Date(Date.UTC(selectedYear + 1, 0, 1));
     const holidays = await prisma.holiday.findMany({
       where: {
+        tenantId: admin.tenantId,
         locationId: selectedLocationId,
         date: { gte: yearStart, lt: yearEnd },
       },
@@ -87,6 +92,19 @@ export default async function SettingsPage({ searchParams }: PageProps) {
 
   const selectedLocation = locations.find((l) => l.id === selectedLocationId);
 
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: admin.tenantId },
+    select: {
+      defaultStandardWorkDays: true,
+      defaultWeeklyTargetMinutes: true,
+      defaultHazMinutesPerWeek: true,
+      zeitsaldoMinLimitMinutes: true,
+      uezPayoutPolicy: true,
+      ertDueDays: true,
+      compensationDueDays: true,
+    },
+  });
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -96,6 +114,21 @@ export default async function SettingsPage({ searchParams }: PageProps) {
       />
 
       <LocationsCard locations={locationRows} />
+
+      <BusinessDataCard
+        defaultStandardWorkDays={tenant?.defaultStandardWorkDays ?? 5}
+        defaultWeeklyTargetMinutes={tenant?.defaultWeeklyTargetMinutes ?? 2520}
+        defaultHazMinutesPerWeek={tenant?.defaultHazMinutesPerWeek ?? 2700}
+        zeitsaldoMinLimitMinutes={tenant?.zeitsaldoMinLimitMinutes ?? null}
+        uezPayoutPolicy={
+          (tenant?.uezPayoutPolicy === "WITH_NOTICE" ||
+          tenant?.uezPayoutPolicy === "BLOCKED"
+            ? tenant.uezPayoutPolicy
+            : "ALLOWED") as "ALLOWED" | "WITH_NOTICE" | "BLOCKED"
+        }
+        ertDueDays={tenant?.ertDueDays ?? 28}
+        compensationDueDays={tenant?.compensationDueDays ?? 180}
+      />
 
       <Card>
         <CardHeader>

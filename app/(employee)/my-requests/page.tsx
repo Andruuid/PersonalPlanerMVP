@@ -9,6 +9,8 @@ import {
   type MyRequestView,
   type RequestStatus,
 } from "@/components/employee/types";
+import type { PrivacyRequestStatus } from "@/lib/generated/prisma/enums";
+import { PrivacyErasureButton } from "@/components/employee/privacy-erasure-button";
 
 export const metadata = { title: "Meine Anträge · PersonalPlaner" };
 
@@ -32,13 +34,25 @@ export default async function MyRequestsPage() {
     );
   }
 
-  const employee = await prisma.employee.findUnique({
-    where: { id: session.user.employeeId },
+  const employee = await prisma.employee.findFirst({
+    where: {
+      id: session.user.employeeId,
+      tenantId: session.user.tenantId,
+      deletedAt: null,
+    },
     select: { id: true, firstName: true, lastName: true },
   });
   if (!employee) redirect("/login");
 
-  const all = await loadMyRequests(employee.id);
+  const [all, privacyRequests] = await Promise.all([
+    loadMyRequests(session.user, employee.id),
+    prisma.privacyRequest.findMany({
+      where: { employeeId: employee.id, tenantId: session.user.tenantId },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      select: { id: true, type: true, status: true, createdAt: true },
+    }),
+  ]);
   const groups = groupByStatus(all);
 
   return (
@@ -68,6 +82,53 @@ export default async function MyRequestsPage() {
             </p>
           </header>
           <RequestStack variant="inline" />
+        </section>
+
+        <section className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
+          <header className="mb-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-700">
+              Datenschutz (DSGVO/DSG)
+            </h2>
+            <p className="text-xs text-neutral-500">
+              Exportiere deine gespeicherten Daten oder stelle einen Löschantrag.
+            </p>
+          </header>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href="/api/dsgvo/export"
+              className="inline-flex items-center rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50"
+            >
+              Daten-Auskunft exportieren
+            </a>
+            <PrivacyErasureButton />
+          </div>
+          {privacyRequests.length > 0 ? (
+            <ul className="mt-4 space-y-2 border-t border-neutral-100 pt-3">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-neutral-500">
+                Deine Datenschutz-Anfragen
+              </p>
+              {privacyRequests.map((pr) => (
+                <li
+                  key={pr.id}
+                  className="flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-700"
+                >
+                  <span>
+                    {pr.type === "ERASURE"
+                      ? "Löschantrag"
+                      : "Auskunfts-Anfrage"}{" "}
+                    · {privacyStatusLabel(pr.status)}
+                  </span>
+                  <span className="text-neutral-500">
+                    {pr.createdAt.toLocaleDateString("de-CH", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                    })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </section>
 
         <div className="space-y-6">
@@ -113,5 +174,22 @@ function emptyHintFor(status: RequestStatus): string {
       return "Noch keine genehmigten Anträge.";
     case "REJECTED":
       return "Bisher wurde kein Antrag abgelehnt.";
+  }
+}
+
+function privacyStatusLabel(status: PrivacyRequestStatus): string {
+  switch (status) {
+    case "OPEN":
+      return "Offen";
+    case "APPROVED":
+      return "Genehmigt";
+    case "REJECTED":
+      return "Abgelehnt";
+    case "COMPLETED":
+      return "Erledigt";
+    default: {
+      const _exhaustive: never = status;
+      return _exhaustive;
+    }
   }
 }

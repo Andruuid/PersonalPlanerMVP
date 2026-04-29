@@ -1,0 +1,1 @@
+-- PlanEntryKind HALF_DAY_OFF: SQLite stores `PlanEntry.kind` as TEXT; no DDL change.

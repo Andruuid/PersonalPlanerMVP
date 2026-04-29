@@ -18,10 +18,12 @@ import {
 } from "@/server/locations";
 import type { ActionResult } from "@/server/_shared";
 
+export type HolidayConfession = "EVANGELISCH" | "KATHOLISCH";
+
 export interface LocationFormDefaults {
   id?: string;
   name: string;
-  holidayRegionCode: string;
+  holidayRegionCode: HolidayConfession;
 }
 
 interface Props {
@@ -94,20 +96,21 @@ export function LocationForm({ mode, defaults, onSuccess }: Props) {
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="holidayRegionCode">Feiertagsregion</Label>
-        <Input
+        <Label htmlFor="holidayRegionCode">Konfession</Label>
+        <select
           id="holidayRegionCode"
           name="holidayRegionCode"
           defaultValue={defaults.holidayRegionCode}
           required
-          maxLength={4}
-          placeholder="LU"
-          style={{ textTransform: "uppercase" }}
-        />
+          className="flex h-9 w-full rounded-md border border-neutral-300 bg-white px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900"
+        >
+          <option value="EVANGELISCH">Evangelisch</option>
+          <option value="KATHOLISCH">Katholisch</option>
+        </select>
         <p className="text-xs text-neutral-500">
-          Kantonskürzel (z. B. LU, ZH, BE, BS). Für LU, ZH, BE und BS sind
-          Feiertagsregeln im Generator hinterlegt; sonst wird wie bei LU
-          gerechnet.
+          Bestimmt den Feiertagskalender: beide Varianten umfassen die
+          eidgenössischen Tage und den 1. August. Katholisch ergänzt
+          Fronleichnam, Mariä Himmelfahrt, Allerheiligen und Mariä Empfängnis.
         </p>
         {fieldErr.holidayRegionCode ? (
           <p className="text-xs text-rose-700">{fieldErr.holidayRegionCode}</p>

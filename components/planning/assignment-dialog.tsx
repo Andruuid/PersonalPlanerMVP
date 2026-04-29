@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { HelpIconTooltip } from "@/components/ui/help-icon-tooltip";
 import {
   Dialog,
   DialogClose,
@@ -19,18 +20,24 @@ import {
   upsertPlanEntryAction,
   deletePlanEntryAction,
 } from "@/server/planning";
+import type { PlanEntryByDate } from "@/lib/time/balance";
+import { wouldConsecutiveWorkViolationOnUpsert } from "@/lib/time/rest-checks";
 import type { ServiceOption, PlanEntryView } from "./types";
 
 interface AssignmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   weekId: string;
+  weekYear: number;
+  weekNumber: number;
   employeeName: string;
   employeeId: string;
   isoDate: string;
   longDate: string;
   services: ServiceOption[];
   initialEntry: PlanEntryView | null;
+  streakContextEntries: PlanEntryByDate[];
+  holidayIsos: string[];
 }
 
 interface AssignmentFormProps
@@ -38,7 +45,12 @@ interface AssignmentFormProps
   onClose: () => void;
 }
 
-type Tab = "SHIFT" | "ONE_TIME_SHIFT" | "ABSENCE";
+type Tab =
+  | "SHIFT"
+  | "ONE_TIME_SHIFT"
+  | "ABSENCE"
+  | "HALF_DAY_OFF"
+  | "VFT";
 
 const ABSENCE_OPTIONS: Array<{
   value: NonNullable<UpsertPlanEntryInput & { kind: "ABSENCE" }>["absenceType"];
@@ -46,12 +58,90 @@ const ABSENCE_OPTIONS: Array<{
 }> = [
   { value: "VACATION", label: "Ferien" },
   { value: "FREE_REQUESTED", label: "Frei verlangt" },
+  { value: "UEZ_BEZUG", label: "UEZ-Bezug" },
   { value: "TZT", label: "TZT" },
   { value: "SICK", label: "Krank" },
   { value: "ACCIDENT", label: "Unfall" },
   { value: "UNPAID", label: "Unbezahlter Urlaub" },
+  { value: "PARENTAL_CARE", label: "Eltern-/Betreuungsurlaub" },
+  { value: "MILITARY_SERVICE", label: "Militärdienst" },
+  { value: "CIVIL_PROTECTION_SERVICE", label: "Zivilschutz" },
+  { value: "CIVIL_SERVICE", label: "Zivildienst" },
   { value: "HOLIDAY_AUTO", label: "Feiertag" },
 ];
+
+function timeParts(value: string): [number, number] {
+  const [h, m] = value.split(":").map((p) => Number.parseInt(p, 10));
+  return [Number.isFinite(h) ? h : 0, Number.isFinite(m) ? m : 0];
+}
+
+function grossShiftMinutes(start: string, end: string, breakM: number): number {
+  const [sh, sm] = timeParts(start);
+  const [eh, em] = timeParts(end);
+  const s = sh * 60 + sm;
+  const e = eh * 60 + em;
+  const span = e >= s ? e - s : 24 * 60 - s + e;
+  return Math.max(0, span - breakM);
+}
+
+function buildUpsertHypothesis(args: {
+  tab: Tab;
+  isoDate: string;
+  serviceId: string;
+  services: ServiceOption[];
+  oneTimeStart: string;
+  oneTimeEnd: string;
+  oneTimeBreakMinutes: number;
+}): PlanEntryByDate | null {
+  const {
+    tab,
+    isoDate,
+    serviceId,
+    services,
+    oneTimeStart,
+    oneTimeEnd,
+    oneTimeBreakMinutes,
+  } = args;
+  if (tab === "SHIFT") {
+    const svc = services.find((s) => s.id === serviceId);
+    if (!svc) return null;
+    return {
+      date: isoDate,
+      kind: "SHIFT",
+      absenceType: null,
+      plannedMinutes: grossShiftMinutes(
+        svc.startTime,
+        svc.endTime,
+        svc.breakMinutes,
+      ),
+      shiftStartTime: svc.startTime,
+      shiftEndTime: svc.endTime,
+    };
+  }
+  if (tab === "ONE_TIME_SHIFT") {
+    return {
+      date: isoDate,
+      kind: "ONE_TIME_SHIFT",
+      absenceType: null,
+      plannedMinutes: grossShiftMinutes(
+        oneTimeStart,
+        oneTimeEnd,
+        oneTimeBreakMinutes,
+      ),
+      shiftStartTime: oneTimeStart,
+      shiftEndTime: oneTimeEnd,
+    };
+  }
+  if (tab === "HALF_DAY_OFF") {
+    return {
+      date: isoDate,
+      kind: "HALF_DAY_OFF",
+      absenceType: null,
+      plannedMinutes: 240,
+    };
+  }
+  return null;
+}
 
 export function AssignmentDialog(props: AssignmentDialogProps) {
   const { open, onOpenChange } = props;
@@ -73,17 +163,30 @@ export function AssignmentDialog(props: AssignmentDialogProps) {
   );
 }
 
+function initialPlannerTab(entry: PlanEntryView | null): Tab {
+  const k = entry?.kind;
+  if (k === "HALF_DAY_OFF") return "HALF_DAY_OFF";
+  if (k === "ONE_TIME_SHIFT") return "ONE_TIME_SHIFT";
+  if (k === "ABSENCE") return "ABSENCE";
+  if (k === "VFT") return "VFT";
+  return "SHIFT";
+}
+
 function AssignmentForm({
   weekId,
+  weekYear,
+  weekNumber,
   employeeId,
   employeeName,
   isoDate,
   longDate,
   services,
   initialEntry,
+  streakContextEntries,
+  holidayIsos,
   onClose,
 }: AssignmentFormProps) {
-  const [tab, setTab] = useState<Tab>(initialEntry?.kind ?? "SHIFT");
+  const [tab, setTab] = useState<Tab>(() => initialPlannerTab(initialEntry));
   const [serviceId, setServiceId] = useState<string>(
     initialEntry?.serviceTemplateId ?? services[0]?.id ?? "",
   );
@@ -100,11 +203,63 @@ function AssignmentForm({
     initialEntry?.oneTimeLabel ?? "",
   );
   const [absence, setAbsence] = useState<
-    "VACATION" | "SICK" | "ACCIDENT" | "FREE_REQUESTED" | "UNPAID" | "TZT" | "HOLIDAY_AUTO"
+    | "VACATION"
+    | "SICK"
+    | "ACCIDENT"
+    | "FREE_REQUESTED"
+    | "UEZ_BEZUG"
+    | "UNPAID"
+    | "TZT"
+    | "PARENTAL_CARE"
+    | "MILITARY_SERVICE"
+    | "CIVIL_PROTECTION_SERVICE"
+    | "CIVIL_SERVICE"
+    | "HOLIDAY_AUTO"
   >(initialEntry?.absenceType ?? "VACATION");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [deletePending, startDeleteTransition] = useTransition();
+
+  const holidayLookup = useMemo(
+    () => ({
+      has: (d: string) => holidayIsos.includes(d),
+      nameOf: () => null as string | null,
+    }),
+    [holidayIsos],
+  );
+
+  const consecutiveStreakSaveRisk = useMemo(() => {
+    const hyp = buildUpsertHypothesis({
+      tab,
+      isoDate,
+      serviceId,
+      services,
+      oneTimeStart,
+      oneTimeEnd,
+      oneTimeBreakMinutes: oneTimeBreak,
+    });
+    if (!hyp) return false;
+    return wouldConsecutiveWorkViolationOnUpsert(
+      streakContextEntries,
+      weekYear,
+      weekNumber,
+      isoDate,
+      hyp,
+      holidayLookup,
+    );
+  }, [
+    tab,
+    isoDate,
+    serviceId,
+    services,
+    oneTimeStart,
+    oneTimeEnd,
+    oneTimeBreak,
+    streakContextEntries,
+    weekYear,
+    weekNumber,
+    holidayLookup,
+  ]);
 
   function handleSubmit() {
     setError(null);
@@ -136,13 +291,27 @@ function AssignmentForm({
         oneTimeBreakMinutes: oneTimeBreak,
         oneTimeLabel,
       };
-    } else {
+    } else if (tab === "ABSENCE") {
       payload = {
         kind: "ABSENCE",
         weekId,
         employeeId,
         date: isoDate,
         absenceType: absence,
+      };
+    } else if (tab === "HALF_DAY_OFF") {
+      payload = {
+        kind: "HALF_DAY_OFF",
+        weekId,
+        employeeId,
+        date: isoDate,
+      };
+    } else {
+      payload = {
+        kind: "VFT",
+        weekId,
+        employeeId,
+        date: isoDate,
       };
     }
 
@@ -151,6 +320,9 @@ function AssignmentForm({
         const result = await upsertPlanEntryAction(payload);
         if (result.ok) {
           toast.success("Eintrag gespeichert.");
+          if (result.data?.autoRepublished) {
+            toast.info("Plan wurde automatisch neu veröffentlicht.");
+          }
           onClose();
         } else {
           setError(result.error);
@@ -194,7 +366,7 @@ function AssignmentForm({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex gap-2 rounded-full bg-neutral-100 p-1 text-sm">
+        <div className="flex flex-wrap gap-2 rounded-full bg-neutral-100 p-1 text-sm">
           <TabButton active={tab === "SHIFT"} onClick={() => setTab("SHIFT")}>
             Dienstvorlage
           </TabButton>
@@ -210,11 +382,24 @@ function AssignmentForm({
           >
             Abwesenheit
           </TabButton>
+          <TabButton
+            active={tab === "HALF_DAY_OFF"}
+            onClick={() => setTab("HALF_DAY_OFF")}
+          >
+            Freier Halbtag
+          </TabButton>
+          <TabButton active={tab === "VFT"} onClick={() => setTab("VFT")}>
+            VFT
+          </TabButton>
         </div>
 
         {tab === "SHIFT" ? (
           <div className="space-y-2">
-            <Label htmlFor="serviceId">Dienstvorlage</Label>
+            <LabelWithHelp
+              htmlFor="serviceId"
+              label="Dienstvorlage"
+              tooltip="Übernimmt Start, Ende und Pause aus der hinterlegten Vorlage."
+            />
             <select
               id="serviceId"
               value={serviceId}
@@ -242,7 +427,11 @@ function AssignmentForm({
         {tab === "ONE_TIME_SHIFT" ? (
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 space-y-1.5">
-              <Label htmlFor="oneTimeLabel">Bezeichnung</Label>
+              <LabelWithHelp
+                htmlFor="oneTimeLabel"
+                label="Bezeichnung"
+                tooltip="Freie Bezeichnung für den einmaligen Einsatz, z. B. Inventur."
+              />
               <Input
                 id="oneTimeLabel"
                 value={oneTimeLabel}
@@ -251,7 +440,11 @@ function AssignmentForm({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="oneTimeStart">Start</Label>
+              <LabelWithHelp
+                htmlFor="oneTimeStart"
+                label="Start"
+                tooltip="Startzeit des einmaligen Dienstes."
+              />
               <Input
                 id="oneTimeStart"
                 type="time"
@@ -260,7 +453,11 @@ function AssignmentForm({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="oneTimeEnd">Ende</Label>
+              <LabelWithHelp
+                htmlFor="oneTimeEnd"
+                label="Ende"
+                tooltip="Endzeit des einmaligen Dienstes."
+              />
               <Input
                 id="oneTimeEnd"
                 type="time"
@@ -269,7 +466,11 @@ function AssignmentForm({
               />
             </div>
             <div className="col-span-2 space-y-1.5">
-              <Label htmlFor="oneTimeBreak">Pause (Minuten)</Label>
+              <LabelWithHelp
+                htmlFor="oneTimeBreak"
+                label="Pause (Minuten)"
+                tooltip="Unbezahlte Pause in Minuten; reduziert die geplante Arbeitszeit."
+              />
               <Input
                 id="oneTimeBreak"
                 type="number"
@@ -286,7 +487,11 @@ function AssignmentForm({
 
         {tab === "ABSENCE" ? (
           <div className="space-y-2">
-            <Label htmlFor="absence">Abwesenheitstyp</Label>
+            <LabelWithHelp
+              htmlFor="absence"
+              label="Abwesenheitstyp"
+              tooltip="Bestimmt die Kontologik, z. B. Ferienabbau, Sollzeitwirkung oder Zeitsaldo-Effekt."
+            />
             <select
               id="absence"
               value={absence}
@@ -297,8 +502,13 @@ function AssignmentForm({
                     | "SICK"
                     | "ACCIDENT"
                     | "FREE_REQUESTED"
+                    | "UEZ_BEZUG"
                     | "UNPAID"
                     | "TZT"
+                    | "PARENTAL_CARE"
+                    | "MILITARY_SERVICE"
+                    | "CIVIL_PROTECTION_SERVICE"
+                    | "CIVIL_SERVICE"
                     | "HOLIDAY_AUTO",
                 )
               }
@@ -311,6 +521,30 @@ function AssignmentForm({
               ))}
             </select>
           </div>
+        ) : null}
+
+        {tab === "HALF_DAY_OFF" ? (
+          <div className="rounded-md bg-neutral-50 px-3 py-2 text-sm text-neutral-700 ring-1 ring-neutral-200">
+            Freier Halbtag (Pflicht bei Verteilung der Arbeit über mehr als
+            fünf Tage pro Woche). Geplante Arbeitszeit ca. eine Hälfte eines
+            vollen Tags; Soll entsprechend halbiert gebucht.
+          </div>
+        ) : null}
+
+        {tab === "VFT" ? (
+          <div className="rounded-md bg-neutral-50 px-3 py-2 text-sm text-neutral-700 ring-1 ring-neutral-200">
+            Verschobener freier Tag (VFT): reiner Planungstyp ohne Kontobuchung.
+          </div>
+        ) : null}
+
+        {consecutiveStreakSaveRisk &&
+        (tab === "SHIFT" || tab === "ONE_TIME_SHIFT") ? (
+          <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-950 ring-1 ring-amber-200">
+            <strong>Hinweis Arbeitstage:</strong> Mit diesem Eintrag liegt an
+            diesem Tag bereits der <strong>siebte Arbeitstag in Folge</strong>{" "}
+            (ohne Pause der erforderlichen Länge) — prüfen Sie die Reihe gegen die
+            Vorgabe max. sechs Arbeitstage in Folge.
+          </p>
         ) : null}
 
         {error ? (
@@ -370,5 +604,22 @@ function TabButton({
     >
       {children}
     </button>
+  );
+}
+
+function LabelWithHelp({
+  htmlFor,
+  label,
+  tooltip,
+}: {
+  htmlFor: string;
+  label: string;
+  tooltip: string;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <Label htmlFor={htmlFor}>{label}</Label>
+      <HelpIconTooltip text={tooltip} contentClassName="max-w-72 normal-case" />
+    </div>
   );
 }
