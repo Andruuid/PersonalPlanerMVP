@@ -1,10 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { autoClosePastPublishedWeeksForAllTenants } from "@/lib/cron/auto-close-past-weeks";
+import {
+  autoClosePastPublishedWeeksForAllTenants,
+  autoFinalizePastDraftWeeksForAllTenants,
+} from "@/lib/cron/auto-close-past-weeks";
 
 /**
- * Cron: täglich vergangene veröffentlichte Wochen automatisch abschließen (`GET`).
- * Ruft `recalcWeekClose`, setzt `CLOSED`/`closedAt`, schreibt Audit `AUTO_CLOSE`.
+ * Cron: täglich vergangene PUBLISHED-Wochen abschließen und vergangene
+ * DRAFT-Wochen mit Planungen finalisieren (`GET`).
+ * PUBLISHED: `recalcWeekClose`, `CLOSED`/`closedAt`, Audit `AUTO_CLOSE`.
+ * DRAFT: leer → Audit `AUTO_CLOSE_SKIPPED_EMPTY`; sonst recalc + `CLOSED`,
+ * Audit `AUTO_CLOSE_FROM_DRAFT`.
  * Aufruf z. B. via Netlify Scheduled Function mit `Authorization: Bearer <CRON_SECRET>`.
  */
 export async function GET(request: NextRequest) {
@@ -18,20 +24,25 @@ export async function GET(request: NextRequest) {
   }
 
   const asOf = new Date();
-  const result = await autoClosePastPublishedWeeksForAllTenants(prisma, asOf);
+  const published = await autoClosePastPublishedWeeksForAllTenants(prisma, asOf);
+  const draft = await autoFinalizePastDraftWeeksForAllTenants(prisma, asOf);
+
+  const errors = [...published.errors, ...draft.errors];
 
   console.log(
-    `[cron/auto-close] weeksClosed=${result.weeksClosed} tenantsProcessed=${result.tenantsProcessed}`,
+    `[cron/auto-close] publishedWeeksClosed=${published.weeksClosed} draftWeeksClosed=${draft.weeksClosedFromDraft} draftWeeksSkippedEmpty=${draft.weeksSkippedEmpty} tenantsProcessed=${published.tenantsProcessed}`,
   );
-  if (result.errors.length > 0) {
-    console.warn("[cron/auto-close] errors:", result.errors);
+  if (errors.length > 0) {
+    console.warn("[cron/auto-close] errors:", errors);
   }
 
   return NextResponse.json({
     ok: true,
-    weeksClosed: result.weeksClosed,
-    tenantsProcessed: result.tenantsProcessed,
+    tenantsProcessed: published.tenantsProcessed,
+    publishedWeeksClosed: published.weeksClosed,
+    draftWeeksClosed: draft.weeksClosedFromDraft,
+    draftWeeksSkippedEmpty: draft.weeksSkippedEmpty,
     processedAt: asOf.toISOString(),
-    errors: result.errors.length > 0 ? result.errors : undefined,
+    errors: errors.length > 0 ? errors : undefined,
   });
 }
