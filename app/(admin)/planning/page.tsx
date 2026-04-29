@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { format, parse as parseFns } from "date-fns";
 import { prisma } from "@/lib/db";
 import {
   currentIsoWeek,
@@ -22,9 +22,8 @@ import {
   shiftKeyForServiceCode,
   type ShiftKey,
 } from "@/lib/shift-style";
-import { computeWeeklyBalance } from "@/lib/time/balance";
+import { computeWeeklyBalance, type WeeklyComputation } from "@/lib/time/balance";
 import { buildHolidayLookup } from "@/lib/time/holidays";
-import type { PlanEntryByDate } from "@/lib/time/balance";
 import { requireAdmin } from "@/server/_shared";
 import {
   hasCoverageRequirement,
@@ -145,6 +144,32 @@ function entryView(raw: {
   };
   view.subtitle = buildSubtitle(view);
   return view;
+}
+
+function fmtGapMinutesRest(m: number): string {
+  const h = Math.floor(m / 60);
+  const min = m % 60;
+  if (min === 0) return `${h}h`;
+  return `${h}h ${min}min`;
+}
+
+function formatRestViolationTooltip(c: WeeklyComputation): string | null {
+  const lines: string[] = [];
+  for (const v of c.dailyRestViolations) {
+    const ddmm = parseFns(v.date, "yyyy-MM-dd", new Date());
+    const dl = Number.isNaN(ddmm.getTime())
+      ? v.date
+      : format(ddmm, "dd.MM.");
+    lines.push(
+      `Tägliche Ruhezeit: am ${dl} nur ${fmtGapMinutesRest(v.gapMinutes)} zwischen den Schichten (mind. 11h).`,
+    );
+  }
+  if (!c.weeklyRestOk) {
+    lines.push(
+      `Wöchentliche Ruhezeit: längste zusammenhängende Ruhe ${fmtGapMinutesRest(c.weeklyRestLongestGapMinutes)} (mind. 35h).`,
+    );
+  }
+  return lines.length ? lines.join("\n") : null;
 }
 
 function rangeLabel(startDate: Date, endDate: Date): string {
@@ -273,15 +298,36 @@ export default async function PlanningPage({ searchParams }: PageProps) {
   const entriesByEmployee = new Map<string, PlanEntryByDate[]>();
   for (const e of planEntries) {
     const list = entriesByEmployee.get(e.employeeId) ?? [];
+    const shiftStartTime =
+      e.kind === "SHIFT" && e.serviceTemplate
+        ? e.serviceTemplate.startTime
+        : e.kind === "ONE_TIME_SHIFT"
+          ? e.oneTimeStart
+          : null;
+    const shiftEndTime =
+      e.kind === "SHIFT" && e.serviceTemplate
+        ? e.serviceTemplate.endTime
+        : e.kind === "ONE_TIME_SHIFT"
+          ? e.oneTimeEnd
+          : null;
     list.push({
       date: isoDateString(e.date),
       kind: e.kind,
       absenceType: e.absenceType ?? null,
       plannedMinutes: e.plannedMinutes,
+      shiftStartTime,
+      shiftEndTime,
     });
     entriesByEmployee.set(e.employeeId, list);
   }
-  const uesAusweisMinutes = employees.reduce((acc, employee) => {
+
+  const restByEmployee = new Map<
+    string,
+    { tooltip: string | null; hasRestViolations: boolean }
+  >();
+  let uesAusweisMinutes = 0;
+  let restViolationCount = 0;
+  for (const employee of employees) {
     const result = computeWeeklyBalance(
       week.year,
       week.weekNumber,
@@ -293,8 +339,16 @@ export default async function PlanningPage({ searchParams }: PageProps) {
         tztModel: employee.tztModel,
       },
     );
-    return acc + result.weeklyUesAusweisMinutes;
-  }, 0);
+    uesAusweisMinutes += result.weeklyUesAusweisMinutes;
+    restViolationCount +=
+      result.dailyRestViolations.length + (result.weeklyRestOk ? 0 : 1);
+    const hasRestViolations =
+      result.dailyRestViolations.length > 0 || !result.weeklyRestOk;
+    restByEmployee.set(employee.id, {
+      tooltip: formatRestViolationTooltip(result),
+      hasRestViolations,
+    });
+  }
 
   // Coverage analysis: compare ServiceTemplate.requiredCount per weekday flagged
   // by `defaultDays` against the planned SHIFT entries for that template + day.
@@ -332,6 +386,7 @@ export default async function PlanningPage({ searchParams }: PageProps) {
     understaffedRequired,
     understaffedPlanned,
     statusLabel: STATUS_LABEL[week.status],
+    restViolationCount,
   };
 
   const requestViews: RequestView[] = openRequests.map((r) => ({
@@ -378,12 +433,17 @@ export default async function PlanningPage({ searchParams }: PageProps) {
         longDate: d.longDate,
         understaffed: understaffedDays.has(d.iso),
       }))}
-      employees={employees.map((e) => ({
-        id: e.id,
-        firstName: e.firstName,
-        lastName: e.lastName,
-        roleLabel: e.roleLabel,
-      }))}
+      employees={employees.map((e) => {
+        const rest = restByEmployee.get(e.id);
+        return {
+          id: e.id,
+          firstName: e.firstName,
+          lastName: e.lastName,
+          roleLabel: e.roleLabel,
+          restViolationTooltip: rest?.tooltip ?? null,
+          hasRestViolations: rest?.hasRestViolations ?? false,
+        };
+      })}
       entries={entries}
       services={serviceOptions}
       requests={requestViews}

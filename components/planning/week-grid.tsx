@@ -1,7 +1,13 @@
 "use client";
 
+import { AlertTriangle } from "lucide-react";
 import { GridCell } from "./grid-cell";
 import { entryKey, type DayView, type EmployeeView, type EntryMap } from "./types";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface WeekGridProps {
   employees: EmployeeView[];
@@ -97,14 +103,36 @@ function RowFragment({
 }: RowFragmentProps) {
   return (
     <>
-      <div className="flex min-w-0 flex-col justify-center">
-        <p className="truncate font-medium text-neutral-900">
-          {employee.firstName} {employee.lastName}
-        </p>
-        {employee.roleLabel ? (
-          <p className="truncate text-xs text-neutral-500">
-            {employee.roleLabel}
+      <div className="flex min-w-0 items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium text-neutral-900">
+            {employee.firstName} {employee.lastName}
           </p>
+          {employee.roleLabel ? (
+            <p className="truncate text-xs text-neutral-500">
+              {employee.roleLabel}
+            </p>
+          ) : null}
+        </div>
+        {employee.hasRestViolations ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label="Ruhezeit: Hinweis anzeigen"
+                className="mt-0.5 shrink-0 rounded p-0.5 text-amber-600 hover:bg-amber-50 hover:text-amber-800 focus-visible:outline focus-visible:ring-2 focus-visible:ring-amber-400"
+              >
+                <AlertTriangle className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent
+              side="top"
+              className="max-w-xs whitespace-pre-line text-left text-sm"
+            >
+              {employee.restViolationTooltip ??
+                "Ruhezeit gemäß ArG eingeschränkt (mind. 11h tägl. / 35h wöchentl.)."}
+            </TooltipContent>
+          </Tooltip>
         ) : null}
       </div>
       {days.map((day) => {

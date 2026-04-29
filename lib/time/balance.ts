@@ -1,4 +1,5 @@
-import { isoDateString, isoWeekDays } from "./week";
+import { addDays } from "date-fns";
+import { isoDateString, isoWeekDays, startOfIsoWeek } from "./week";
 import {
   resolveDayFromEntries,
   type PlanEntryInput,
@@ -18,6 +19,12 @@ import {
 } from "./overtime";
 import { parentalCareDaysDebit, vacationDaysDebit } from "./vacation";
 import type { HolidayLookup } from "./holidays";
+import {
+  buildIntervalsFromEntries,
+  type PlanEntryWithShiftTimes,
+  validateDailyRest,
+  validateWeeklyRest,
+} from "./rest-checks";
 
 export interface DayComputation {
   iso: string;
@@ -49,6 +56,9 @@ export interface WeeklyComputation {
   weeklyUezDeltaMinutes: number;
   vacationDaysDebit: number;
   parentalCareDaysDebit: number;
+  dailyRestViolations: Array<{ date: string; gapMinutes: number }>;
+  weeklyRestOk: boolean;
+  weeklyRestLongestGapMinutes: number;
 }
 
 export interface EmployeeWeekConfig {
@@ -58,9 +68,8 @@ export interface EmployeeWeekConfig {
   standardWorkDays?: number;
 }
 
-export interface PlanEntryByDate extends PlanEntryInput {
-  date: string;
-}
+/** Plan row for Zeitlogik; optional shift times enable Ruhezeit-Checks. */
+export type PlanEntryByDate = PlanEntryWithShiftTimes;
 
 function isWeekendIso(iso: string): boolean {
   const date = new Date(`${iso}T00:00:00Z`);
@@ -154,6 +163,12 @@ export function computeWeeklyBalance(
   const vacation = vacationDaysDebit(days);
   const parentalCare = parentalCareDaysDebit(days);
 
+  const weekStart = startOfIsoWeek(year, weekNumber);
+  const weekEndExclusive = addDays(weekStart, 7);
+  const restIntervals = buildIntervalsFromEntries(entries);
+  const { violations: dailyRestViolations } = validateDailyRest(restIntervals);
+  const weeklyRest = validateWeeklyRest(restIntervals, weekStart, weekEndExclusive);
+
   return {
     year,
     weekNumber,
@@ -170,6 +185,9 @@ export function computeWeeklyBalance(
     weeklyUezDeltaMinutes: weeklyUez,
     vacationDaysDebit: vacation,
     parentalCareDaysDebit: parentalCare,
+    dailyRestViolations,
+    weeklyRestOk: weeklyRest.ok,
+    weeklyRestLongestGapMinutes: weeklyRest.longestGapMinutes,
   };
 }
 

@@ -38,6 +38,9 @@ export interface EmployeeView {
   firstName: string;
   lastName: string;
   roleLabel: string | null;
+  /** Mehrzeiliger Hinweis zu Ruhezeit-Verstößen (ArG); null wenn ok */
+  restViolationTooltip: string | null;
+  hasRestViolations: boolean;
 }
 
 export interface DayView {
@@ -88,6 +91,8 @@ export interface KpiSummary {
   understaffedRequired: number;
   understaffedPlanned: number;
   statusLabel: string;
+  /** Summe aus täglichen Verstößen + 1 pro Person bei unzureichender Wochenruhe */
+  restViolationCount: number;
 }
 
 export type EntryMap = Record<string, PlanEntryView>;

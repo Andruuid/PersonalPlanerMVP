@@ -469,6 +469,9 @@ export async function recalcWeekClose(
 
   const planEntries = await prisma.planEntry.findMany({
     where: { weekId, deletedAt: null, employee: { tenantId } },
+    include: {
+      serviceTemplate: { select: { startTime: true, endTime: true } },
+    },
   });
 
   const locationIds = Array.from(new Set(employees.map((e) => e.locationId)));
@@ -505,6 +508,18 @@ export async function recalcWeekClose(
       kind: e.kind,
       absenceType: e.absenceType ?? null,
       plannedMinutes: e.plannedMinutes,
+      shiftStartTime:
+        e.kind === "SHIFT" && e.serviceTemplate
+          ? e.serviceTemplate.startTime
+          : e.kind === "ONE_TIME_SHIFT"
+            ? e.oneTimeStart
+            : null,
+      shiftEndTime:
+        e.kind === "SHIFT" && e.serviceTemplate
+          ? e.serviceTemplate.endTime
+          : e.kind === "ONE_TIME_SHIFT"
+            ? e.oneTimeEnd
+            : null,
     });
     planEntriesByEmployee.set(e.employeeId, list);
   }

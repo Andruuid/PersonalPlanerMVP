@@ -16,6 +16,7 @@ interface KpiItem {
 
 export function KpiBar({ summary }: KpiBarProps) {
   const understaffed = summary.understaffedSlots > 0;
+  const restIssues = summary.restViolationCount > 0;
   const items: KpiItem[] = [
     { label: "Offene Anträge", value: summary.openRequests.toString() },
     { label: "Unbesetzte Felder", value: summary.unassignedCells.toString() },
@@ -23,6 +24,15 @@ export function KpiBar({ summary }: KpiBarProps) {
     {
       label: "UES-Ausweis",
       value: formatMinutesAsHours(summary.uesAusweisMinutes),
+    },
+    {
+      label: "Ruhezeit-Verstöße",
+      value: summary.restViolationCount.toString(),
+      hint:
+        summary.restViolationCount === 0
+          ? "Keine Hinweise (tägl./wöchentl.)"
+          : "Hinweise in den Mitarbeiterzeilen (tägl./wöchentl. Ruhezeit)",
+      accent: restIssues ? "warn" : "default",
     },
     {
       label: "Unterbesetzt",
@@ -44,7 +54,7 @@ export function KpiBar({ summary }: KpiBarProps) {
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
       {items.map((it) => (
         <div
           key={it.label}

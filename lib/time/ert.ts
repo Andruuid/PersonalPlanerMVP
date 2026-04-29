@@ -3,7 +3,7 @@ export interface TimeInterval {
   end: Date;
 }
 
-function mergeIntervals(intervals: TimeInterval[]): TimeInterval[] {
+export function mergeIntervals(intervals: TimeInterval[]): TimeInterval[] {
   const sorted = [...intervals]
     .filter((i) => i.end > i.start)
     .sort((a, b) => a.start.getTime() - b.start.getTime());
