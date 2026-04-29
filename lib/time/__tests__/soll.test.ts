@@ -70,9 +70,10 @@ describe("dailySollMinutes", () => {
     expect(dailySollMinutes("WORK", 2520, "DAILY_QUOTA", 4)).toBe(630);
   });
 
-  it("treats TZT as Soll-reduction in TARGET_REDUCTION model", () => {
+  it("TZT_ABSENCE + TARGET_REDUCTION (Legacy): Tagessoll wie EMPTY_WEEKDAY, nicht zusätzliche Reduktion auf 0", () => {
+    const base = 2520 / STD_DAYS;
     expect(dailySollMinutes("TZT_ABSENCE", 2520, "TARGET_REDUCTION", STD_DAYS)).toBe(
-      0,
+      base,
     );
   });
 });
@@ -117,9 +118,12 @@ describe("anrechenbarIstMinutes", () => {
     ).toBe(base);
   });
 
-  it("does not credit TZT Ist in TARGET_REDUCTION model", () => {
+  it("TZT_ABSENCE + TARGET_REDUCTION (Legacy): kein Ist wie EMPTY_WEEKDAY", () => {
     expect(
       anrechenbarIstMinutes("TZT_ABSENCE", 0, weekly, "TARGET_REDUCTION", STD_DAYS),
+    ).toBe(0);
+    expect(
+      anrechenbarIstMinutes("EMPTY_WEEKDAY", 0, weekly, "TARGET_REDUCTION", STD_DAYS),
     ).toBe(0);
   });
 

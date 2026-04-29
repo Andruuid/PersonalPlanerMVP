@@ -27,13 +27,14 @@ export function dailySollMinutes(
   tztModel: TztModel,
   standardWorkDays: number,
 ): number {
+  // TZT_ABSENCE + TARGET_REDUCTION: keine gültige Neueingabe mehr; Legacy-Zeilen
+  // werden wie EMPTY_WEEKDAY mit vollem Tagessoll behandelt (nicht zusätzlich auf 0).
   if (
     kind === "HOLIDAY" ||
     kind === "HOLIDAY_WORK" ||
     kind === "WEEKEND_OFF" ||
     kind === "UNPAID" ||
-    kind === "VFT" ||
-    (kind === "TZT_ABSENCE" && tztModel === "TARGET_REDUCTION")
+    kind === "VFT"
   ) {
     return 0;
   }
@@ -72,6 +73,7 @@ export function anrechenbarIstMinutes(
     case "UEZ_BEZUG":
       return baseDailySollMinutes(weeklyTargetMinutes, standardWorkDays);
     case "TZT_ABSENCE":
+      // TARGET_REDUCTION: identisch EMPTY_WEEKDAY — kein Ist-Zuschlag (Pfad nur Legacy-Daten).
       return tztModel === "TARGET_REDUCTION"
         ? 0
         : baseDailySollMinutes(weeklyTargetMinutes, standardWorkDays);

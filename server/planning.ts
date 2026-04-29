@@ -162,6 +162,7 @@ export async function upsertPlanEntryAction(
         isActive: true,
         deletedAt: true,
         locationId: true,
+        tztModel: true,
       },
     });
     if (!employee || employee.tenantId !== admin.tenantId) {
@@ -216,6 +217,16 @@ export async function upsertPlanEntryAction(
       );
     } else if (data.kind === "ABSENCE") {
       absenceType = data.absenceType;
+      if (
+        absenceType === "TZT" &&
+        employee.tztModel === "TARGET_REDUCTION"
+      ) {
+        return {
+          ok: false,
+          error:
+            "TZT-Bezug nicht vorgesehen (Modell Sollzeit-Reduktion).",
+        };
+      }
     } else if (data.kind === "HALF_DAY_OFF") {
       plannedMinutes = DEFAULT_HALF_DAY_OFF_MINUTES;
     }

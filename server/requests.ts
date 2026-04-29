@@ -447,6 +447,17 @@ export async function createAbsenceRequestAction(
     return { ok: false, error: "Mitarbeitende:r nicht gefunden." };
   }
 
+  if (
+    data.type === "TZT" &&
+    employeeRow.tztModel === "TARGET_REDUCTION"
+  ) {
+    return {
+      ok: false,
+      error:
+        "TZT-Bezug ist im Modell 'Sollzeit-Reduktion' nicht vorgesehen. Wenden Sie sich an den Admin.",
+    };
+  }
+
   const effectiveStd = effectiveStandardWorkDays(
     employeeRow.standardWorkDays,
     employeeRow.tenant.defaultStandardWorkDays,

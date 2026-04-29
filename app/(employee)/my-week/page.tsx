@@ -206,7 +206,9 @@ export default async function MyWeekPage({ searchParams }: PageProps) {
 
       <aside className="w-full shrink-0 space-y-4 lg:w-80 xl:w-96">
         <AccountsPanel accounts={accounts} />
-        {!isAdminPreview ? <RequestStack /> : null}
+        {!isAdminPreview ? (
+          <RequestStack tztModel={employee.tztModel} />
+        ) : null}
       </aside>
     </div>
   );

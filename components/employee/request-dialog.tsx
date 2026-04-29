@@ -47,8 +47,7 @@ const ENTITLEMENT_HINTS: Record<RequestType, string | null> = {
     "Antrag nur möglich mit genügend Zeitsaldo im betroffenen Jahr. Bei Genehmigung wird der Wert vom Zeitsaldo abgezogen.",
   UEZ_BEZUG:
     "Antrag nur möglich mit genügend UEZ-Minuten im betroffenen Jahr. Bei Genehmigung wird der Bezug mit der Wochenschliessung vom UEZ-Konto abgezogen (Zeitsaldo bleibt neutral).",
-  TZT:
-    "Antrag nur möglich mit genügend TZT-Guthaben (ausser bei Modell TARGET_REDUCTION).",
+  TZT: "Antrag nur möglich mit genügend TZT-Guthaben.",
   FREE_DAY: null,
   PARENTAL_CARE:
     "Antrag nur möglich mit genügend Guthaben im Eltern-/Betreuungsurlaub-Konto.",

@@ -19,6 +19,8 @@ interface AbsencesFilterProps {
   employeeId: string | "ALL";
   employees: Array<{ id: string; firstName: string; lastName: string }>;
   counts: Record<StatusFilter, number>;
+  /** TZT-Typ ausblenden (Modell Sollzeit-Reduktion — dort keine TZT-Anträge). */
+  hideTztTypeOption?: boolean;
 }
 
 const STATUS_TABS: Array<{ key: StatusFilter; label: string }> = [
@@ -43,10 +45,14 @@ export function AbsencesFilter({
   employeeId,
   employees,
   counts,
+  hideTztTypeOption = false,
 }: AbsencesFilterProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const typeOptions = hideTztTypeOption
+    ? TYPE_OPTIONS.filter((o) => o.value !== "TZT")
+    : TYPE_OPTIONS;
 
   function update(key: string, value: string) {
     const params = buildAbsenceFilterSearchParams(searchParams, key, value);
@@ -107,7 +113,7 @@ export function AbsencesFilter({
             onChange={(e) => update("type", e.target.value)}
             className="flex h-9 w-full rounded-md border border-neutral-300 bg-white px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900"
           >
-            {TYPE_OPTIONS.map((opt) => (
+            {typeOptions.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>

@@ -49,7 +49,12 @@ export default async function MyRequestsPage({ searchParams }: PageProps) {
           tenantId: session.user.tenantId,
           deletedAt: null,
         },
-        select: { id: true, firstName: true, lastName: true },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          tztModel: true,
+        },
       })
     : await prisma.employee.findFirst({
         where: {
@@ -57,7 +62,12 @@ export default async function MyRequestsPage({ searchParams }: PageProps) {
           tenantId: session.user.tenantId,
           deletedAt: null,
         },
-        select: { id: true, firstName: true, lastName: true },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          tztModel: true,
+        },
       });
 
   if (!employee) {
@@ -128,7 +138,7 @@ export default async function MyRequestsPage({ searchParams }: PageProps) {
                 Prüfung.
               </p>
             </header>
-            <RequestStack variant="inline" />
+            <RequestStack variant="inline" tztModel={employee.tztModel} />
           </section>
         ) : null}
 

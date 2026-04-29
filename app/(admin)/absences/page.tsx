@@ -61,8 +61,22 @@ export default async function AbsencesPage({ searchParams }: PageProps) {
   const admin = await requireAdmin();
   const raw = await searchParams;
   const status = pickStatus(raw.status);
-  const type = pickType(raw.type);
   const employeeId = raw.employee ?? "ALL";
+
+  const employees = await prisma.employee.findMany({
+    where: { tenantId: admin.tenantId, isActive: true, deletedAt: null },
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    select: { id: true, firstName: true, lastName: true, tztModel: true },
+  });
+
+  const selectedEmp =
+    employeeId !== "ALL"
+      ? employees.find((e) => e.id === employeeId)
+      : undefined;
+  let type = pickType(raw.type);
+  if (selectedEmp?.tztModel === "TARGET_REDUCTION" && type === "TZT") {
+    type = "ALL";
+  }
 
   const where: {
     tenantId?: string;
@@ -75,7 +89,7 @@ export default async function AbsencesPage({ searchParams }: PageProps) {
   if (type !== "ALL") where.type = type;
   if (employeeId !== "ALL") where.employeeId = employeeId;
 
-  const [requests, employees, statusCounts] = await Promise.all([
+  const [requests, statusCounts] = await Promise.all([
     prisma.absenceRequest.findMany({
       where,
       orderBy: [{ status: "asc" }, { startDate: "asc" }, { createdAt: "desc" }],
@@ -84,11 +98,6 @@ export default async function AbsencesPage({ searchParams }: PageProps) {
           select: { firstName: true, lastName: true, roleLabel: true },
         },
       },
-    }),
-    prisma.employee.findMany({
-      where: { tenantId: admin.tenantId, isActive: true, deletedAt: null },
-      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-      select: { id: true, firstName: true, lastName: true },
     }),
     prisma.absenceRequest.groupBy({
       by: ["status"],
@@ -155,8 +164,15 @@ export default async function AbsencesPage({ searchParams }: PageProps) {
         status={status}
         type={type}
         employeeId={employeeId}
-        employees={employees}
+        employees={employees.map(({ id, firstName, lastName }) => ({
+          id,
+          firstName,
+          lastName,
+        }))}
         counts={counts}
+        hideTztTypeOption={
+          selectedEmp?.tztModel === "TARGET_REDUCTION"
+        }
       />
 
       <AbsencesTable rows={rows} />

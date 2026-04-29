@@ -63,10 +63,19 @@ const BUTTONS: ButtonSpec[] = [
 
 interface RequestStackProps {
   variant?: "panel" | "inline";
+  /** Bei TARGET_REDUCTION gibt es keinen TZT-Abwesenheits-Antrag (Pensum = Reduktion). */
+  tztModel?: "DAILY_QUOTA" | "TARGET_REDUCTION";
 }
 
-export function RequestStack({ variant = "panel" }: RequestStackProps) {
+export function RequestStack({
+  variant = "panel",
+  tztModel = "DAILY_QUOTA",
+}: RequestStackProps) {
   const [openType, setOpenType] = useState<RequestType | null>(null);
+  const buttons =
+    tztModel === "TARGET_REDUCTION"
+      ? BUTTONS.filter((b) => b.type !== "TZT")
+      : BUTTONS;
 
   const wrapperClass =
     variant === "panel"
@@ -87,7 +96,7 @@ export function RequestStack({ variant = "panel" }: RequestStackProps) {
       ) : null}
 
       <div className="flex flex-col gap-2">
-        {BUTTONS.map((btn) => {
+        {buttons.map((btn) => {
           const Icon = btn.icon;
           return (
             <Button

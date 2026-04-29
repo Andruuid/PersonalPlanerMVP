@@ -117,10 +117,11 @@ export function evaluateRequestEntitlement(
   }
 
   if (effectiveType === "TZT") {
-    // Model 2 (TARGET_REDUCTION): TZT reduces Soll directly, no TZT day
-    // allowance account is consumed.
     if (tztModel === "TARGET_REDUCTION") {
-      return { ok: true };
+      return {
+        ok: false,
+        error: "TZT-Bezug nicht vorgesehen (Modell Sollzeit-Reduktion).",
+      };
     }
     for (const [year, requestedDays] of sollDaysByYear) {
       const available = getAccountValue(input, year, "TZT");

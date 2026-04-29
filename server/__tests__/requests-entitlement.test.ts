@@ -88,7 +88,7 @@ describe("evaluateRequestEntitlement", () => {
     expect(result.error).toContain("TZT-Guthaben");
   });
 
-  it("allows TZT requests in TARGET_REDUCTION model without checking TZT account", () => {
+  it("rejects TZT requests in TARGET_REDUCTION model", () => {
     const result = evaluateRequestEntitlement({
       type: "TZT",
       startDate: parseIsoDate("2026-03-02")!,
@@ -98,11 +98,13 @@ describe("evaluateRequestEntitlement", () => {
       tztModel: "TARGET_REDUCTION",
       vacationDaysPerYear: 25,
       balancesByYear: {
-        2026: { TZT: 0 },
+        2026: { TZT: 99 },
       },
     });
 
-    expect(result.ok).toBe(true);
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("TZT-Bezug nicht vorgesehen");
+    expect(result.error).toContain("Sollzeit-Reduktion");
   });
 
   it("rejects parental/care leave requests when dedicated balance is too low", () => {
