@@ -11,7 +11,23 @@
 
 import type { PrismaClient } from "@/lib/generated/prisma/client";
 
+const auditTriggersInstalled = new WeakSet<PrismaClient>();
+
+/**
+ * Invalidate the append-only trigger install cache — required when the
+ * underlying SQLite database drops those triggers without discarding this
+ * `PrismaClient` (see `lib/test/db.ts` reset).
+ */
+export function invalidateAuditLogAppendOnlyCache(
+  prisma: PrismaClient,
+): void {
+  auditTriggersInstalled.delete(prisma);
+}
+
 async function ensureAuditLogAppendOnly(prisma: PrismaClient): Promise<void> {
+  if (auditTriggersInstalled.has(prisma)) {
+    return;
+  }
   await prisma.$executeRawUnsafe(`
     CREATE TRIGGER IF NOT EXISTS auditlog_no_update
     BEFORE UPDATE ON "AuditLog"
@@ -26,6 +42,7 @@ async function ensureAuditLogAppendOnly(prisma: PrismaClient): Promise<void> {
       SELECT RAISE(ABORT, 'AuditLog is append-only');
     END;
   `);
+  auditTriggersInstalled.add(prisma);
 }
 
 // ---------------------------------------------------------------------------

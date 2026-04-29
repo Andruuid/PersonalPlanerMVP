@@ -7,7 +7,9 @@
  * `close()`. Tests are fully isolated — no state leaks between files or
  * cases.
  */
+import { invalidateAuditLogAppendOnlyCache } from "@/lib/audit/core";
 import { PrismaClient } from "@/lib/generated/prisma/client";
+
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 import { copyFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -47,6 +49,7 @@ export function makeTestDb(): TestDb {
       await prisma.$executeRawUnsafe(
         'DROP TRIGGER IF EXISTS auditlog_no_delete;',
       );
+      invalidateAuditLogAppendOnlyCache(prisma);
       // FK-safe order: leaves first.
       await prisma.auditLog.deleteMany();
       await prisma.ertCase.deleteMany();
