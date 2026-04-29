@@ -23,6 +23,8 @@ interface Props {
   defaultHazMinutesPerWeek: number;
   zeitsaldoMinLimitMinutes: number | null;
   uezPayoutPolicy: UezPayoutPolicyValue;
+  ertDueDays: number;
+  compensationDueDays: number;
 }
 
 export function BusinessDataCard({
@@ -31,6 +33,8 @@ export function BusinessDataCard({
   defaultHazMinutesPerWeek,
   zeitsaldoMinLimitMinutes,
   uezPayoutPolicy,
+  ertDueDays,
+  compensationDueDays,
 }: Props) {
   const [errors, setErrors] = useState<{
     message: string;
@@ -176,6 +180,58 @@ export function BusinessDataCard({
                 <p className="text-xs text-neutral-500">
                   Negativ erlaubt (Minuslimit). Leer lassen = keine Sperre durch diese
                   Stammdaten-Grenze.
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <LabelRow
+                htmlFor="ertDueDays"
+                label="ERT — Frist (Kalendertage)"
+                tooltip="Zeitraum bis zur Wahrung der Ruhezeit / ERT-Ausgleich nach Feiertagsarbeit über 5 Stunden (dueAt = Auslöserdatum + Frist)."
+              />
+              <Input
+                id="ertDueDays"
+                name="ertDueDays"
+                type="number"
+                min={1}
+                max={366}
+                step={1}
+                defaultValue={ertDueDays}
+                required
+              />
+              {fieldErr.ertDueDays ? (
+                <p className="text-xs text-rose-700">{fieldErr.ertDueDays}</p>
+              ) : (
+                <p className="text-xs text-neutral-500">
+                  Typisch 28 Tage (4 Wochen); steuert das Erfüllungsfenster für 35h Ruhe.
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <LabelRow
+                htmlFor="compensationDueDays"
+                label="Sonn-/Feiertags-Kompensation — Frist (Tage)"
+                tooltip="Kalendertage bis zur Einlösung der Kompensation bei bis zu 5h Feiertagsarbeit; danach kann der Fall ablaufen."
+              />
+              <Input
+                id="compensationDueDays"
+                name="compensationDueDays"
+                type="number"
+                min={1}
+                max={730}
+                step={1}
+                defaultValue={compensationDueDays}
+                required
+              />
+              {fieldErr.compensationDueDays ? (
+                <p className="text-xs text-rose-700">
+                  {fieldErr.compensationDueDays}
+                </p>
+              ) : (
+                <p className="text-xs text-neutral-500">
+                  Typisch 180 Tage (ca. 6 Monate) gemäss üblicher Staffelung.
                 </p>
               )}
             </div>

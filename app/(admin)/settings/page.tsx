@@ -100,6 +100,8 @@ export default async function SettingsPage({ searchParams }: PageProps) {
       defaultHazMinutesPerWeek: true,
       zeitsaldoMinLimitMinutes: true,
       uezPayoutPolicy: true,
+      ertDueDays: true,
+      compensationDueDays: true,
     },
   });
 
@@ -124,6 +126,8 @@ export default async function SettingsPage({ searchParams }: PageProps) {
             ? tenant.uezPayoutPolicy
             : "ALLOWED") as "ALLOWED" | "WITH_NOTICE" | "BLOCKED"
         }
+        ertDueDays={tenant?.ertDueDays ?? 28}
+        compensationDueDays={tenant?.compensationDueDays ?? 180}
       />
 
       <Card>

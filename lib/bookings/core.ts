@@ -54,10 +54,6 @@ const HEAVY_INTERACTIVE_TX: { timeout: number; maxWait: number } = {
   maxWait: 10_000,
 };
 const ERT_MIN_REST_MINUTES = 35 * 60;
-const ERT_DUE_DAYS = 28;
-
-/** Kalendertage bis zur Wahrung Ausgleich bez. Sonntags-/Feiertagsarbeit (Spec: typ. 6 Mt., Default 180 Tage). */
-const COMPENSATION_DUE_DAYS = 180;
 
 function dateAtMidnight(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -149,6 +145,12 @@ export async function upsertAndAdvanceErtCases(
   weekDays: Array<{ iso: string; kind: string; plannedMinutes: number }>,
   referenceDate: Date,
 ): Promise<void> {
+  const tenant = await tx.tenant.findUniqueOrThrow({
+    where: { id: tenantId },
+    select: { ertDueDays: true },
+  });
+  const dueOffsetDays = tenant.ertDueDays;
+
   for (const day of weekDays) {
     if (day.kind !== "HOLIDAY_WORK" || day.plannedMinutes <= 300) continue;
     const triggerDate = new Date(`${day.iso}T00:00:00`);
@@ -160,11 +162,11 @@ export async function upsertAndAdvanceErtCases(
         triggerDate,
         holidayWorkMinutes: day.plannedMinutes,
         status: "OPEN",
-        dueAt: addDays(triggerDate, ERT_DUE_DAYS),
+        dueAt: addDays(triggerDate, dueOffsetDays),
       },
       update: {
         holidayWorkMinutes: day.plannedMinutes,
-        dueAt: addDays(triggerDate, ERT_DUE_DAYS),
+        dueAt: addDays(triggerDate, dueOffsetDays),
       },
     });
   }
@@ -225,6 +227,12 @@ async function upsertAndAdvanceCompensationCases(
   weekDays: Array<{ iso: string; kind: string; plannedMinutes: number }>,
   referenceDate: Date,
 ): Promise<void> {
+  const tenant = await tx.tenant.findUniqueOrThrow({
+    where: { id: tenantId },
+    select: { compensationDueDays: true },
+  });
+  const dueOffsetDays = tenant.compensationDueDays;
+
   for (const day of weekDays) {
     if (day.kind !== "HOLIDAY_WORK") continue;
     if (day.plannedMinutes <= 0 || day.plannedMinutes > 300) continue;
@@ -237,11 +245,11 @@ async function upsertAndAdvanceCompensationCases(
         triggerDate,
         holidayWorkMinutes: day.plannedMinutes,
         status: "OPEN",
-        dueAt: addDays(triggerDate, COMPENSATION_DUE_DAYS),
+        dueAt: addDays(triggerDate, dueOffsetDays),
       },
       update: {
         holidayWorkMinutes: day.plannedMinutes,
-        dueAt: addDays(triggerDate, COMPENSATION_DUE_DAYS),
+        dueAt: addDays(triggerDate, dueOffsetDays),
       },
     });
   }

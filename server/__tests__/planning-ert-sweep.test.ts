@@ -50,8 +50,8 @@ vi.mock("@/server/_shared", () => ({
     safeRevalidatePathMock(...args),
 }));
 
-/** Muss zu `lib/bookings/core` (ERT_DUE_DAYS = 28) passen */
-const ERT_DUE_DAYS = 28;
+/** Muss zum Mandanten-Feld `Tenant.ertDueDays` passen (Default 28). */
+const DEFAULT_ERT_DUE_DAYS = 28;
 
 function dateAtMidnight(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -65,7 +65,7 @@ async function seedDailyShiftsInErtRestWindow(
   existingWeeks?: Map<string, string>,
 ): Promise<void> {
   const triggerDate = new Date(`${triggerIso}T00:00:00`);
-  const dueAt = addDays(triggerDate, ERT_DUE_DAYS);
+  const dueAt = addDays(triggerDate, DEFAULT_ERT_DUE_DAYS);
   const windowStart = addDays(dateAtMidnight(triggerDate), 1);
   const windowEnd = addDays(dateAtMidnight(dueAt), 1);
 

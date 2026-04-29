@@ -152,6 +152,10 @@ model Tenant {
   zeitsaldoMinLimitMinutes Int?
   /// UEZ-Auszahlungsregel: ALLOWED | WITH_NOTICE | BLOCKED
   uezPayoutPolicy String             @default("ALLOWED")
+  /// Kalendertage bis ERT-Ausgleich (Ruhezeit) fällig (Spec: typ. 4 Wochen).
+  ertDueDays Int                     @default(28)
+  /// Kalendertage bis zur Einlösung Sonntags-/Feiertags-Kompensation (Spec: typ. 6 Mt.).
+  compensationDueDays Int              @default(180)
   createdAt     DateTime            @default(now())
   deletedAt     DateTime?
   archivedUntil DateTime?

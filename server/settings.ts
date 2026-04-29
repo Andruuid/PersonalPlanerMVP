@@ -34,6 +34,16 @@ const tenantBusinessSchema = z.object({
   uezPayoutPolicy: z.enum(["ALLOWED", "WITH_NOTICE", "BLOCKED"], {
     message: "UEZ-Richtlinie wählen",
   }),
+  ertDueDays: z.coerce
+    .number()
+    .int("Ganzzahl erforderlich")
+    .min(1, "Mindestens 1 Tag")
+    .max(366, "Maximal 366 Tage"),
+  compensationDueDays: z.coerce
+    .number()
+    .int("Ganzzahl erforderlich")
+    .min(1, "Mindestens 1 Tag")
+    .max(730, "Maximal 730 Tage"),
 });
 
 type TenantBusinessRow = z.infer<typeof tenantBusinessSchema>;
@@ -47,7 +57,9 @@ function tenantBusinessUnchanged(
     before.defaultWeeklyTargetMinutes === next.defaultWeeklyTargetMinutes &&
     before.defaultHazMinutesPerWeek === next.defaultHazMinutesPerWeek &&
     before.zeitsaldoMinLimitMinutes === next.zeitsaldoMinLimitMinutes &&
-    before.uezPayoutPolicy === next.uezPayoutPolicy
+    before.uezPayoutPolicy === next.uezPayoutPolicy &&
+    before.ertDueDays === next.ertDueDays &&
+    before.compensationDueDays === next.compensationDueDays
   );
 }
 
@@ -62,6 +74,8 @@ export async function updateTenantBusinessDefaultsAction(
     defaultHazMinutesPerWeek: formData.get("defaultHazMinutesPerWeek"),
     zeitsaldoMinLimitMinutes: formData.get("zeitsaldoMinLimitMinutes"),
     uezPayoutPolicy: formData.get("uezPayoutPolicy"),
+    ertDueDays: formData.get("ertDueDays"),
+    compensationDueDays: formData.get("compensationDueDays"),
   });
   if (!parsed.success) {
     return {
@@ -79,6 +93,8 @@ export async function updateTenantBusinessDefaultsAction(
       defaultHazMinutesPerWeek: true,
       zeitsaldoMinLimitMinutes: true,
       uezPayoutPolicy: true,
+      ertDueDays: true,
+      compensationDueDays: true,
     },
   });
   if (!before) {
@@ -98,6 +114,8 @@ export async function updateTenantBusinessDefaultsAction(
       defaultHazMinutesPerWeek: next.defaultHazMinutesPerWeek,
       zeitsaldoMinLimitMinutes: next.zeitsaldoMinLimitMinutes,
       uezPayoutPolicy: next.uezPayoutPolicy,
+      ertDueDays: next.ertDueDays,
+      compensationDueDays: next.compensationDueDays,
     },
   });
 
@@ -112,6 +130,8 @@ export async function updateTenantBusinessDefaultsAction(
       defaultHazMinutesPerWeek: before.defaultHazMinutesPerWeek,
       zeitsaldoMinLimitMinutes: before.zeitsaldoMinLimitMinutes,
       uezPayoutPolicy: before.uezPayoutPolicy,
+      ertDueDays: before.ertDueDays,
+      compensationDueDays: before.compensationDueDays,
     },
     newValue: {
       defaultStandardWorkDays: next.defaultStandardWorkDays,
@@ -119,6 +139,8 @@ export async function updateTenantBusinessDefaultsAction(
       defaultHazMinutesPerWeek: next.defaultHazMinutesPerWeek,
       zeitsaldoMinLimitMinutes: next.zeitsaldoMinLimitMinutes,
       uezPayoutPolicy: next.uezPayoutPolicy,
+      ertDueDays: next.ertDueDays,
+      compensationDueDays: next.compensationDueDays,
     },
   });
 
