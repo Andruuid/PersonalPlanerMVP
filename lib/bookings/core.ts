@@ -242,7 +242,14 @@ async function ensureBalanceRow(
   });
 }
 
-/** Recompute currentValue = openingValue + sum(bookings.value) for one row. */
+/**
+ * Recompute currentValue = openingValue + sum(non-OPENING bookings.value) for one row.
+ *
+ * OPENING bookings are explicitly excluded from this sum because their
+ * effect is folded into AccountBalance.openingValue at the time the OPENING
+ * booking is written (see applyEmployeeOpeningBalances and applyManualBooking
+ * with bookingType=OPENING). Including them here would double-count.
+ */
 async function recomputeBalance(
   tx: Tx,
   employeeId: string,
@@ -261,6 +268,7 @@ async function recomputeBalance(
       employeeId,
       accountType,
       date: { gte: start, lt: end },
+      bookingType: { not: "OPENING" },
     },
     select: { value: true },
   });
@@ -314,6 +322,16 @@ export async function applyEmployeeOpeningBalances(
         comment: "Anfangsbestand (Stammdaten)",
         createdByUserId: input.createdByUserId,
       },
+    });
+    await tx.accountBalance.update({
+      where: {
+        employeeId_accountType_year: {
+          employeeId: input.employeeId,
+          accountType,
+          year,
+        },
+      },
+      data: { openingValue: { increment: value } },
     });
     await recomputeBalance(tx, input.employeeId, accountType, year);
     created += 1;
@@ -644,9 +662,13 @@ export interface ApplyManualBookingInput {
   accountType: AccountType;
   /** Local-midnight date of the booking. */
   date: Date;
-  /** Magnitude in account unit. The sign is applied based on bookingType. */
+  /**
+   * Value in account unit. The sign is applied based on bookingType:
+   * MANUAL_CREDIT/CORRECTION/OPENING keep the sign as-entered, MANUAL_DEBIT
+   * always negates the magnitude.
+   */
   value: number;
-  bookingType: "MANUAL_CREDIT" | "MANUAL_DEBIT" | "CORRECTION";
+  bookingType: "MANUAL_CREDIT" | "MANUAL_DEBIT" | "CORRECTION" | "OPENING";
   comment: string;
   createdByUserId: string;
 }
@@ -732,6 +754,27 @@ export async function applyManualBooking(
         createdByUserId: input.createdByUserId,
       },
     });
+    if (input.bookingType === "OPENING") {
+      // Retroactive opening balance: fold the booked value into
+      // AccountBalance.openingValue so the year actually starts from the
+      // corrected number. recomputeBalance below excludes OPENING bookings
+      // from its sum (they live in openingValue), so the booking row stays
+      // for audit / traceability without double-counting.
+      //
+      // OPENING bookings are explicitly additive: even if other bookings
+      // already exist for the year, posting an OPENING simply shifts the
+      // opening (and therefore currentValue) by `input.value`.
+      await tx.accountBalance.update({
+        where: {
+          employeeId_accountType_year: {
+            employeeId: employee.id,
+            accountType: input.accountType,
+            year,
+          },
+        },
+        data: { openingValue: { increment: signedValue } },
+      });
+    }
     await recomputeBalance(tx, employee.id, input.accountType, year);
     return created;
   });
@@ -780,6 +823,21 @@ export async function deleteBooking(
   const year = booking.date.getFullYear();
   await prisma.$transaction(async (tx) => {
     await tx.booking.delete({ where: { id: bookingId } });
+    if (booking.bookingType === "OPENING") {
+      // Mirror applyManualBooking/applyEmployeeOpeningBalances: OPENING
+      // bookings are folded into AccountBalance.openingValue, so deleting
+      // one must reverse that contribution before recomputeBalance runs.
+      await tx.accountBalance.update({
+        where: {
+          employeeId_accountType_year: {
+            employeeId: booking.employeeId,
+            accountType: booking.accountType as AccountType,
+            year,
+          },
+        },
+        data: { openingValue: { decrement: booking.value } },
+      });
+    }
     await recomputeBalance(
       tx,
       booking.employeeId,

@@ -1,7 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { makeTestDb, type TestDb } from "@/lib/test/db";
 import { seedAdmin, seedEmployee, seedLocation } from "@/lib/test/fixtures";
-import { applyEmployeeOpeningBalances } from "@/lib/bookings/core";
+import {
+  applyEmployeeOpeningBalances,
+  applyManualBooking,
+} from "@/lib/bookings/core";
 import { parseIsoDate } from "@/lib/time/week";
 
 let db: TestDb;
@@ -77,7 +80,9 @@ describe("applyEmployeeOpeningBalances", () => {
         },
       },
     });
-    expect(ferien?.openingValue).toBe(25);
+    // OPENING bookings are folded into openingValue (allowance + opening
+    // delta), and excluded from the recompute sum to avoid double counting.
+    expect(ferien?.openingValue).toBe(27.5);
     expect(ferien?.currentValue).toBe(27.5);
 
     const tzt = await db.prisma.accountBalance.findUnique({
@@ -112,5 +117,96 @@ describe("applyEmployeeOpeningBalances", () => {
       where: { employeeId: employee.id },
     });
     expect(n).toBe(0);
+  });
+
+  it("applyManualBooking with OPENING type updates openingValue and currentValue correctly when other bookings already exist", async () => {
+    const employee = await seedEmployee(db.prisma, {
+      locationId,
+      vacationDaysPerYear: 25,
+    });
+    const date = parseIsoDate("2026-03-15")!;
+
+    // First post a regular MANUAL_CREDIT so the year already carries
+    // bookings before the retroactive OPENING is applied.
+    await applyManualBooking(db.prisma, {
+      employeeId: employee.id,
+      accountType: "ZEITSALDO",
+      date,
+      value: 100,
+      bookingType: "MANUAL_CREDIT",
+      comment: "Bonus",
+      createdByUserId: adminId,
+    });
+
+    const beforeOpening = await db.prisma.accountBalance.findUnique({
+      where: {
+        employeeId_accountType_year: {
+          employeeId: employee.id,
+          accountType: "ZEITSALDO",
+          year: 2026,
+        },
+      },
+    });
+    expect(beforeOpening?.openingValue).toBe(0);
+    expect(beforeOpening?.currentValue).toBe(100);
+
+    // Retroactively post the Anfangsbestand: opening should shift by +50
+    // and current by +50, regardless of existing bookings.
+    const opening = await applyManualBooking(db.prisma, {
+      employeeId: employee.id,
+      accountType: "ZEITSALDO",
+      date,
+      value: 50,
+      bookingType: "OPENING",
+      comment: "Anfangsbestand nachgereicht",
+      createdByUserId: adminId,
+    });
+    expect(opening.signedValue).toBe(50);
+
+    const balance = await db.prisma.accountBalance.findUnique({
+      where: {
+        employeeId_accountType_year: {
+          employeeId: employee.id,
+          accountType: "ZEITSALDO",
+          year: 2026,
+        },
+      },
+    });
+    expect(balance?.openingValue).toBe(50);
+    expect(balance?.currentValue).toBe(150);
+
+    // Negative OPENING is also accepted as-is (no sign coercion).
+    const negative = await applyManualBooking(db.prisma, {
+      employeeId: employee.id,
+      accountType: "ZEITSALDO",
+      date,
+      value: -20,
+      bookingType: "OPENING",
+      comment: "Anfangsbestand korrigiert",
+      createdByUserId: adminId,
+    });
+    expect(negative.signedValue).toBe(-20);
+
+    const afterNegative = await db.prisma.accountBalance.findUnique({
+      where: {
+        employeeId_accountType_year: {
+          employeeId: employee.id,
+          accountType: "ZEITSALDO",
+          year: 2026,
+        },
+      },
+    });
+    expect(afterNegative?.openingValue).toBe(30);
+    expect(afterNegative?.currentValue).toBe(130);
+
+    const openings = await db.prisma.booking.findMany({
+      where: {
+        employeeId: employee.id,
+        accountType: "ZEITSALDO",
+        bookingType: "OPENING",
+      },
+      orderBy: { createdAt: "asc" },
+    });
+    expect(openings.map((b) => b.value)).toEqual([50, -20]);
   });
 });

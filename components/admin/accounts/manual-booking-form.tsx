@@ -31,7 +31,7 @@ export interface ManualBookingFormDefaults {
     | "SONNTAG_FEIERTAG_KOMPENSATION"
     | "PARENTAL_CARE";
   date: string;
-  bookingType: "MANUAL_CREDIT" | "MANUAL_DEBIT" | "CORRECTION";
+  bookingType: "MANUAL_CREDIT" | "MANUAL_DEBIT" | "CORRECTION" | "OPENING";
   comment?: string;
 }
 
@@ -69,7 +69,14 @@ const TYPE_OPTIONS: Array<{
   { value: "MANUAL_CREDIT", label: "Gutschrift (+)" },
   { value: "MANUAL_DEBIT", label: "Belastung (−)" },
   { value: "CORRECTION", label: "Korrektur" },
+  { value: "OPENING", label: "Anfangsbestand" },
 ];
+
+// SONNTAG_FEIERTAG_KOMPENSATION wird ausschliesslich aus dem Wochenabschluss
+// berechnet; ein nachträglicher Anfangsbestand ist dort nicht erlaubt.
+const ACCOUNTS_WITHOUT_OPENING: ReadonlySet<
+  ManualBookingFormDefaults["accountType"]
+> = new Set(["SONNTAG_FEIERTAG_KOMPENSATION"]);
 
 export function ManualBookingForm({ employees, defaults, onSuccess }: Props) {
   const [errors, setErrors] = useState<{
@@ -78,6 +85,14 @@ export function ManualBookingForm({ employees, defaults, onSuccess }: Props) {
   } | null>(null);
   const [pending, startTransition] = useTransition();
   const [accountType, setAccountType] = useState(defaults.accountType);
+  const [bookingType, setBookingType] = useState(defaults.bookingType);
+
+  const openingDisallowed = ACCOUNTS_WITHOUT_OPENING.has(accountType);
+  const visibleTypeOptions = openingDisallowed
+    ? TYPE_OPTIONS.filter((o) => o.value !== "OPENING")
+    : TYPE_OPTIONS;
+  const effectiveBookingType =
+    openingDisallowed && bookingType === "OPENING" ? "MANUAL_CREDIT" : bookingType;
 
   const accountHint =
     ACCOUNT_OPTIONS.find((o) => o.value === accountType)?.hint ?? "";
@@ -171,15 +186,20 @@ export function ManualBookingForm({ employees, defaults, onSuccess }: Props) {
           <LabelWithHelp
             htmlFor="bookingType"
             label="Buchungsart"
-            tooltip="Gutschrift erzwingt ein Plus, Belastung ein Minus; Korrektur übernimmt das eingegebene Vorzeichen."
+            tooltip="Gutschrift erzwingt ein Plus, Belastung ein Minus; Korrektur und Anfangsbestand übernehmen das eingegebene Vorzeichen. Anfangsbestand passt zusätzlich den Eröffnungswert des Kontos an."
           />
           <select
             id="bookingType"
             name="bookingType"
-            defaultValue={defaults.bookingType}
+            value={effectiveBookingType}
+            onChange={(e) =>
+              setBookingType(
+                e.target.value as ManualBookingFormDefaults["bookingType"],
+              )
+            }
             className="flex h-9 w-full rounded-md border border-neutral-300 bg-white px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900"
           >
-            {TYPE_OPTIONS.map((o) => (
+            {visibleTypeOptions.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>

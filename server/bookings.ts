@@ -19,28 +19,50 @@ import {
   type ActionResult,
 } from "./_shared";
 
-const manualBookingSchema = z.object({
-  employeeId: z.string().min(1, "Mitarbeitende:r erforderlich"),
-  accountType: z.enum([
-    "ZEITSALDO",
-    "FERIEN",
-    "UEZ",
-    "TZT",
-    "SONNTAG_FEIERTAG_KOMPENSATION",
-    "PARENTAL_CARE",
-  ]),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Datum ungültig"),
-  value: z.coerce.number().refine((v) => v !== 0, {
-    message: "Wert darf nicht 0 sein",
-  }),
-  bookingType: z
-    .enum(["MANUAL_CREDIT", "MANUAL_DEBIT", "CORRECTION"])
-    .default("MANUAL_CREDIT"),
-  comment: z
-    .string()
-    .min(3, "Bitte einen Grund angeben")
-    .max(300, "Maximal 300 Zeichen"),
-});
+// Real, persistable accounts per Spec — these can carry an opening balance.
+// SONNTAG_FEIERTAG_KOMPENSATION is computed weekly and therefore not a real
+// account in this sense, so OPENING is forbidden for it.
+const OPENING_ACCOUNT_TYPES = [
+  "ZEITSALDO",
+  "FERIEN",
+  "UEZ",
+  "TZT",
+  "PARENTAL_CARE",
+] as const;
+
+const manualBookingSchema = z
+  .object({
+    employeeId: z.string().min(1, "Mitarbeitende:r erforderlich"),
+    accountType: z.enum([
+      "ZEITSALDO",
+      "FERIEN",
+      "UEZ",
+      "TZT",
+      "SONNTAG_FEIERTAG_KOMPENSATION",
+      "PARENTAL_CARE",
+    ]),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Datum ungültig"),
+    value: z.coerce.number().refine((v) => v !== 0, {
+      message: "Wert darf nicht 0 sein",
+    }),
+    bookingType: z
+      .enum(["MANUAL_CREDIT", "MANUAL_DEBIT", "CORRECTION", "OPENING"])
+      .default("MANUAL_CREDIT"),
+    comment: z
+      .string()
+      .min(3, "Bitte einen Grund angeben")
+      .max(300, "Maximal 300 Zeichen"),
+  })
+  .refine(
+    (d) =>
+      d.bookingType !== "OPENING" ||
+      (OPENING_ACCOUNT_TYPES as readonly string[]).includes(d.accountType),
+    {
+      message:
+        "Anfangsbestand ist nur für echte Konten erlaubt (Zeitsaldo, Ferien, UEZ, TZT, Eltern-/Betreuungsurlaub).",
+      path: ["accountType"],
+    },
+  );
 
 export async function manualBookingAction(
   _prev: ActionResult | undefined,
@@ -93,6 +115,7 @@ export async function manualBookingAction(
         bookingType: data.bookingType,
         value: result.signedValue,
         date: data.date,
+        ...(data.bookingType === "OPENING" ? { isOpening: true } : {}),
       },
       comment: data.comment,
     });
