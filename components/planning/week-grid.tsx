@@ -30,7 +30,7 @@ export function WeekGrid({
 }: WeekGridProps) {
   if (employees.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-10 text-center text-sm text-neutral-500">
+      <div className="hidden rounded-2xl border border-dashed border-neutral-300 bg-white p-10 text-center text-sm text-neutral-500 md:block">
         Keine aktiven Mitarbeitenden. Lege unter «Mitarbeitende» mindestens
         eine:n Aktiven an, um die Wochenplanung zu nutzen.
       </div>
@@ -38,7 +38,7 @@ export function WeekGrid({
   }
 
   return (
-    <div className="min-w-0 overflow-x-auto rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm sm:p-4">
+    <div className="hidden min-w-0 overflow-x-auto rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm sm:p-4 md:block">
       <div
         className="grid w-full min-w-0 gap-2 sm:gap-3"
         style={{

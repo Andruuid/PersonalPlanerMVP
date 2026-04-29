@@ -21,6 +21,8 @@ import type { RequestView } from "./types";
 
 interface RequestsPanelProps {
   requests: RequestView[];
+  /** Listeninhalt ohne äusseren Karten-Rahmen (z. B. Bottom Sheet) */
+  embedded?: boolean;
 }
 
 const REASON_MAX = 300;
@@ -46,7 +48,10 @@ const STATUS_LABEL: Record<RequestView["status"], string> = {
   REJECTED: "Abgelehnt",
 };
 
-export function RequestsPanel({ requests }: RequestsPanelProps) {
+export function RequestsPanel({
+  requests,
+  embedded = false,
+}: RequestsPanelProps) {
   const openCount = requests.filter((r) => r.status === "OPEN").length;
   const sorted = [...requests].sort((a, b) => {
     if (a.status === "OPEN" && b.status !== "OPEN") return -1;
@@ -54,14 +59,16 @@ export function RequestsPanel({ requests }: RequestsPanelProps) {
     return a.startDate.localeCompare(b.startDate);
   });
 
-  return (
-    <section className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
-      <header className="mb-3 flex items-center justify-between">
-        <h2 className="app-label-caps text-sm font-semibold text-neutral-700">
-          Offene Anträge
-        </h2>
-        <span className="text-xs text-neutral-500">{openCount}</span>
-      </header>
+  const inner = (
+    <>
+      {!embedded ? (
+        <header className="mb-3 flex items-center justify-between">
+          <h2 className="app-label-caps text-sm font-semibold text-neutral-700">
+            Offene Anträge
+          </h2>
+          <span className="text-xs text-neutral-500">{openCount}</span>
+        </header>
+      ) : null}
 
       {sorted.length === 0 ? (
         <p className="text-sm text-neutral-500">
@@ -74,6 +81,16 @@ export function RequestsPanel({ requests }: RequestsPanelProps) {
           ))}
         </ul>
       )}
+    </>
+  );
+
+  if (embedded) {
+    return <div className="min-w-0">{inner}</div>;
+  }
+
+  return (
+    <section className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
+      {inner}
     </section>
   );
 }

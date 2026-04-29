@@ -74,12 +74,19 @@ export function KpiBar({ summary }: KpiBarProps) {
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-9">
+    <div
+      className={cn(
+        "gap-3",
+        "flex flex-nowrap overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        "md:grid md:grid-cols-2 md:overflow-visible md:pb-0 lg:grid-cols-3 xl:grid-cols-9",
+      )}
+    >
       {items.map((it) => (
         <div
           key={it.label}
           className={cn(
-            "rounded-2xl border bg-white p-4 shadow-sm",
+            "shrink-0 rounded-2xl border bg-white p-4 shadow-sm md:min-w-0 md:shrink",
+            "min-w-[10.5rem] max-w-[85vw] sm:max-w-none sm:min-w-[11rem] md:max-w-none",
             it.accent === "warn"
               ? "border-amber-300 bg-amber-50"
               : "border-neutral-200",
