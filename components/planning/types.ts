@@ -12,6 +12,7 @@ export type AbsenceType =
   | "SICK"
   | "ACCIDENT"
   | "FREE_REQUESTED"
+  | "UEZ_BEZUG"
   | "UNPAID"
   | "TZT"
   | "PARENTAL_CARE"
@@ -68,7 +69,7 @@ export interface ServiceOption {
 
 export interface RequestView {
   id: string;
-  type: "VACATION" | "FREE_REQUESTED" | "TZT" | "FREE_DAY" | "PARENTAL_CARE";
+  type: "VACATION" | "FREE_REQUESTED" | "UEZ_BEZUG" | "TZT" | "FREE_DAY" | "PARENTAL_CARE";
   status: "OPEN" | "APPROVED" | "REJECTED";
   startDate: string;
   endDate: string;

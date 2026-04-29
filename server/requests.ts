@@ -22,6 +22,8 @@ import {
 } from "./_shared";
 import { archiveUntil } from "@/lib/archive";
 
+const DECISION_COMMENT_MAX = 300;
+
 type ParsedDecisionComment =
   | { ok: true; text: string | null }
   | { ok: false; error: string };
@@ -44,11 +46,22 @@ function parseDecisionComment(raw?: string | null): ParsedDecisionComment {
 }
 
 const REQUEST_TO_ABSENCE: Record<
-  "VACATION" | "FREE_REQUESTED" | "TZT" | "FREE_DAY" | "PARENTAL_CARE",
-  "VACATION" | "FREE_REQUESTED" | "TZT" | "UNPAID" | "PARENTAL_CARE"
+  | "VACATION"
+  | "FREE_REQUESTED"
+  | "UEZ_BEZUG"
+  | "TZT"
+  | "FREE_DAY"
+  | "PARENTAL_CARE",
+  | "VACATION"
+  | "FREE_REQUESTED"
+  | "UEZ_BEZUG"
+  | "TZT"
+  | "UNPAID"
+  | "PARENTAL_CARE"
 > = {
   VACATION: "VACATION",
   FREE_REQUESTED: "FREE_REQUESTED",
+  UEZ_BEZUG: "UEZ_BEZUG",
   TZT: "TZT",
   // "Freier Tag" should behave like a regular free-requested day
   // (Zeitsaldo impact), not like unpaid leave (Soll reduction).
@@ -349,6 +362,7 @@ const createRequestSchema = z
     type: z.enum([
       "VACATION",
       "FREE_REQUESTED",
+      "UEZ_BEZUG",
       "TZT",
       "FREE_DAY",
       "PARENTAL_CARE",
@@ -472,7 +486,7 @@ export async function createAbsenceRequestAction(
       employeeId,
       year: { in: years.length > 0 ? years : [startDate.getFullYear()] },
       accountType: {
-        in: ["ZEITSALDO", "FERIEN", "TZT", "PARENTAL_CARE"],
+        in: ["ZEITSALDO", "FERIEN", "UEZ", "TZT", "PARENTAL_CARE"],
       },
     },
     select: { year: true, accountType: true, currentValue: true },

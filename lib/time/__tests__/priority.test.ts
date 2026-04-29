@@ -51,6 +51,7 @@ describe("resolveDay", () => {
       ["SICK", "SICK"],
       ["ACCIDENT", "ACCIDENT"],
       ["FREE_REQUESTED", "FREE_REQUESTED"],
+      ["UEZ_BEZUG", "UEZ_BEZUG"],
       ["UNPAID", "UNPAID"],
       ["TZT", "TZT_ABSENCE"],
       ["PARENTAL_CARE", "PARENTAL_CARE"],
@@ -131,6 +132,30 @@ describe("resolveDay", () => {
       false,
     );
     expect(r.kind).toBe("TZT_ABSENCE");
+  });
+
+  it("prioritizes TZT over UEZ_BEZUG on the same weekday", () => {
+    const r = resolveDayFromEntries(
+      [
+        { kind: "ABSENCE", absenceType: "UEZ_BEZUG", plannedMinutes: 0 },
+        { kind: "ABSENCE", absenceType: "TZT", plannedMinutes: 0 },
+      ],
+      false,
+      false,
+    );
+    expect(r.kind).toBe("TZT_ABSENCE");
+  });
+
+  it("prioritizes UEZ_BEZUG over FREE_REQUESTED on the same weekday", () => {
+    const r = resolveDayFromEntries(
+      [
+        { kind: "ABSENCE", absenceType: "FREE_REQUESTED", plannedMinutes: 0 },
+        { kind: "ABSENCE", absenceType: "UEZ_BEZUG", plannedMinutes: 0 },
+      ],
+      false,
+      false,
+    );
+    expect(r.kind).toBe("UEZ_BEZUG");
   });
 
   it("prioritizes FREE_REQUESTED over UNPAID on the same weekday", () => {

@@ -3,6 +3,7 @@ import type { ShiftKey } from "@/lib/shift-style";
 export type RequestType =
   | "VACATION"
   | "FREE_REQUESTED"
+  | "UEZ_BEZUG"
   | "TZT"
   | "FREE_DAY"
   | "PARENTAL_CARE";
@@ -59,6 +60,7 @@ export interface MyRequestView {
 export const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
   VACATION: "Ferienantrag",
   FREE_REQUESTED: "Frei verlangt",
+  UEZ_BEZUG: "UEZ-Bezug",
   TZT: "TZT-Antrag",
   FREE_DAY: "Freier Tag",
   PARENTAL_CARE: "Eltern-/Betreuungsurlaub",

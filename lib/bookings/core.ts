@@ -478,7 +478,8 @@ export interface RecalcWeekCloseResult {
 /**
  * Idempotently recompute all week-close generated bookings for one closed week.
  *
- * - Drops any prior week-close bookings (AUTO_WEEKLY/FREE_REQUESTED) dated
+ * - Drops any prior week-close bookings (AUTO_WEEKLY / FREE_REQUESTED /
+ *   UEZ_REDEMPTION) dated within Mo–So of the week.
  *   within Mo–So of the week.
  * - Computes new bookings for Zeitsaldo, Ferien, UEZ contributions per
  *   active employee using the pure Zeitlogik.
@@ -625,7 +626,7 @@ export async function recalcWeekClose(
     const priorWeekCloseBookings = await tx.booking.findMany({
       where: {
         tenantId,
-        bookingType: { in: ["AUTO_WEEKLY", "FREE_REQUESTED"] },
+        bookingType: { in: ["AUTO_WEEKLY", "FREE_REQUESTED", "UEZ_REDEMPTION"] },
         date: { gte: weekStart, lt: weekEndExclusive },
       },
       select: { id: true, employeeId: true, accountType: true },
@@ -702,6 +703,22 @@ export async function recalcWeekClose(
           comment: freeRequestedComment,
         });
         autoWeeklyZeitsaldoDelta += day.sollMinutes;
+      }
+
+      // UEZ_BEZUG: Tag with vollem Tagessoll, Ist = Tagessaldo-neutral; Buchung
+      // zulasten UEZ (ohne autoWeeklyZeitsaldoDelta-Anpassung — anders als
+      // FREE_REQUESTED).
+      const uezBezugDays = result.days.filter(
+        (day) => day.kind === "UEZ_BEZUG" && day.sollMinutes > 0,
+      );
+      const uezBezugComment = `UEZ-Bezug KW ${week.weekNumber}/${week.year}`;
+      for (const day of uezBezugDays) {
+        bookingsToCreate.push({
+          accountType: "UEZ",
+          bookingType: "UEZ_REDEMPTION",
+          value: -day.sollMinutes,
+          comment: uezBezugComment,
+        });
       }
 
       if (autoWeeklyZeitsaldoDelta !== 0) {
@@ -818,7 +835,7 @@ export async function removeWeekClosingBookings(
     const bookings = await tx.booking.findMany({
       where: {
         tenantId,
-        bookingType: { in: ["AUTO_WEEKLY", "FREE_REQUESTED"] },
+        bookingType: { in: ["AUTO_WEEKLY", "FREE_REQUESTED", "UEZ_REDEMPTION"] },
         date: { gte: weekStart, lt: weekEndExclusive },
       },
       select: { id: true, employeeId: true, accountType: true },
@@ -1269,7 +1286,11 @@ export async function deleteBooking(
   if (tenantId && booking.tenantId !== tenantId) {
     throw new DeleteBookingError("Buchung nicht gefunden", "NOT_FOUND");
   }
-  if (booking.bookingType === "AUTO_WEEKLY" || booking.bookingType === "FREE_REQUESTED") {
+  if (
+    booking.bookingType === "AUTO_WEEKLY" ||
+    booking.bookingType === "FREE_REQUESTED" ||
+    booking.bookingType === "UEZ_REDEMPTION"
+  ) {
     throw new DeleteBookingError(
       "Wochenabschluss-Buchungen werden über die Wochenaktionen verwaltet.",
       "WEEK_CLOSE_PROTECTED",

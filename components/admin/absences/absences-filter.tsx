@@ -9,6 +9,7 @@ export type TypeFilter =
   | "ALL"
   | "VACATION"
   | "FREE_REQUESTED"
+  | "UEZ_BEZUG"
   | "TZT"
   | "FREE_DAY";
 
@@ -31,6 +32,7 @@ const TYPE_OPTIONS: Array<{ value: TypeFilter; label: string }> = [
   { value: "ALL", label: "Alle Typen" },
   { value: "VACATION", label: "Ferien" },
   { value: "FREE_REQUESTED", label: "Frei verlangt" },
+  { value: "UEZ_BEZUG", label: "UEZ-Bezug" },
   { value: "TZT", label: "TZT" },
   { value: "FREE_DAY", label: "Freier Tag" },
 ];

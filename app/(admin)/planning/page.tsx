@@ -121,6 +121,7 @@ function entryView(raw: {
       SICK: "Krank",
       ACCIDENT: "Unfall",
       FREE_REQUESTED: "Frei verlangt",
+      UEZ_BEZUG: "UEZ-Bezug",
       UNPAID: "Unbezahlt",
       TZT: "TZT",
       PARENTAL_CARE: "Eltern-/Betreuungsurlaub",

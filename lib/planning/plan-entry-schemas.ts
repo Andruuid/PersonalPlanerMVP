@@ -26,6 +26,7 @@ const absenceSchema = z.object({
     "SICK",
     "ACCIDENT",
     "FREE_REQUESTED",
+    "UEZ_BEZUG",
     "UNPAID",
     "TZT",
     "PARENTAL_CARE",

@@ -182,6 +182,7 @@ export async function upsertPlanEntryAction(
       | "SICK"
       | "ACCIDENT"
       | "FREE_REQUESTED"
+      | "UEZ_BEZUG"
       | "UNPAID"
       | "TZT"
       | "PARENTAL_CARE"
@@ -438,7 +439,12 @@ export async function quickSetPlanEntryAction(
       employeeId,
       date: isoDate,
       kind: "ABSENCE",
-      absenceType: pick as "VACATION" | "FREE_REQUESTED" | "TZT" | "SICK",
+      absenceType: pick as
+        | "VACATION"
+        | "FREE_REQUESTED"
+        | "UEZ_BEZUG"
+        | "TZT"
+        | "SICK",
     });
   } catch (err) {
     logServerError("quickSetPlanEntryAction", err);

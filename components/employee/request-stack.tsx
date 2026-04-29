@@ -7,6 +7,7 @@ import {
   CalendarX,
   Hand,
   Hourglass,
+  Timer,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -35,9 +36,15 @@ const BUTTONS: ButtonSpec[] = [
     variant: "outline",
   },
   {
+    type: "UEZ_BEZUG",
+    label: "UEZ beziehen",
+    icon: Hourglass,
+    variant: "outline",
+  },
+  {
     type: "TZT",
     label: "TZT erfassen",
-    icon: Hourglass,
+    icon: Timer,
     variant: "outline",
   },
   {

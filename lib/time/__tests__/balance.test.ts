@@ -104,6 +104,26 @@ describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
     expect(result.vacationDaysDebit).toBe(5);
   });
 
+  it("UEZ_BEZUG leaves weekly Zeitsaldo delta at 0 (full Soll, anrechenbar Ist)", () => {
+    const days = isoWeekDays(YEAR, WEEK);
+    const entries = asEntries({
+      [days[0].iso]: { kind: "ABSENCE", absenceType: "UEZ_BEZUG", plannedMinutes: 0 },
+      [days[1].iso]: { kind: "SHIFT", plannedMinutes: 504 },
+      [days[2].iso]: { kind: "SHIFT", plannedMinutes: 504 },
+      [days[3].iso]: { kind: "SHIFT", plannedMinutes: 504 },
+      [days[4].iso]: { kind: "SHIFT", plannedMinutes: 504 },
+    });
+    const result = computeWeeklyBalance(
+      YEAR,
+      WEEK,
+      entries,
+      noHolidays,
+      FULL_PENSUM,
+    );
+    expect(result.weeklyZeitsaldoDeltaMinutes).toBe(0);
+    expect(result.vacationDaysDebit).toBe(0);
+  });
+
   it("free-requested deducts from Zeitsaldo (Soll - Ist = -Tagessoll)", () => {
     const days = isoWeekDays(YEAR, WEEK);
     const entries = asEntries({

@@ -263,6 +263,55 @@ describe("recalcWeekClose", () => {
     expect(balance?.currentValue).toBe(-480);
   });
 
+  it("UEZ_BEZUG posts UEZ_REDEMPTION -Tagessoll on UEZ; Zeitsaldo unchanged", async () => {
+    const employee = await seedEmployee(db.prisma, {
+      locationId,
+      weeklyTargetMinutes: 2400,
+      hazMinutesPerWeek: 2700,
+    });
+    for (let i = 0; i < 4; i++) {
+      await seedShiftEntry(db.prisma, {
+        weekId,
+        employeeId: employee.id,
+        isoDate: weekDays[i],
+        plannedMinutes: 480,
+      });
+    }
+    await seedAbsenceEntry(db.prisma, {
+      weekId,
+      employeeId: employee.id,
+      isoDate: weekDays[4],
+      absenceType: "UEZ_BEZUG",
+    });
+
+    const result = await recalcWeekClose(db.prisma, weekId, adminId);
+    expect(result.bookingsCreated).toBe(1);
+
+    const uezBookings = await db.prisma.booking.findMany({
+      where: { employeeId: employee.id, accountType: "UEZ" },
+    });
+    expect(uezBookings).toHaveLength(1);
+    expect(uezBookings[0].bookingType).toBe("UEZ_REDEMPTION");
+    expect(uezBookings[0].value).toBe(-480);
+    expect(uezBookings[0].comment).toBe(`UEZ-Bezug KW ${KW}/${YEAR}`);
+
+    const zeitsaldoBookings = await db.prisma.booking.findMany({
+      where: { employeeId: employee.id, accountType: "ZEITSALDO" },
+    });
+    expect(zeitsaldoBookings).toHaveLength(0);
+
+    const uezBal = await db.prisma.accountBalance.findUnique({
+      where: {
+        employeeId_accountType_year: {
+          employeeId: employee.id,
+          accountType: "UEZ",
+          year: YEAR,
+        },
+      },
+    });
+    expect(uezBal?.currentValue).toBe(-480);
+  });
+
   it("creates one FREE_REQUESTED booking per FREE_REQUESTED day", async () => {
     const employee = await seedEmployee(db.prisma, {
       locationId,

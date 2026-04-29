@@ -69,6 +69,8 @@ export function anrechenbarIstMinutes(
     case "PARENTAL_CARE":
     case "SERVICE":
       return baseDailySollMinutes(weeklyTargetMinutes, standardWorkDays);
+    case "UEZ_BEZUG":
+      return baseDailySollMinutes(weeklyTargetMinutes, standardWorkDays);
     case "TZT_ABSENCE":
       return tztModel === "TARGET_REDUCTION"
         ? 0

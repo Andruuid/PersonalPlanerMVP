@@ -3,6 +3,7 @@ export type AbsenceType =
   | "SICK"
   | "ACCIDENT"
   | "FREE_REQUESTED"
+  | "UEZ_BEZUG"
   | "UNPAID"
   | "TZT"
   | "PARENTAL_CARE"
@@ -39,6 +40,7 @@ export type DayKind =
   | "VACATION"
   | "PARENTAL_CARE"
   | "FREE_REQUESTED"
+  | "UEZ_BEZUG"
   | "TZT_ABSENCE"
   | "SERVICE"
   | "UNPAID"
@@ -57,6 +59,7 @@ const ANRECHENBAR_FALLBACK: Record<AbsenceType, DayKind> = {
   SICK: "SICK",
   ACCIDENT: "ACCIDENT",
   FREE_REQUESTED: "FREE_REQUESTED",
+  UEZ_BEZUG: "UEZ_BEZUG",
   UNPAID: "UNPAID",
   TZT: "TZT_ABSENCE",
   PARENTAL_CARE: "PARENTAL_CARE",
@@ -80,6 +83,8 @@ const ABSENCE_PRIORITY_TIERS: AbsenceType[][] = [
   ["VACATION"],
   // 6) TZT
   ["TZT"],
+  // 6b) UEZ-Bezug (hinter TZT, vor Frei verlangt)
+  ["UEZ_BEZUG"],
   // 7) Frei verlangt
   ["FREE_REQUESTED"],
   // 8) Urlaub unbezahlt
@@ -163,16 +168,17 @@ export function resolveDay(
 /**
  * Resolve day kind from potentially multiple plan entries for the same date.
  *
- * 9-step priority (spec):
+ * 10-step absence layering (spec + UEZ-Bezug):
  * 1) Holiday
  * 2) Weekend without Soll
  * 3) ERT (represented by HOLIDAY_WORK with >5h, evaluated downstream)
  * 4) SICK / ACCIDENT / SERVICE / PARENTAL_CARE
  * 5) VACATION
  * 6) TZT
- * 7) FREE_REQUESTED
- * 8) UNPAID
- * 9) normal WORK
+ * 7) UEZ_BEZUG
+ * 8) FREE_REQUESTED
+ * 9) UNPAID
+ * 10) normal WORK
  */
 export function resolveDayFromEntries(
   entries: PlanEntryInput[],

@@ -58,6 +58,7 @@ const ABSENCE_OPTIONS: Array<{
 }> = [
   { value: "VACATION", label: "Ferien" },
   { value: "FREE_REQUESTED", label: "Frei verlangt" },
+  { value: "UEZ_BEZUG", label: "UEZ-Bezug" },
   { value: "TZT", label: "TZT" },
   { value: "SICK", label: "Krank" },
   { value: "ACCIDENT", label: "Unfall" },
@@ -206,6 +207,7 @@ function AssignmentForm({
     | "SICK"
     | "ACCIDENT"
     | "FREE_REQUESTED"
+    | "UEZ_BEZUG"
     | "UNPAID"
     | "TZT"
     | "PARENTAL_CARE"
@@ -500,6 +502,7 @@ function AssignmentForm({
                     | "SICK"
                     | "ACCIDENT"
                     | "FREE_REQUESTED"
+                    | "UEZ_BEZUG"
                     | "UNPAID"
                     | "TZT"
                     | "PARENTAL_CARE"

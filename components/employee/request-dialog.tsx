@@ -31,6 +31,8 @@ const DESCRIPTIONS: Record<RequestType, string> = {
     "Ferienantrag — wird an die Geschäftsleitung übermittelt und nach Genehmigung im Ferienkonto verbucht.",
   FREE_REQUESTED:
     "Frei verlangt — Antrag nur möglich bei genügend Zeitsaldo. Bei Genehmigung wird der Tag vom Zeitsaldo abgezogen.",
+  UEZ_BEZUG:
+    "Antrag, einen geplanten Arbeitstag durch UEZ zu kompensieren — verfügbar nur bei genügend UEZ-Saldo.",
   TZT: "TZT erfassen — geplante TZT-Tage zur Genehmigung beantragen.",
   FREE_DAY:
     "Freier Tag — unbezahlt freier Tag, sofern keine Sollzeit besteht.",
@@ -43,6 +45,8 @@ const ENTITLEMENT_HINTS: Record<RequestType, string | null> = {
     "Antrag nur möglich mit genügend Ferienguthaben im betroffenen Jahr.",
   FREE_REQUESTED:
     "Antrag nur möglich mit genügend Zeitsaldo im betroffenen Jahr. Bei Genehmigung wird der Wert vom Zeitsaldo abgezogen.",
+  UEZ_BEZUG:
+    "Antrag nur möglich mit genügend UEZ-Minuten im betroffenen Jahr. Bei Genehmigung wird der Bezug mit der Wochenschliessung vom UEZ-Konto abgezogen (Zeitsaldo bleibt neutral).",
   TZT:
     "Antrag nur möglich mit genügend TZT-Guthaben (ausser bei Modell TARGET_REDUCTION).",
   FREE_DAY: null,

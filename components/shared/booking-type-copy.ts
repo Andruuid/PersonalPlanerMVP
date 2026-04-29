@@ -12,6 +12,7 @@ export const BOOKING_TYPE_LABEL: Record<BookingType, string> = {
   COMPENSATION_REDEMPTION: "Kompensationsbezug",
   COMPENSATION_EXPIRED: "Abgelaufen (Verfall)",
   UEZ_PAYOUT: "UEZ-Auszahlung",
+  UEZ_REDEMPTION: "UEZ-Bezug",
 };
 
 export const BOOKING_TYPE_BADGE: Record<BookingType, string> = {
@@ -25,4 +26,5 @@ export const BOOKING_TYPE_BADGE: Record<BookingType, string> = {
   COMPENSATION_REDEMPTION: "bg-rose-100 text-rose-800",
   COMPENSATION_EXPIRED: "bg-red-100 text-red-900 ring-1 ring-red-300",
   UEZ_PAYOUT: "bg-amber-100 text-amber-900",
+  UEZ_REDEMPTION: "bg-orange-100 text-orange-950",
 };

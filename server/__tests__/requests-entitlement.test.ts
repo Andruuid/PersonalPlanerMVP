@@ -122,6 +122,39 @@ describe("evaluateRequestEntitlement", () => {
     expect(result.error).toContain("Eltern-/Betreuungsurlaub");
   });
 
+  it("rejects UEZ_BEZUG when UEZ minutes are insufficient", () => {
+    const result = evaluateRequestEntitlement({
+      type: "UEZ_BEZUG",
+      startDate: parseIsoDate("2026-03-02")!,
+      endDate: parseIsoDate("2026-03-03")!,
+      weeklyTargetMinutes: 2520,
+      standardWorkDays: 5,
+      vacationDaysPerYear: 25,
+      balancesByYear: {
+        2026: { UEZ: 400 },
+      },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("UEZ-Saldo");
+  });
+
+  it("allows UEZ_BEZUG when UEZ balance covers requested Soll minutes", () => {
+    const result = evaluateRequestEntitlement({
+      type: "UEZ_BEZUG",
+      startDate: parseIsoDate("2026-03-02")!,
+      endDate: parseIsoDate("2026-03-03")!,
+      weeklyTargetMinutes: 2520,
+      standardWorkDays: 5,
+      vacationDaysPerYear: 25,
+      balancesByYear: {
+        2026: { UEZ: 2 * (2520 / 5) },
+      },
+    });
+
+    expect(result.ok).toBe(true);
+  });
+
   it("rejects free-requested when zeitsaldo minutes are insufficient", () => {
     const result = evaluateRequestEntitlement({
       type: "FREE_REQUESTED",

@@ -36,6 +36,7 @@ enum AbsenceType {
   SICK
   ACCIDENT
   FREE_REQUESTED
+  UEZ_BEZUG
   UNPAID
   TZT
   PARENTAL_CARE
@@ -48,6 +49,7 @@ enum AbsenceType {
 enum RequestType {
   VACATION
   FREE_REQUESTED
+  UEZ_BEZUG
   TZT
   FREE_DAY
   PARENTAL_CARE
@@ -100,6 +102,8 @@ enum BookingType {
   COMPENSATION_EXPIRED
   // Explizite Auszahlung von Überstundenersatzzeit (UEZ); negativer Eintrag.
   UEZ_PAYOUT
+  // Bezug von UEZ (Wochenabschluss): geplanter freier Tag zulasten UEZ-Konto.
+  UEZ_REDEMPTION
 }
 
 /// TZT accounting variant (Spec: Modell 1 = Tageskontingent, Modell 2 = Sollzeit-Reduktion).

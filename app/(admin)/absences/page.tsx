@@ -29,6 +29,7 @@ const TYPE_VALUES: TypeFilter[] = [
   "ALL",
   "VACATION",
   "FREE_REQUESTED",
+  "UEZ_BEZUG",
   "TZT",
   "FREE_DAY",
 ];

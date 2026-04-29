@@ -5,10 +5,16 @@ import { isoDateString } from "@/lib/time/week";
 export type RequestType =
   | "VACATION"
   | "FREE_REQUESTED"
+  | "UEZ_BEZUG"
   | "TZT"
   | "FREE_DAY"
   | "PARENTAL_CARE";
-export type RequestAccountType = "ZEITSALDO" | "FERIEN" | "TZT" | "PARENTAL_CARE";
+export type RequestAccountType =
+  | "ZEITSALDO"
+  | "FERIEN"
+  | "UEZ"
+  | "TZT"
+  | "PARENTAL_CARE";
 
 export interface RequestEntitlementInput {
   type: RequestType;
@@ -135,6 +141,24 @@ export function evaluateRequestEntitlement(
         return {
           ok: false,
           error: `Zu wenig Eltern-/Betreuungsurlaub (${year}): benötigt ${requestedDays}, verfügbar ${available}.`,
+        };
+      }
+    }
+    return { ok: true };
+  }
+
+  if (effectiveType === "UEZ_BEZUG") {
+    const dailyTargetMinutes = baseDailySollMinutes(
+      input.weeklyTargetMinutes,
+      input.standardWorkDays,
+    );
+    for (const [year, requestedDays] of sollDaysByYear) {
+      const neededMinutes = requestedDays * dailyTargetMinutes;
+      const available = getAccountValue(input, year, "UEZ");
+      if (available < neededMinutes) {
+        return {
+          ok: false,
+          error: `Zu wenig UEZ-Saldo (${year}): benötigt ${Math.round(neededMinutes)} Min., verfügbar ${Math.round(available)} Min.`,
         };
       }
     }

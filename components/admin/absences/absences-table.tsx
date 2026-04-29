@@ -22,6 +22,7 @@ import {
 export type AbsenceRequestType =
   | "VACATION"
   | "FREE_REQUESTED"
+  | "UEZ_BEZUG"
   | "TZT"
   | "FREE_DAY";
 export type AbsenceRequestStatus = "OPEN" | "APPROVED" | "REJECTED";
@@ -50,6 +51,7 @@ interface AbsencesTableProps {
 const TYPE_LABEL: Record<AbsenceRequestType, string> = {
   VACATION: "Ferienantrag",
   FREE_REQUESTED: "Frei verlangt",
+  UEZ_BEZUG: "UEZ-Bezug",
   TZT: "TZT-Antrag",
   FREE_DAY: "Freier Tag",
 };

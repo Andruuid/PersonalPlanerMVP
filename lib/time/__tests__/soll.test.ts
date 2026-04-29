@@ -55,6 +55,9 @@ describe("dailySollMinutes", () => {
     expect(dailySollMinutes("TZT_ABSENCE", 2520, "DAILY_QUOTA", STD_DAYS)).toBe(
       base,
     );
+    expect(dailySollMinutes("UEZ_BEZUG", 2520, "DAILY_QUOTA", STD_DAYS)).toBe(
+      base,
+    );
     expect(dailySollMinutes("FREE_REQUESTED", 2520, "DAILY_QUOTA", STD_DAYS)).toBe(
       base,
     );
@@ -108,6 +111,9 @@ describe("anrechenbarIstMinutes", () => {
     );
     expect(
       anrechenbarIstMinutes("TZT_ABSENCE", 0, weekly, "DAILY_QUOTA", STD_DAYS),
+    ).toBe(base);
+    expect(
+      anrechenbarIstMinutes("UEZ_BEZUG", 0, weekly, "DAILY_QUOTA", STD_DAYS),
     ).toBe(base);
   });
 
