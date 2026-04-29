@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,11 +9,13 @@ import { loginAction, type LoginState } from "./actions";
 
 interface Props {
   callbackUrl?: string;
+  /** Aus /signup: vorgefüllter Betrieb-Slug */
+  defaultTenantSlug?: string;
 }
 
 const initialState: LoginState = { ok: false };
 
-export function LoginForm({ callbackUrl }: Props) {
+export function LoginForm({ callbackUrl, defaultTenantSlug }: Props) {
   const [state, formAction, pending] = useActionState(loginAction, initialState);
 
   return (
@@ -28,6 +31,7 @@ export function LoginForm({ callbackUrl }: Props) {
           autoComplete="organization"
           required
           placeholder="default"
+          defaultValue={defaultTenantSlug ?? undefined}
         />
       </div>
 
@@ -65,6 +69,15 @@ export function LoginForm({ callbackUrl }: Props) {
       </Button>
 
       <p className="pt-2 text-center text-xs text-neutral-500">
+        <Link
+          href="/signup"
+          className="font-medium text-neutral-700 underline underline-offset-2 hover:text-neutral-900"
+        >
+          Neuen Betrieb registrieren →
+        </Link>
+      </p>
+
+      <p className="text-center text-xs text-neutral-500">
         Demo: Slug{" "}
         <span className="font-medium text-neutral-700">&quot;default&quot;</span>
         <br />

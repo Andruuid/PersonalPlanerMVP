@@ -10,8 +10,12 @@
  */
 
 import type { PrismaClient } from "@/lib/generated/prisma/client";
+import type * as PrismaNs from "@/lib/generated/prisma/internal/prismaNamespace";
 
-const auditTriggersInstalled = new WeakSet<PrismaClient>();
+/** Full client or interactive transaction client (append-only audit writes). */
+type AuditWriteClient = PrismaClient | PrismaNs.TransactionClient;
+
+const auditTriggersInstalled = new WeakSet<AuditWriteClient>();
 
 /**
  * Invalidate the append-only trigger install cache — required when the
@@ -19,12 +23,12 @@ const auditTriggersInstalled = new WeakSet<PrismaClient>();
  * `PrismaClient` (see `lib/test/db.ts` reset).
  */
 export function invalidateAuditLogAppendOnlyCache(
-  prisma: PrismaClient,
+  prisma: AuditWriteClient,
 ): void {
   auditTriggersInstalled.delete(prisma);
 }
 
-async function ensureAuditLogAppendOnly(prisma: PrismaClient): Promise<void> {
+async function ensureAuditLogAppendOnly(prisma: AuditWriteClient): Promise<void> {
   if (auditTriggersInstalled.has(prisma)) {
     return;
   }
@@ -63,7 +67,7 @@ export interface AuditPayload {
 }
 
 export async function writeAuditCore(
-  prisma: PrismaClient,
+  prisma: AuditWriteClient,
   payload: AuditPayload,
 ): Promise<void> {
   await ensureAuditLogAppendOnly(prisma);

@@ -12,7 +12,7 @@ export const metadata = {
 };
 
 interface PageProps {
-  searchParams: Promise<{ callbackUrl?: string }>;
+  searchParams: Promise<{ callbackUrl?: string; tenantSlug?: string }>;
 }
 
 export default async function LoginPage({ searchParams }: PageProps) {
@@ -30,7 +30,10 @@ export default async function LoginPage({ searchParams }: PageProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <LoginForm callbackUrl={params.callbackUrl} />
+          <LoginForm
+            callbackUrl={params.callbackUrl}
+            defaultTenantSlug={params.tenantSlug}
+          />
         </CardContent>
       </Card>
     </div>
