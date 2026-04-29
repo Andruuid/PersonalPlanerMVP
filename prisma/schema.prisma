@@ -96,6 +96,8 @@ enum BookingType {
   // Bezug von SONNTAG_FEIERTAG_KOMPENSATION-Stunden (negativer Eintrag,
   // der den Restsaldo der fristgebundenen Kompensation reduziert).
   COMPENSATION_REDEMPTION
+  // Verfall nicht eingelöster Sonn-/Feiertags-Kompensation nach Frist (negativ).
+  COMPENSATION_EXPIRED
   // Explizite Auszahlung von Überstundenersatzzeit (UEZ); negativer Eintrag.
   UEZ_PAYOUT
 }

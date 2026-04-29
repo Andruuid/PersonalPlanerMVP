@@ -140,6 +140,20 @@ describe("upsertAndAdvanceCompensationCases via recalcWeekClose", () => {
     const trigger = parseIsoDate(weekDaysKw10[0])!;
     const due = addDays(trigger, 180);
 
+    const firstSunday = isoWeekDays(YEAR, KW)[6].date;
+    const balanceYear0 = firstSunday.getFullYear();
+    const balanceAfterCredit = await db.prisma.accountBalance.findUnique({
+      where: {
+        employeeId_accountType_year: {
+          employeeId: employee.id,
+          accountType: "SONNTAG_FEIERTAG_KOMPENSATION",
+          year: balanceYear0,
+        },
+      },
+    });
+    const creditedMinutes = balanceAfterCredit?.currentValue ?? 0;
+    expect(creditedMinutes).toBeGreaterThan(0);
+
     let probe: IsoWeek = shiftWeek({ year: YEAR, weekNumber: KW }, 1);
     let found: IsoWeek | null = null;
     for (let i = 0; i < 100; i++) {
@@ -173,5 +187,29 @@ describe("upsertAndAdvanceCompensationCases via recalcWeekClose", () => {
     });
     expect(c?.status).toBe("EXPIRED");
     expect(c?.redeemedAt).toBeNull();
+
+    const lateSunday = isoWeekDays(found!.year, found!.weekNumber)[6].date;
+    const balanceYearLate = lateSunday.getFullYear();
+    const balanceFinal = await db.prisma.accountBalance.findUnique({
+      where: {
+        employeeId_accountType_year: {
+          employeeId: employee.id,
+          accountType: "SONNTAG_FEIERTAG_KOMPENSATION",
+          year: balanceYearLate,
+        },
+      },
+    });
+    expect(balanceFinal?.currentValue ?? 0).toBe(0);
+
+    const expiredBooking = await db.prisma.booking.findFirst({
+      where: {
+        employeeId: employee.id,
+        bookingType: "COMPENSATION_EXPIRED",
+        accountType: "SONNTAG_FEIERTAG_KOMPENSATION",
+      },
+    });
+    expect(expiredBooking).not.toBeNull();
+    expect(expiredBooking!.value).toBe(-creditedMinutes);
+    expect(creditedMinutes).toBe(c!.holidayWorkMinutes);
   });
 });

@@ -226,6 +226,8 @@ async function upsertAndAdvanceCompensationCases(
   tenantId: string,
   weekDays: Array<{ iso: string; kind: string; plannedMinutes: number }>,
   referenceDate: Date,
+  vacationDaysPerYear: number,
+  createdByUserId: string,
 ): Promise<void> {
   const tenant = await tx.tenant.findUniqueOrThrow({
     where: { id: tenantId },
@@ -271,6 +273,45 @@ async function upsertAndAdvanceCompensationCases(
       continue;
     }
     if (referenceDate > c.dueAt) {
+      const expiredMarker = `COMPENSATION_EXPIRED_CASE:${c.id}`;
+      const existingExpired = await tx.booking.findFirst({
+        where: {
+          employeeId,
+          bookingType: "COMPENSATION_EXPIRED",
+          accountType: "SONNTAG_FEIERTAG_KOMPENSATION",
+          comment: { contains: expiredMarker },
+        },
+      });
+      const remainingMinutes = c.holidayWorkMinutes - redeemed;
+      if (!existingExpired && remainingMinutes > 0) {
+        const year = referenceDate.getFullYear();
+        await ensureBalanceRow(
+          tx,
+          employeeId,
+          tenantId,
+          "SONNTAG_FEIERTAG_KOMPENSATION",
+          year,
+          vacationDaysPerYear,
+        );
+        await tx.booking.create({
+          data: {
+            tenantId,
+            employeeId,
+            accountType: "SONNTAG_FEIERTAG_KOMPENSATION",
+            date: referenceDate,
+            value: -remainingMinutes,
+            bookingType: "COMPENSATION_EXPIRED",
+            comment: `Verfall Sonn-/Feiertagskompensation (${remainingMinutes} Min.)\n${expiredMarker}`,
+            createdByUserId,
+          },
+        });
+        await recomputeBalance(
+          tx,
+          employeeId,
+          "SONNTAG_FEIERTAG_KOMPENSATION",
+          year,
+        );
+      }
       await tx.compensationCase.update({
         where: { id: c.id },
         data: { status: "EXPIRED" },
@@ -629,6 +670,8 @@ export async function recalcWeekClose(
         tenantId,
         result.days,
         sunday,
+        employee.vacationDaysPerYear,
+        closedByUserId,
       );
 
       const accountsToTouch: Set<AccountType> =

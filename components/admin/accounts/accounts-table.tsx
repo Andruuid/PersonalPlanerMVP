@@ -21,6 +21,7 @@ import {
   formatAccountValue,
   formatMinutesAsHours,
 } from "./format";
+import { BOOKING_TYPE_LABEL } from "@/components/shared/booking-type-copy";
 import type { AccountSummary, AdminAccountsRow } from "@/server/accounts";
 import type { AccountType } from "@/lib/generated/prisma/enums";
 
@@ -93,7 +94,11 @@ export function AccountsTable({ rows, year, todayIso }: Props) {
                   <th key={accountType} className="px-4 py-3">
                     <HeaderWithHelp
                       label={ACCOUNT_DISPLAY[accountType].label}
-                      tooltip={`Aktueller Kontostand und Eröffnungswert für ${ACCOUNT_DISPLAY[accountType].label}.`}
+                      tooltip={
+                        accountType === "SONNTAG_FEIERTAG_KOMPENSATION"
+                          ? `Aktueller Kontostand und Eröffnungswert für ${ACCOUNT_DISPLAY[accountType].label}. Nach Einlösungsfrist ohne Bezug wird der Rest automatisch verbucht; in der Buchungs-Historie erscheint das als „${BOOKING_TYPE_LABEL.COMPENSATION_EXPIRED}“ (rot).`
+                          : `Aktueller Kontostand und Eröffnungswert für ${ACCOUNT_DISPLAY[accountType].label}.`
+                      }
                     />
                   </th>
                 ))}

@@ -5,32 +5,23 @@ import {
   ACCOUNT_DISPLAY,
   formatAccountValue,
 } from "@/components/admin/accounts/format";
+import {
+  BOOKING_TYPE_BADGE,
+  BOOKING_TYPE_LABEL,
+} from "@/components/shared/booking-type-copy";
 import type { BookingHistoryRow } from "@/server/accounts";
-import type { BookingType } from "@/lib/generated/prisma/enums";
+import { cn } from "@/lib/utils";
 
-const BOOKING_TYPE_LABEL: Record<BookingType, string> = {
-  OPENING: "Eröffnung",
-  AUTO_WEEKLY: "Wochenabschluss",
-  FREE_REQUESTED: "Freiwunsch",
-  MANUAL_CREDIT: "Gutschrift",
-  MANUAL_DEBIT: "Belastung",
-  CORRECTION: "Korrektur",
-  CARRYOVER: "Vortrag",
-  COMPENSATION_REDEMPTION: "Kompensationsbezug",
-  UEZ_PAYOUT: "UEZ-Auszahlung",
-};
-
-const BOOKING_TYPE_BADGE: Record<BookingType, string> = {
-  OPENING: "bg-neutral-100 text-neutral-700",
-  AUTO_WEEKLY: "bg-neutral-100 text-neutral-700",
-  FREE_REQUESTED: "bg-violet-100 text-violet-800",
-  MANUAL_CREDIT: "bg-emerald-100 text-emerald-800",
-  MANUAL_DEBIT: "bg-rose-100 text-rose-800",
-  CORRECTION: "bg-amber-100 text-amber-800",
-  CARRYOVER: "bg-sky-100 text-sky-800",
-  COMPENSATION_REDEMPTION: "bg-rose-100 text-rose-800",
-  UEZ_PAYOUT: "bg-amber-100 text-amber-900",
-};
+/** Hide machine-only idempotency line from UI. */
+function commentForDisplay(raw: string | null): string | null {
+  if (!raw) return null;
+  const cleaned = raw
+    .split("\n")
+    .filter((line) => !line.startsWith("COMPENSATION_EXPIRED_CASE:"))
+    .join("\n")
+    .trim();
+  return cleaned.length > 0 ? cleaned : null;
+}
 
 interface MonthGroup {
   monthIso: string;
@@ -82,10 +73,16 @@ export function BookingHistory({ rows }: Props) {
           </h3>
           <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
             <ul className="divide-y divide-neutral-100">
-              {g.rows.map((r) => (
+              {g.rows.map((r) => {
+                const commentShown = commentForDisplay(r.comment);
+                return (
                 <li
                   key={r.id}
-                  className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3"
+                  className={cn(
+                    "flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3",
+                    r.bookingType === "COMPENSATION_EXPIRED" &&
+                      "border-l-4 border-red-600 bg-red-50/90",
+                  )}
                 >
                   <span className="w-20 shrink-0 text-sm font-medium text-neutral-700 tabular-nums">
                     {format(parseISO(r.date), "dd.MM.")}
@@ -94,14 +91,16 @@ export function BookingHistory({ rows }: Props) {
                     {ACCOUNT_DISPLAY[r.accountType].label}
                   </span>
                   <span
-                    className={
-                      "ml-auto w-24 shrink-0 text-right text-sm font-semibold tabular-nums " +
-                      (r.value > 0
-                        ? "text-emerald-700"
-                        : r.value < 0
-                          ? "text-rose-700"
-                          : "text-neutral-900")
-                    }
+                    className={cn(
+                      "ml-auto w-24 shrink-0 text-right text-sm font-semibold tabular-nums",
+                      r.bookingType === "COMPENSATION_EXPIRED"
+                        ? "text-red-800"
+                        : r.value > 0
+                          ? "text-emerald-700"
+                          : r.value < 0
+                            ? "text-rose-700"
+                            : "text-neutral-900",
+                    )}
                   >
                     {formatAccountValue(r.unit, r.value)}
                   </span>
@@ -111,13 +110,12 @@ export function BookingHistory({ rows }: Props) {
                   >
                     {BOOKING_TYPE_LABEL[r.bookingType]}
                   </Badge>
-                  {r.comment ? (
-                    <p className="basis-full text-xs text-neutral-500">
-                      {r.comment}
-                    </p>
+                  {commentShown ? (
+                    <p className="basis-full text-xs text-neutral-500">{commentShown}</p>
                   ) : null}
                 </li>
-              ))}
+                );
+              })}
             </ul>
           </div>
         </section>
