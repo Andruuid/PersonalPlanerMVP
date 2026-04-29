@@ -162,7 +162,7 @@ async function main() {
   // Admin user.
   const adminPwd = await bcrypt.hash("admin123", 10);
   const existingAdmin = await prisma.user.findFirst({
-    where: { email: "admin@demo.ch" },
+    where: { tenantId, email: "admin@demo.ch" },
   });
   if (existingAdmin) {
     await prisma.user.update({
@@ -185,7 +185,7 @@ async function main() {
   for (const e of DEMO_EMPLOYEES) {
     const pwd = await bcrypt.hash(e.password, 10);
     const existingUser = await prisma.user.findFirst({
-      where: { email: e.email },
+      where: { tenantId, email: e.email },
     });
     const user = existingUser
       ? await prisma.user.update({
@@ -226,6 +226,32 @@ async function main() {
         weeklyTargetMinutes: Math.round((42 * 60 * e.pensum) / 100),
         hazMinutesPerWeek: 45 * 60,
         locationId: e.locationId,
+      },
+    });
+  }
+
+  // Same email as default-tenant admin on `demo` slug — proves tenant-scoped uniqueness + login.
+  const demoTenantPwd = await bcrypt.hash("admin123", 10);
+  const demoSlugAdmin = await prisma.user.findFirst({
+    where: { tenantId: demoTenant.id, email: "admin@demo.ch" },
+  });
+  if (demoSlugAdmin) {
+    await prisma.user.update({
+      where: { id: demoSlugAdmin.id },
+      data: {
+        passwordHash: demoTenantPwd,
+        role: "ADMIN",
+        isActive: true,
+      },
+    });
+  } else {
+    await prisma.user.create({
+      data: {
+        tenantId: demoTenant.id,
+        email: "admin@demo.ch",
+        passwordHash: demoTenantPwd,
+        role: "ADMIN",
+        isActive: true,
       },
     });
   }

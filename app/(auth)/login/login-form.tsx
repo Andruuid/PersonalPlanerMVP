@@ -20,6 +20,18 @@ export function LoginForm({ callbackUrl }: Props) {
       <input type="hidden" name="callbackUrl" value={callbackUrl ?? ""} />
 
       <div className="space-y-2">
+        <Label htmlFor="tenantSlug">Betrieb (Slug)</Label>
+        <Input
+          id="tenantSlug"
+          name="tenantSlug"
+          type="text"
+          autoComplete="organization"
+          required
+          placeholder="default"
+        />
+      </div>
+
+      <div className="space-y-2">
         <Label htmlFor="email">E-Mail</Label>
         <Input
           id="email"
@@ -53,7 +65,8 @@ export function LoginForm({ callbackUrl }: Props) {
       </Button>
 
       <p className="pt-2 text-center text-xs text-neutral-500">
-        Demo-Konten:
+        Demo: Slug{" "}
+        <span className="font-medium text-neutral-700">&quot;default&quot;</span>
         <br />
         <span className="font-medium text-neutral-700">admin@demo.ch</span> /
         admin123
@@ -62,6 +75,10 @@ export function LoginForm({ callbackUrl }: Props) {
           anna.keller@demo.ch
         </span>{" "}
         / demo123
+        <br />
+        Zusätzlich gleiche E-Mail unter Slug{" "}
+        <span className="font-medium text-neutral-700">&quot;demo&quot;</span>
+        .
       </p>
     </form>
   );
