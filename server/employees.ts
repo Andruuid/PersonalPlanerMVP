@@ -164,14 +164,14 @@ export async function createEmployeeAction(
   const data = parsed.data;
   const emailLower = data.email.toLowerCase();
 
-  const existing = await prisma.user.findFirst({
-    where: { tenantId: admin.tenantId, email: emailLower },
+  const existing = await prisma.user.findUnique({
+    where: { email: emailLower },
   });
   if (existing) {
     return {
       ok: false,
       error: "E-Mail bereits vergeben.",
-      fieldErrors: { email: "E-Mail bereits vergeben." },
+      fieldErrors: { email: "Diese E-Mail ist bereits registriert." },
     };
   }
 
@@ -341,14 +341,14 @@ export async function updateEmployeeAction(
   }
 
   if (emailLower !== before.user.email) {
-    const clash = await prisma.user.findFirst({
-      where: { tenantId: admin.tenantId, email: emailLower },
+    const clash = await prisma.user.findUnique({
+      where: { email: emailLower },
     });
     if (clash && clash.id !== before.userId) {
       return {
         ok: false,
         error: "E-Mail bereits vergeben.",
-        fieldErrors: { email: "E-Mail bereits vergeben." },
+        fieldErrors: { email: "Diese E-Mail ist bereits registriert." },
       };
     }
   }

@@ -9,31 +9,16 @@ import { loginAction, type LoginState } from "./actions";
 
 interface Props {
   callbackUrl?: string;
-  /** Aus /signup: vorgefüllter Betrieb-Slug */
-  defaultTenantSlug?: string;
 }
 
 const initialState: LoginState = { ok: false };
 
-export function LoginForm({ callbackUrl, defaultTenantSlug }: Props) {
+export function LoginForm({ callbackUrl }: Props) {
   const [state, formAction, pending] = useActionState(loginAction, initialState);
 
   return (
     <form action={formAction} className="space-y-4">
       <input type="hidden" name="callbackUrl" value={callbackUrl ?? ""} />
-
-      <div className="space-y-2">
-        <Label htmlFor="tenantSlug">Betrieb (Slug)</Label>
-        <Input
-          id="tenantSlug"
-          name="tenantSlug"
-          type="text"
-          autoComplete="organization"
-          required
-          placeholder="default"
-          defaultValue={defaultTenantSlug ?? undefined}
-        />
-      </div>
 
       <div className="space-y-2">
         <Label htmlFor="email">E-Mail</Label>
@@ -78,20 +63,12 @@ export function LoginForm({ callbackUrl, defaultTenantSlug }: Props) {
       </p>
 
       <p className="text-center text-xs text-neutral-500">
-        Demo: Slug{" "}
-        <span className="font-medium text-neutral-700">&quot;default&quot;</span>
-        <br />
+        Demo nach Seed:&nbsp;
         <span className="font-medium text-neutral-700">admin@demo.ch</span> /
         admin123
         <br />
-        <span className="font-medium text-neutral-700">
-          anna.keller@demo.ch
-        </span>{" "}
+        <span className="font-medium text-neutral-700">anna.keller@demo.ch</span>{" "}
         / demo123
-        <br />
-        Zusätzlich gleiche E-Mail unter Slug{" "}
-        <span className="font-medium text-neutral-700">&quot;demo&quot;</span>
-        .
       </p>
     </form>
   );

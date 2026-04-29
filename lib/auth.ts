@@ -22,7 +22,6 @@ declare module "next-auth" {
 }
 
 const credentialsSchema = z.object({
-  tenantSlug: z.string().trim().min(1),
   email: z.string().email(),
   password: z.string().min(1),
 });
@@ -40,26 +39,19 @@ export const {
     Credentials({
       name: "Credentials",
       credentials: {
-        tenantSlug: { label: "Betrieb", type: "text" },
         email: { label: "E-Mail", type: "email" },
         password: { label: "Passwort", type: "password" },
       },
       async authorize(raw) {
         const parsed = credentialsSchema.safeParse(raw);
         if (!parsed.success) return null;
-        const { tenantSlug, email, password } = parsed.data;
+        const { email, password } = parsed.data;
 
-        const slugNorm = tenantSlug.trim().toLowerCase();
-        const tenant = await prisma.tenant.findUnique({
-          where: { slug: slugNorm },
-          select: { id: true },
-        });
-        if (!tenant) return null;
+        const emailLower = email.toLowerCase();
 
-        const user = await prisma.user.findFirst({
+        const user = await prisma.user.findUnique({
           where: {
-            tenantId: tenant.id,
-            email: email.toLowerCase(),
+            email: emailLower,
           },
           include: { employee: { select: { id: true } } },
         });

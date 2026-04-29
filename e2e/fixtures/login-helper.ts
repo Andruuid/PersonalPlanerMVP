@@ -1,7 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 /** Login-Shape für die Anmelden-Form */
 export interface LoginCredentials {
-  tenantSlug: string;
   email: string;
   password: string;
 }
@@ -12,9 +11,7 @@ export async function loginOnPage(
   creds: LoginCredentials,
 ): Promise<void> {
   await page.goto("/login", { waitUntil: "domcontentloaded" });
-  const tenantSlug = page.getByLabel("Betrieb (Slug)");
-  await expect(tenantSlug).toBeVisible({ timeout: 60_000 });
-  await tenantSlug.fill(creds.tenantSlug);
+  await expect(page.getByLabel("E-Mail")).toBeVisible({ timeout: 60_000 });
   await page.getByLabel("E-Mail").fill(creds.email);
   await page.getByLabel("Passwort").fill(creds.password);
   await page.getByRole("button", { name: "Anmelden" }).click();

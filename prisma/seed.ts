@@ -230,10 +230,11 @@ async function main() {
     });
   }
 
-  // Same email as default-tenant admin on `demo` slug — proves tenant-scoped uniqueness + login.
+  // Second-tenant sandbox admin uses a distinct email so User.email stays globally unique.
+  const demoSandboxAdminEmail = "demo-sandbox-admin@demo.ch";
   const demoTenantPwd = await bcrypt.hash("admin123", 10);
   const demoSlugAdmin = await prisma.user.findFirst({
-    where: { tenantId: demoTenant.id, email: "admin@demo.ch" },
+    where: { tenantId: demoTenant.id, email: demoSandboxAdminEmail },
   });
   if (demoSlugAdmin) {
     await prisma.user.update({
@@ -248,7 +249,7 @@ async function main() {
     await prisma.user.create({
       data: {
         tenantId: demoTenant.id,
-        email: "admin@demo.ch",
+        email: demoSandboxAdminEmail,
         passwordHash: demoTenantPwd,
         role: "ADMIN",
         isActive: true,

@@ -3,7 +3,7 @@ import { loginOnPage } from "../fixtures/login-helper";
 import { testAdminCredentials } from "../fixtures/credentials";
 
 /**
- * Admin-Anmeldung (Credentials + Tenant „default“, Seed README).
+ * Admin-Anmeldung mit Demo-Konten aus README/Seed (`admin@demo.ch`).
  *
  * Erwartung: Nach erfolgreicher Anmeldung Weiterleitung zur Admin-Zielseite
  * (/dashboard oder / nach Rollenrouting).

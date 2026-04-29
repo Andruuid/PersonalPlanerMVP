@@ -7,18 +7,17 @@ import { expect, test } from "@playwright/test";
  */
 
 test.describe("Öffentliche Einstiegseiten (ohne Login)", () => {
-  test("Login: Formular Anmeldung (Betrieb‑Slug plus Mandant‑Zugänge nach Spez)", async ({
+  test("Login: Formular Anmeldung (E-Mail + Passwort nach global eindeutiger User-E-Mail)", async ({
     page,
   }) => {
     /**
-     * Was wird geprüft: der produktsekundäre Einstieg „Anmelden“ mit Feld für Betrieb-Slug —
-     * Voraussetzung mehrmandantenfähiger Login-Prozess (TECH/Spez Tenant-Scope Credentials).
+     * Was wird geprüft: öffentlicher Einstieg „Anmelden“ ohne Betriebs-Slug –
+     * Tenant ergibt sich aus der User-Zeile.
      */
     await page.goto("/login");
     await expect(
       page.locator('[data-slot="card-title"]').filter({ hasText: /^Anmelden$/ }),
     ).toBeVisible();
-    await expect(page.getByLabel("Betrieb (Slug)")).toBeVisible();
     await expect(page.getByLabel("E-Mail")).toBeVisible();
     await expect(page.getByLabel("Passwort")).toBeVisible();
     await expect(page.getByRole("button", { name: "Anmelden" })).toBeVisible();

@@ -33,5 +33,5 @@ export async function createTenantAction(
     };
   }
 
-  redirect(`/login?tenantSlug=${encodeURIComponent(result.slug)}`);
+  redirect(`/login`);
 }

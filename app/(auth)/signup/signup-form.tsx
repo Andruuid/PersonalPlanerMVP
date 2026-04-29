@@ -36,7 +36,7 @@ export function SignupForm() {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="slug">Betrieb (Slug)</Label>
+        <Label htmlFor="slug">Betriebskennung (Kurzname)</Label>
         <Input
           id="slug"
           name="slug"

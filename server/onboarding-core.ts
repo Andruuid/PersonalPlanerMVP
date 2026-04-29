@@ -104,6 +104,20 @@ export async function provisionNewTenant(
     };
   }
 
+  const existingUser = await db.user.findUnique({
+    where: { email: emailLower },
+    select: { id: true },
+  });
+  if (existingUser) {
+    return {
+      ok: false,
+      error: "Mit dieser E-Mail existiert bereits ein Konto.",
+      fieldErrors: {
+        adminEmail: "Mit dieser E-Mail ist bereits ein Konto registriert.",
+      },
+    };
+  }
+
   const passwordHash = await bcrypt.hash(input.adminPassword, 10);
 
   try {
@@ -168,8 +182,12 @@ export async function provisionNewTenant(
     if (code === "P2002") {
       return {
         ok: false,
-        error: "Registrierung nicht möglich (Konflikt). Bitte Slug prüfen.",
-        fieldErrors: { slug: "Slug bereits vergeben." },
+        error:
+          "Registrierung nicht möglich (Konflikt). Betriebskennung oder E-Mail prüfen.",
+        fieldErrors: {
+          slug: "Möglicherweise bereits vergeben.",
+          adminEmail: "Möglicherweise bereits vergeben.",
+        },
       };
     }
     throw err;

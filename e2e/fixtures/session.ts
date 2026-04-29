@@ -6,7 +6,7 @@ import {
 } from "./credentials";
 
 /**
- * Bekannter Datenstand nach `prisma/seed` (Slug „default“, Demo-Admin/-Mitarbeitende).
+ * Bekannter Datenstand nach `prisma/seed` — Demo-Admin/-Mitarbeitende.
  */
 
 export async function loginAsSeedAdmin(page: Page): Promise<void> {

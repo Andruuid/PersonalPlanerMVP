@@ -98,4 +98,30 @@ describe("provisionNewTenant (smoke)", () => {
     if (dup.ok) throw new Error("expected failure");
     expect(dup.fieldErrors?.slug).toBeDefined();
   });
+
+  it("lehnt doppelte Admin-E-Mail für zweiten Mandanten ab", async () => {
+    const ts = Date.now();
+    const email = `duplicate-admin-${ts}@test.local`;
+    const first = signupSchema.parse({
+      businessName: "Erste GmbH",
+      slug: `first-${ts}`,
+      adminEmail: email,
+      adminPassword: "secret12",
+    });
+    const okFirst = await provisionNewTenant(db.prisma, first);
+    expect(okFirst.ok).toBe(true);
+
+    const dup = await provisionNewTenant(
+      db.prisma,
+      signupSchema.parse({
+        businessName: "Zweite GmbH",
+        slug: `second-${ts}`,
+        adminEmail: email,
+        adminPassword: "secret12",
+      }),
+    );
+    expect(dup.ok).toBe(false);
+    if (dup.ok) throw new Error("expected failure");
+    expect(dup.fieldErrors?.adminEmail).toBeDefined();
+  });
 });

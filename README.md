@@ -37,7 +37,8 @@ App läuft unter <http://localhost:3000>.
 | Mitarbeiter | `noah.schmid@demo.ch`   | `demo123` |
 
 Admin landet nach dem Login auf `/dashboard`, Mitarbeitende auf `/my-week`.
-Beim Anmelden den Betrieb-Slug angeben (`default` enthält alle Demo-Stammdaten aus dem Seed).
+
+Die Anmeldung verwendet nur E-Mail und Passwort; der Betrieb ergibt sich aus dem bestehenden Benutzerkonto (global eindeutige E-Mail).
 
 ### End-to-End-Tests (Playwright)
 
@@ -49,7 +50,9 @@ npx prisma migrate deploy
 npm run db:seed
 ```
 
-Zugänge entsprechen der Tabelle „Demo-Konten“ bei Betrieb **„default“** (z. B. Admin und `anna.keller@demo.ch`).
+Zugänge entsprechen der Tabelle „Demo-Konten“ (Demo-Stammdaten unter dem Tenant slug `default` im Seed).
+
+Nach Auth- oder Prisma-Änderungen: wenn lokal bereits `npm run dev` auf Port 3000 läuft, neu starten — Playwright verwendet den bestehenden Server (`reuseExistingServer`), sonst können E2E-Logins gegen veralteten Code laufen.
 
 | Skript                 | Zweck                                        |
 | ---------------------- | -------------------------------------------- |
