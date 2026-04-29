@@ -13,6 +13,7 @@ import {
   type AbsenceRequestStatus,
   type AbsenceRequestType,
 } from "@/components/admin/absences/absences-table";
+import { AbsencesLiveRefresh } from "@/components/admin/absences/absences-live-refresh";
 
 export const metadata = { title: "Abwesenheiten · PersonalPlaner" };
 
@@ -159,6 +160,8 @@ export default async function AbsencesPage({ searchParams }: PageProps) {
       />
 
       <AbsencesTable rows={rows} />
+
+      <AbsencesLiveRefresh />
     </div>
   );
 }
