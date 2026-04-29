@@ -241,7 +241,10 @@ export async function closeWeekAction(weekId: string): Promise<ActionResult> {
   return { ok: true };
 }
 
-export async function reopenWeekAction(weekId: string): Promise<ActionResult> {
+export async function reopenWeekAction(
+  weekId: string,
+  cascadeRecalc = true,
+): Promise<ActionResult> {
   const admin = await requireAdmin();
 
   const week = await prisma.week.findUnique({ where: { id: weekId } });
@@ -271,13 +274,42 @@ export async function reopenWeekAction(weekId: string): Promise<ActionResult> {
     return { ok: false, error: actionErrorFromDatabase(err) };
   }
 
+  let cascadeFollowWeeksRecalculated = 0;
+  if (cascadeRecalc) {
+    const followClosedWeeks = await prisma.week.findMany({
+      where: {
+        tenantId: week.tenantId,
+        status: "CLOSED",
+        deletedAt: null,
+        OR: [
+          { year: { gt: week.year } },
+          { AND: [{ year: week.year }, { weekNumber: { gt: week.weekNumber } }] },
+        ],
+      },
+      orderBy: [{ year: "asc" }, { weekNumber: "asc" }],
+      select: { id: true },
+    });
+
+    for (const w of followClosedWeeks) {
+      try {
+        await recalcWeekCloseForAdmin(w.id, admin.id);
+        cascadeFollowWeeksRecalculated += 1;
+      } catch (err) {
+        return { ok: false, error: actionErrorFromDatabase(err) };
+      }
+    }
+  }
+
   await writeAudit({
     userId: admin.id,
     action: "REOPEN",
     entity: "Week",
     entityId: weekId,
     oldValue: { status: week.status },
-    newValue: { status: "DRAFT" },
+    newValue: {
+      status: "DRAFT",
+      cascadeFollowWeeksRecalculated,
+    },
   });
 
   safeRevalidatePath("reopenWeekAction", "/planning");

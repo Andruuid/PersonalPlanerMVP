@@ -1,9 +1,18 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import {
   closeWeekAction,
@@ -31,6 +40,8 @@ const STATUS_PILL: Record<WeekView["status"], string> = {
 
 export function StatusControls({ week }: StatusControlsProps) {
   const [pending, startTransition] = useTransition();
+  const [reopenDialogOpen, setReopenDialogOpen] = useState(false);
+  const [cascadeRecalc, setCascadeRecalc] = useState(true);
 
   function notify(result: { ok: boolean; error?: string }, message: string) {
     if (result.ok) toast.success(message);
@@ -55,9 +66,13 @@ export function StatusControls({ week }: StatusControlsProps) {
       notify(await closeWeekAction(week.id), "Woche abgeschlossen.");
     });
   }
-  function reopen() {
+  function confirmReopen() {
     startTransition(async () => {
-      notify(await reopenWeekAction(week.id), "Woche wieder geöffnet.");
+      notify(
+        await reopenWeekAction(week.id, cascadeRecalc),
+        "Woche wieder geöffnet.",
+      );
+      setReopenDialogOpen(false);
     });
   }
 
@@ -89,10 +104,57 @@ export function StatusControls({ week }: StatusControlsProps) {
         </>
       ) : null}
       {week.status === "CLOSED" ? (
-        <Button variant="outline" onClick={reopen} disabled={pending}>
+        <Button
+          variant="outline"
+          onClick={() => setReopenDialogOpen(true)}
+          disabled={pending}
+        >
           Woche wieder öffnen
         </Button>
       ) : null}
+
+      <Dialog
+        open={reopenDialogOpen}
+        onOpenChange={(open) => {
+          setReopenDialogOpen(open);
+          if (open) setCascadeRecalc(true);
+        }}
+      >
+        <DialogContent className="sm:max-w-md" showCloseButton={!pending}>
+          <DialogHeader>
+            <DialogTitle>Woche wieder öffnen?</DialogTitle>
+            <DialogDescription>
+              Die Abschluss-Buchungen dieser Woche werden entfernt. Die Woche
+              ist danach wieder ein Entwurf und kann bearbeitet werden.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-start gap-2 rounded-lg border p-3">
+            <input
+              id="reopen-cascade"
+              type="checkbox"
+              checked={cascadeRecalc}
+              disabled={pending}
+              onChange={(e) => setCascadeRecalc(e.target.checked)}
+              className="mt-0.5 size-4 rounded border-input accent-primary"
+            />
+            <Label htmlFor="reopen-cascade" className="font-normal leading-snug">
+              Auch die folgenden abgeschlossenen Wochen neu berechnen (empfohlen)
+            </Label>
+          </div>
+          <DialogFooter className="sm:justify-between">
+            <Button
+              variant="outline"
+              onClick={() => setReopenDialogOpen(false)}
+              disabled={pending}
+            >
+              Abbrechen
+            </Button>
+            <Button onClick={confirmReopen} disabled={pending}>
+              Wieder öffnen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
