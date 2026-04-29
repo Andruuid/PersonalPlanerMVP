@@ -24,7 +24,7 @@ export default async function AccountsPage({ searchParams }: PageProps) {
   const admin = await requireAdmin();
   const raw = await searchParams;
   const year = pickYear(raw.year);
-  const rows = await loadAdminAccountsTable(admin, year);
+  const { rows, uezPayoutPolicy } = await loadAdminAccountsTable(admin, year);
   const todayIso = format(new Date(), "yyyy-MM-dd");
 
   const currentYear = new Date().getFullYear();
@@ -43,7 +43,12 @@ export default async function AccountsPage({ searchParams }: PageProps) {
         }
       />
 
-      <AccountsTable rows={rows} year={year} todayIso={todayIso} />
+      <AccountsTable
+        rows={rows}
+        year={year}
+        todayIso={todayIso}
+        uezPayoutPolicy={uezPayoutPolicy}
+      />
     </div>
   );
 }

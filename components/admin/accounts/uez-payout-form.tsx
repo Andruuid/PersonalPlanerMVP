@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { payoutUezAction } from "@/server/bookings";
 import type { ActionResult } from "@/server/_shared";
+import type { UezPayoutPolicy } from "@/lib/bookings/core";
 import type { EmployeePickOption } from "./manual-booking-form";
 import { formatMinutesAsHours } from "./format";
 
@@ -28,10 +29,16 @@ export interface UezPayoutDefaults {
 interface Props {
   employees: EmployeePickOption[];
   defaults: UezPayoutDefaults;
+  uezPayoutPolicy: UezPayoutPolicy;
   onSuccess?: () => void;
 }
 
-export function UezPayoutForm({ employees, defaults, onSuccess }: Props) {
+export function UezPayoutForm({
+  employees,
+  defaults,
+  uezPayoutPolicy,
+  onSuccess,
+}: Props) {
   const [errors, setErrors] = useState<{
     message: string;
     fieldErrors: Record<string, string>;
@@ -69,8 +76,20 @@ export function UezPayoutForm({ employees, defaults, onSuccess }: Props) {
       <DialogHeader>
         <DialogTitle>UEZ auszahlen</DialogTitle>
         <DialogDescription>
-          Reduziert das UEZ-Konto um die ausgezahlten Minuten. Ein Kommentar
-          ist Pflicht und wird im Audit-Log gespeichert.
+          {uezPayoutPolicy === "WITH_NOTICE" ? (
+            <>
+              Reduziert das UEZ-Konto um die ausgezahlten Minuten. Bei dieser
+              Mandanten-Richtlinie ist zusätzlich entweder ein ausführlicher
+              Kommentar (mind. 20 Zeichen) oder der Hinweis an die
+              Mitarbeitenden erforderlich; die Angaben werden im Audit-Log
+              gespeichert.
+            </>
+          ) : (
+            <>
+              Reduziert das UEZ-Konto um die ausgezahlten Minuten. Ein Kommentar
+              ist Pflicht und wird im Audit-Log gespeichert.
+            </>
+          )}
         </DialogDescription>
       </DialogHeader>
 
@@ -145,21 +164,61 @@ export function UezPayoutForm({ employees, defaults, onSuccess }: Props) {
         <div className="space-y-1.5 sm:col-span-2">
           <LabelWithHelp
             htmlFor="uez-payout-comment"
-            label="Kommentar (Pflicht)"
-            tooltip="Wird im Audit-Log gespeichert (z. B. Auszahlungsgrund)."
+            label={
+              uezPayoutPolicy === "WITH_NOTICE"
+                ? "Kommentar"
+                : "Kommentar (Pflicht)"
+            }
+            tooltip={
+              uezPayoutPolicy === "WITH_NOTICE"
+                ? "Kurzer Grund oder längere Begründung (bei mind. 20 Zeichen entfällt der separate Hinweis)."
+                : "Wird im Audit-Log gespeichert (z. B. Auszahlungsgrund)."
+            }
           />
           <textarea
             id="uez-payout-comment"
             name="comment"
             rows={3}
             required
+            minLength={3}
             className="flex min-h-[68px] w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900"
-            placeholder="Grund — bleibt im Audit-Log."
+            placeholder={
+              uezPayoutPolicy === "WITH_NOTICE"
+                ? "Grund — mindestens 3 Zeichen; mit 20+ Zeichen reicht ohne separaten Hinweis."
+                : "Grund — bleibt im Audit-Log."
+            }
           />
           {fieldErr.comment ? (
             <p className="text-xs text-rose-700">{fieldErr.comment}</p>
           ) : null}
         </div>
+
+        {uezPayoutPolicy === "WITH_NOTICE" ? (
+          <div className="space-y-1.5 sm:col-span-2">
+            <LabelWithHelp
+              htmlFor="uez-payout-notice"
+              label="Hinweis an Mitarbeitende (Pflicht, falls Kommentar kürzer als 20 Zeichen)"
+              tooltip="Alternative zum langen Kommentar — z. B. Zeitpunkt der Information („informiert am …“)."
+            />
+            <textarea
+              id="uez-payout-notice"
+              name="acknowledgedNoticeText"
+              rows={2}
+              className="flex min-h-[52px] w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900"
+              placeholder='z. B. „informiert am 15. März (schriftlich)".'
+            />
+            {fieldErr.acknowledgedNoticeText ? (
+              <p className="text-xs text-rose-700">
+                {fieldErr.acknowledgedNoticeText}
+              </p>
+            ) : (
+              <p className="text-xs text-neutral-500">
+                Entweder dieser Hinweis oder ein Kommentar mit mindestens 20
+                Zeichen ausfüllen.
+              </p>
+            )}
+          </div>
+        ) : null}
       </div>
 
       {errors?.message ? (

@@ -11,6 +11,7 @@ import {
   deleteBooking,
   DeleteBookingError,
   ManualBookingError,
+  normalizeUezPayoutPolicy,
   UezPayoutError,
 } from "@/lib/bookings/core";
 import {
@@ -133,6 +134,11 @@ const uezPayoutSchema = z.object({
     .string()
     .min(3, "Bitte einen Grund angeben")
     .max(300, "Maximal 300 Zeichen"),
+  acknowledgedNoticeText: z
+    .string()
+    .max(300, "Maximal 300 Zeichen")
+    .optional()
+    .default(""),
 });
 
 /**
@@ -144,11 +150,19 @@ export async function payoutUezAction(
 ): Promise<ActionResult> {
   const admin = await requireAdmin();
 
+  const tenantRow = await prisma.tenant.findUnique({
+    where: { id: admin.tenantId },
+    select: { uezPayoutPolicy: true },
+  });
+  const policy = normalizeUezPayoutPolicy(tenantRow?.uezPayoutPolicy);
+
   const raw = {
     employeeId: readOptionalString(formData.get("employeeId")) ?? "",
     date: readOptionalString(formData.get("date")) ?? "",
     minutes: formData.get("minutes"),
     comment: readOptionalString(formData.get("comment")) ?? "",
+    acknowledgedNoticeText:
+      readOptionalString(formData.get("acknowledgedNoticeText")) ?? "",
   };
 
   const parsed = uezPayoutSchema.safeParse(raw);
@@ -172,7 +186,14 @@ export async function payoutUezAction(
       minutes: data.minutes,
       comment: data.comment,
       createdByUserId: admin.id,
+      policy,
+      acknowledgedNoticeText: data.acknowledgedNoticeText,
     });
+
+    const noticeSnap =
+      policy === "WITH_NOTICE" && data.acknowledgedNoticeText.trim().length > 0
+        ? data.acknowledgedNoticeText.trim()
+        : undefined;
 
     await writeAudit({
       userId: admin.id,
@@ -185,6 +206,8 @@ export async function payoutUezAction(
         bookingType: "UEZ_PAYOUT",
         value: result.signedValue,
         date: data.date,
+        policy,
+        ...(noticeSnap ? { noticeText: noticeSnap } : {}),
       },
       comment: data.comment,
     });
@@ -194,6 +217,18 @@ export async function payoutUezAction(
     return { ok: true };
   } catch (err) {
     if (err instanceof UezPayoutError) {
+      if (err.code === "POLICY_NOTICE_INCOMPLETE") {
+        return {
+          ok: false,
+          error: err.message,
+          fieldErrors: {
+            comment:
+              "Mindestens 20 Zeichen, oder Feld «Hinweis an Mitarbeitende» ausfüllen.",
+            acknowledgedNoticeText:
+              "Oder hier einen Hinweis eintragen (z. B. «informiert am …»).",
+          },
+        };
+      }
       return { ok: false, error: err.message };
     }
     throw err;

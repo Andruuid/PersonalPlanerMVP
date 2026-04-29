@@ -160,6 +160,12 @@ describe("payoutUezAction", () => {
     expect(audits).toHaveLength(1);
     expect(audits[0]?.entity).toBe("Booking");
     expect(audits[0]?.entityId).toBe(payout?.id);
+    const audited = JSON.parse(audits[0]?.newValue ?? "{}") as {
+      bookingType?: string;
+      policy?: string;
+    };
+    expect(audited.bookingType).toBe("UEZ_PAYOUT");
+    expect(audited.policy).toBe("ALLOWED");
   });
 
   it("returns ok=false when payout exceeds UEZ balance", async () => {

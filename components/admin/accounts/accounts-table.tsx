@@ -18,13 +18,18 @@ import {
 import { UezPayoutForm, type UezPayoutDefaults } from "./uez-payout-form";
 import { ACCOUNT_DISPLAY, formatAccountValue } from "./format";
 import { BOOKING_TYPE_LABEL } from "@/components/shared/booking-type-copy";
-import type { AccountSummary, AdminAccountsRow } from "@/server/accounts";
+import type {
+  AccountSummary,
+  AdminAccountsRow,
+} from "@/server/accounts";
+import type { UezPayoutPolicy } from "@/lib/bookings/core";
 import type { AccountType } from "@/lib/generated/prisma/enums";
 
 interface Props {
   rows: AdminAccountsRow[];
   year: number;
   todayIso: string;
+  uezPayoutPolicy: UezPayoutPolicy;
 }
 
 const ACCOUNT_ORDER: AccountType[] = [
@@ -42,7 +47,12 @@ type DialogState =
   | { mode: "redeem-compensation"; preset: CompensationRedemptionDefaults }
   | { mode: "uez-payout"; preset: UezPayoutDefaults };
 
-export function AccountsTable({ rows, year, todayIso }: Props) {
+export function AccountsTable({
+  rows,
+  year,
+  todayIso,
+  uezPayoutPolicy,
+}: Props) {
   const [dialog, setDialog] = useState<DialogState>({ mode: "closed" });
   const close = () => setDialog({ mode: "closed" });
 
@@ -140,21 +150,30 @@ export function AccountsTable({ rows, year, todayIso }: Props) {
                           <div className="space-y-2">
                             <AccountCell account={account} />
                             {account.currentValue > 0 ? (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                className="h-7 px-2 text-xs"
-                                onClick={() =>
-                                  openUezPayout({
-                                    employeeId: row.employeeId,
-                                    date: todayIso,
-                                    availableMinutes: account.currentValue,
-                                  })
-                                }
-                              >
-                                Auszahlen
-                              </Button>
+                              uezPayoutPolicy === "BLOCKED" ? (
+                                <span
+                                  className="inline-block text-xs text-neutral-500"
+                                  title="UEZ-Auszahlung ist für diesen Mandanten gesperrt."
+                                >
+                                  Auszahlung gesperrt
+                                </span>
+                              ) : (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2 text-xs"
+                                  onClick={() =>
+                                    openUezPayout({
+                                      employeeId: row.employeeId,
+                                      date: todayIso,
+                                      availableMinutes: account.currentValue,
+                                    })
+                                  }
+                                >
+                                  Auszahlen
+                                </Button>
+                              )
                             ) : null}
                           </div>
                         ) : (
@@ -253,6 +272,7 @@ export function AccountsTable({ rows, year, todayIso }: Props) {
             <UezPayoutForm
               employees={employees}
               defaults={dialog.preset}
+              uezPayoutPolicy={uezPayoutPolicy}
               onSuccess={close}
             />
           ) : null}

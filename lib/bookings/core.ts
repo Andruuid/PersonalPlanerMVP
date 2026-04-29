@@ -1136,6 +1136,15 @@ export async function applyCompensationRedemption(
 // UEZ — Auszahlung
 // ---------------------------------------------------------------------------
 
+export type UezPayoutPolicy = "ALLOWED" | "WITH_NOTICE" | "BLOCKED";
+
+export function normalizeUezPayoutPolicy(
+  raw: string | null | undefined,
+): UezPayoutPolicy {
+  if (raw === "WITH_NOTICE" || raw === "BLOCKED") return raw;
+  return "ALLOWED";
+}
+
 export interface ApplyUezPayoutInput {
   employeeId: string;
   tenantId?: string;
@@ -1145,6 +1154,16 @@ export interface ApplyUezPayoutInput {
   minutes: number;
   comment: string;
   createdByUserId: string;
+  /**
+   * Mandanten-Richtlinie — wenn fehlend, wie `ALLOWED`.
+   * `BLOCKED` und `WITH_NOTICE` werden in `applyUezPayout` geprüft.
+   */
+  policy?: UezPayoutPolicy;
+  /**
+   * Bei `WITH_NOTICE`: Alternative zu einem Kommentar mit mindestens 20 Zeichen.
+   * Z. B. „Mitarbeitende: informiert am …“
+   */
+  acknowledgedNoticeText?: string;
 }
 
 export interface ApplyUezPayoutResult {
@@ -1160,7 +1179,9 @@ export class UezPayoutError extends Error {
       | "EMPLOYEE_NOT_FOUND"
       | "EMPLOYMENT_NOT_ACTIVE_ON_DATE"
       | "NON_POSITIVE_MINUTES"
-      | "INSUFFICIENT_BALANCE",
+      | "INSUFFICIENT_BALANCE"
+      | "POLICY_BLOCKED"
+      | "POLICY_NOTICE_INCOMPLETE",
   ) {
     super(message);
     this.name = "UezPayoutError";
@@ -1180,6 +1201,24 @@ export async function applyUezPayout(
       "Minuten müssen grösser als 0 sein.",
       "NON_POSITIVE_MINUTES",
     );
+  }
+
+  const policy = input.policy ?? "ALLOWED";
+  if (policy === "BLOCKED") {
+    throw new UezPayoutError(
+      "UEZ-Auszahlung ist im Mandanten gesperrt.",
+      "POLICY_BLOCKED",
+    );
+  }
+  if (policy === "WITH_NOTICE") {
+    const commentOk = input.comment.trim().length >= 20;
+    const noticeOk = (input.acknowledgedNoticeText?.trim().length ?? 0) > 0;
+    if (!commentOk && !noticeOk) {
+      throw new UezPayoutError(
+        "Bitte einen ausführlichen Kommentar (mindestens 20 Zeichen) oder einen Hinweis an die Mitarbeitenden angeben.",
+        "POLICY_NOTICE_INCOMPLETE",
+      );
+    }
   }
 
   const employee = await prisma.employee.findUnique({

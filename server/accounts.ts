@@ -1,5 +1,6 @@
 import "server-only";
 
+import { normalizeUezPayoutPolicy } from "@/lib/bookings/core";
 import { prisma } from "@/lib/db";
 import type {
   AccountType,
@@ -95,6 +96,11 @@ export interface AdminAccountsRow {
   accounts: Record<AccountType, AccountSummary>;
 }
 
+export interface AdminAccountsTableLoad {
+  rows: AdminAccountsRow[];
+  uezPayoutPolicy: ReturnType<typeof normalizeUezPayoutPolicy>;
+}
+
 /**
  * Loads the per-employee account table the admin Zeitkonten page renders.
  *
@@ -105,15 +111,28 @@ export interface AdminAccountsRow {
 export async function loadAdminAccountsTable(
   user: Pick<SessionUser, "tenantId">,
   year: number,
-): Promise<AdminAccountsRow[]> {
+): Promise<AdminAccountsTableLoad> {
   const employees = await prisma.employee.findMany({
     where: { tenantId: user.tenantId, deletedAt: null },
     orderBy: [{ isActive: "desc" }, { lastName: "asc" }, { firstName: "asc" }],
     include: {
-      tenant: { select: { defaultStandardWorkDays: true } },
+      tenant: { select: { defaultStandardWorkDays: true, uezPayoutPolicy: true } },
     },
   });
-  if (employees.length === 0) return [];
+  if (employees.length === 0) {
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: user.tenantId },
+      select: { uezPayoutPolicy: true },
+    });
+    return {
+      rows: [],
+      uezPayoutPolicy: normalizeUezPayoutPolicy(tenant?.uezPayoutPolicy),
+    };
+  }
+
+  const uezPayoutPolicy = normalizeUezPayoutPolicy(
+    employees[0]?.tenant?.uezPayoutPolicy,
+  );
 
   const balances = await prisma.accountBalance.findMany({
     where: { tenantId: user.tenantId, year, employeeId: { in: employees.map((e) => e.id) } },
@@ -126,40 +145,43 @@ export async function loadAdminAccountsTable(
     byEmployee.set(b.employeeId, list);
   }
 
-  return employees.map((e) => {
-    const accounts: Record<AccountType, AccountSummary> = {
-      ZEITSALDO: emptySummary("ZEITSALDO"),
-      FERIEN: { ...emptySummary("FERIEN"), openingValue: e.vacationDaysPerYear },
-      UEZ: emptySummary("UEZ"),
-      TZT: emptySummary("TZT"),
-      SONNTAG_FEIERTAG_KOMPENSATION: emptySummary(
-        "SONNTAG_FEIERTAG_KOMPENSATION",
-      ),
-      PARENTAL_CARE: emptySummary("PARENTAL_CARE"),
-    };
-    for (const b of byEmployee.get(e.id) ?? []) {
-      const type = b.accountType as AccountType;
-      accounts[type] = {
-        accountType: type,
-        unit: b.unit as AccountUnit,
-        openingValue: b.openingValue,
-        currentValue: b.currentValue,
+  return {
+    rows: employees.map((e) => {
+      const accounts: Record<AccountType, AccountSummary> = {
+        ZEITSALDO: emptySummary("ZEITSALDO"),
+        FERIEN: { ...emptySummary("FERIEN"), openingValue: e.vacationDaysPerYear },
+        UEZ: emptySummary("UEZ"),
+        TZT: emptySummary("TZT"),
+        SONNTAG_FEIERTAG_KOMPENSATION: emptySummary(
+          "SONNTAG_FEIERTAG_KOMPENSATION",
+        ),
+        PARENTAL_CARE: emptySummary("PARENTAL_CARE"),
       };
-    }
-    return {
-      employeeId: e.id,
-      firstName: e.firstName,
-      lastName: e.lastName,
-      roleLabel: e.roleLabel,
-      vacationDaysPerYear: e.vacationDaysPerYear,
-      weeklyTargetMinutes: e.weeklyTargetMinutes,
-      hazMinutesPerWeek: e.hazMinutesPerWeek,
-      tztModel: e.tztModel as "DAILY_QUOTA" | "TARGET_REDUCTION",
-      locationId: e.locationId,
-      isActive: e.isActive,
-      accounts,
-    };
-  });
+      for (const b of byEmployee.get(e.id) ?? []) {
+        const type = b.accountType as AccountType;
+        accounts[type] = {
+          accountType: type,
+          unit: b.unit as AccountUnit,
+          openingValue: b.openingValue,
+          currentValue: b.currentValue,
+        };
+      }
+      return {
+        employeeId: e.id,
+        firstName: e.firstName,
+        lastName: e.lastName,
+        roleLabel: e.roleLabel,
+        vacationDaysPerYear: e.vacationDaysPerYear,
+        weeklyTargetMinutes: e.weeklyTargetMinutes,
+        hazMinutesPerWeek: e.hazMinutesPerWeek,
+        tztModel: e.tztModel as "DAILY_QUOTA" | "TARGET_REDUCTION",
+        locationId: e.locationId,
+        isActive: e.isActive,
+        accounts,
+      };
+    }),
+    uezPayoutPolicy,
+  };
 }
 
 /** Booking history for an employee, optionally filtered to a single year. */
