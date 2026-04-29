@@ -117,6 +117,21 @@ test.describe("Admin: Sidebar erreicht Hauptmodule (Smoke)", () => {
     ).toBeVisible();
   });
 
+  test("Menüpunkt „Datenschutz“: Verwaltung DSGVO/DSG-Anfragen (Compliance)", async ({
+    page,
+  }) => {
+    /**
+     * Was wird geprüft: Admin-Kontext für Bearbeitung von Auskunfts-/Löschanträgen
+     * (Datenschutz-Stelle laut Nav-Label „Datenschutz“) — Seite mit erwarteter Überschrift.
+     */
+    await loginAsSeedAdmin(page);
+    await page.getByRole("navigation").getByRole("link", { name: "Datenschutz" }).click();
+    await expect(page).toHaveURL(/\/privacy/);
+    await expect(
+      page.getByRole("heading", { level: 1, name: "DSGVO/DSG-Anfragen" }),
+    ).toBeVisible();
+  });
+
   test("Menüpunkt „Audit-Log“: revisionsfähige Historie Änderungen (Filter vorhanden)", async ({
     page,
   }) => {

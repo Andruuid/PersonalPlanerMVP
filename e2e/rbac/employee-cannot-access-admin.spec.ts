@@ -41,6 +41,21 @@ test.describe("RBAC: Mitarbeitende keine Admin-Bereiche", () => {
     ).toBeVisible();
   });
 
+  test("Admin-Zeitkonten `/accounts` (Saldentabelle): für Mitarbeitende gesperrt", async ({
+    page,
+  }) => {
+    /**
+     * Was wird geprüft: die Admin-Gesamtübersicht der Zeitkonten (`/accounts`) ist kein
+     * Mitarbeitenden-Modul — Umleitung auf die persönliche Startansicht.
+     */
+    await loginAsSeedEmployee(page);
+    await page.goto("/accounts");
+    await page.waitForURL(/\/my-week/, { timeout: 10_000 });
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Meine Woche" }),
+    ).toBeVisible();
+  });
+
   test("Audit-Log: `/audit` nur für Geschäftsleitung nachvollziehbar", async ({
     page,
   }) => {

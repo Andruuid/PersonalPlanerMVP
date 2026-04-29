@@ -13,6 +13,7 @@ export default defineConfig({
   testDir: "./e2e",
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
+  workers: 4,
   reporter: [["html", { open: "never" }], ["list"]],
   expect: {
     timeout: process.env.CI ? 30_000 : 15_000,
