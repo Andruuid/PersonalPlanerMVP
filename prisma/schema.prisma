@@ -96,6 +96,8 @@ enum BookingType {
   // Bezug von SONNTAG_FEIERTAG_KOMPENSATION-Stunden (negativer Eintrag,
   // der den Restsaldo der fristgebundenen Kompensation reduziert).
   COMPENSATION_REDEMPTION
+  // Explizite Auszahlung von Überstundenersatzzeit (UEZ); negativer Eintrag.
+  UEZ_PAYOUT
 }
 
 /// TZT accounting variant (Spec: Modell 1 = Tageskontingent, Modell 2 = Sollzeit-Reduktion).

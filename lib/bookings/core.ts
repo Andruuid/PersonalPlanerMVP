@@ -1056,6 +1056,129 @@ export async function applyCompensationRedemption(
   return { bookingId: booking.id, signedValue };
 }
 
+// ---------------------------------------------------------------------------
+// UEZ — Auszahlung
+// ---------------------------------------------------------------------------
+
+export interface ApplyUezPayoutInput {
+  employeeId: string;
+  tenantId?: string;
+  /** Local-midnight date the payout is booked on (drives the year). */
+  date: Date;
+  /** Positive number of minutes to pay out; stored negative on the booking row. */
+  minutes: number;
+  comment: string;
+  createdByUserId: string;
+}
+
+export interface ApplyUezPayoutResult {
+  bookingId: string;
+  /** Always negative: the value persisted on the booking row. */
+  signedValue: number;
+}
+
+export class UezPayoutError extends Error {
+  constructor(
+    message: string,
+    readonly code:
+      | "EMPLOYEE_NOT_FOUND"
+      | "EMPLOYMENT_NOT_ACTIVE_ON_DATE"
+      | "NON_POSITIVE_MINUTES"
+      | "INSUFFICIENT_BALANCE",
+  ) {
+    super(message);
+    this.name = "UezPayoutError";
+  }
+}
+
+/**
+ * Pay out UEZ minutes: one negative booking (BookingType.UEZ_PAYOUT) against
+ * the UEZ account. Validates employment span and sufficient current balance.
+ */
+export async function applyUezPayout(
+  prisma: PrismaClient,
+  input: ApplyUezPayoutInput,
+): Promise<ApplyUezPayoutResult> {
+  if (!Number.isFinite(input.minutes) || input.minutes <= 0) {
+    throw new UezPayoutError(
+      "Minuten müssen grösser als 0 sein.",
+      "NON_POSITIVE_MINUTES",
+    );
+  }
+
+  const employee = await prisma.employee.findUnique({
+    where: { id: input.employeeId },
+    select: {
+      id: true,
+      tenantId: true,
+      vacationDaysPerYear: true,
+      entryDate: true,
+      exitDate: true,
+      deletedAt: true,
+    },
+  });
+  if (
+    !employee ||
+    employee.deletedAt ||
+    (input.tenantId && employee.tenantId !== input.tenantId)
+  ) {
+    throw new UezPayoutError("Mitarbeitende:r nicht gefunden", "EMPLOYEE_NOT_FOUND");
+  }
+  if (!isEmployeeActiveOnDate(employee, input.date)) {
+    throw new UezPayoutError(
+      "Buchungsdatum liegt ausserhalb der Anstellungsdauer.",
+      "EMPLOYMENT_NOT_ACTIVE_ON_DATE",
+    );
+  }
+
+  const year = input.date.getFullYear();
+  const minutes = Math.round(input.minutes);
+  const signedValue = -minutes;
+
+  const booking = await prisma.$transaction(async (tx) => {
+    await ensureBalanceRow(
+      tx,
+      employee.id,
+      employee.tenantId,
+      "UEZ",
+      year,
+      employee.vacationDaysPerYear,
+    );
+    const balance = await tx.accountBalance.findUnique({
+      where: {
+        employeeId_accountType_year: {
+          employeeId: employee.id,
+          accountType: "UEZ",
+          year,
+        },
+      },
+    });
+    const currentValue = balance?.currentValue ?? 0;
+    if (currentValue < minutes) {
+      throw new UezPayoutError(
+        "Nicht genug UEZ-Saldo für diese Auszahlung verfügbar.",
+        "INSUFFICIENT_BALANCE",
+      );
+    }
+    const created = await tx.booking.create({
+      data: {
+        tenantId: employee.tenantId,
+        employeeId: employee.id,
+        accountType: "UEZ",
+        date: input.date,
+        value: signedValue,
+        bookingType: "UEZ_PAYOUT",
+        comment: input.comment,
+        createdByUserId: input.createdByUserId,
+      },
+    });
+    await recomputeBalance(tx, employee.id, "UEZ", year);
+    return created;
+  });
+
+  return { bookingId: booking.id, signedValue };
+}
+
 export interface DeleteBookingResult {
   bookingId: string;
   employeeId: string;

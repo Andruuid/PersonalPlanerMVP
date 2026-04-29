@@ -15,6 +15,7 @@ import {
   CompensationRedemptionForm,
   type CompensationRedemptionDefaults,
 } from "./compensation-redemption-form";
+import { UezPayoutForm, type UezPayoutDefaults } from "./uez-payout-form";
 import {
   ACCOUNT_DISPLAY,
   formatAccountValue,
@@ -41,7 +42,8 @@ const ACCOUNT_ORDER: AccountType[] = [
 type DialogState =
   | { mode: "closed" }
   | { mode: "manual-booking"; preset: Partial<ManualBookingFormDefaults> }
-  | { mode: "redeem-compensation"; preset: CompensationRedemptionDefaults };
+  | { mode: "redeem-compensation"; preset: CompensationRedemptionDefaults }
+  | { mode: "uez-payout"; preset: UezPayoutDefaults };
 
 export function AccountsTable({ rows, year, todayIso }: Props) {
   const [dialog, setDialog] = useState<DialogState>({ mode: "closed" });
@@ -60,6 +62,10 @@ export function AccountsTable({ rows, year, todayIso }: Props) {
 
   function openRedeem(preset: CompensationRedemptionDefaults) {
     setDialog({ mode: "redeem-compensation", preset });
+  }
+
+  function openUezPayout(preset: UezPayoutDefaults) {
+    setDialog({ mode: "uez-payout", preset });
   }
 
   return (
@@ -135,7 +141,30 @@ export function AccountsTable({ rows, year, todayIso }: Props) {
                     const account = row.accounts[accountType];
                     return (
                       <td key={accountType} className="px-4 py-3">
-                        <AccountCell account={account} />
+                        {accountType === "UEZ" ? (
+                          <div className="space-y-2">
+                            <AccountCell account={account} />
+                            {account.currentValue > 0 ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-7 px-2 text-xs"
+                                onClick={() =>
+                                  openUezPayout({
+                                    employeeId: row.employeeId,
+                                    date: todayIso,
+                                    availableMinutes: account.currentValue,
+                                  })
+                                }
+                              >
+                                Auszahlen
+                              </Button>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <AccountCell account={account} />
+                        )}
                       </td>
                     );
                   })}
@@ -225,6 +254,13 @@ export function AccountsTable({ rows, year, todayIso }: Props) {
           ) : null}
           {dialog.mode === "redeem-compensation" ? (
             <CompensationRedemptionForm
+              employees={employees}
+              defaults={dialog.preset}
+              onSuccess={close}
+            />
+          ) : null}
+          {dialog.mode === "uez-payout" ? (
+            <UezPayoutForm
               employees={employees}
               defaults={dialog.preset}
               onSuccess={close}

@@ -6,10 +6,12 @@ import { writeAudit } from "@/lib/audit";
 import { isoDateString, parseIsoDate } from "@/lib/time/week";
 import {
   applyManualBooking,
+  applyUezPayout,
   applyYearEndCarryover,
   deleteBooking,
   DeleteBookingError,
   ManualBookingError,
+  UezPayoutError,
 } from "@/lib/bookings/core";
 import {
   fieldErrorsFromZod,
@@ -114,6 +116,84 @@ export async function manualBookingAction(
     return { ok: true };
   } catch (err) {
     if (err instanceof ManualBookingError) {
+      return { ok: false, error: err.message };
+    }
+    throw err;
+  }
+}
+
+const uezPayoutSchema = z.object({
+  employeeId: z.string().min(1, "Mitarbeitende:r erforderlich"),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Datum ungültig"),
+  minutes: z.coerce
+    .number()
+    .int("Ganzzahl in Minuten erforderlich")
+    .positive("Minuten müssen grösser als 0 sein"),
+  comment: z
+    .string()
+    .min(3, "Bitte einen Grund angeben")
+    .max(300, "Maximal 300 Zeichen"),
+});
+
+/**
+ * Auszahlung von UEZ-Minuten: eine negative Buchung mit BookingType.UEZ_PAYOUT.
+ */
+export async function payoutUezAction(
+  _prev: ActionResult | undefined,
+  formData: FormData,
+): Promise<ActionResult> {
+  const admin = await requireAdmin();
+
+  const raw = {
+    employeeId: readOptionalString(formData.get("employeeId")) ?? "",
+    date: readOptionalString(formData.get("date")) ?? "",
+    minutes: formData.get("minutes"),
+    comment: readOptionalString(formData.get("comment")) ?? "",
+  };
+
+  const parsed = uezPayoutSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: "Bitte Eingaben prüfen.",
+      fieldErrors: fieldErrorsFromZod(parsed.error),
+    };
+  }
+  const data = parsed.data;
+
+  const date = parseIsoDate(data.date);
+  if (!date) return { ok: false, error: "Datum ungültig." };
+
+  try {
+    const result = await applyUezPayout(prisma, {
+      employeeId: data.employeeId,
+      tenantId: admin.tenantId,
+      date,
+      minutes: data.minutes,
+      comment: data.comment,
+      createdByUserId: admin.id,
+    });
+
+    await writeAudit({
+      userId: admin.id,
+      action: "UEZ_PAYOUT",
+      entity: "Booking",
+      entityId: result.bookingId,
+      newValue: {
+        employeeId: data.employeeId,
+        accountType: "UEZ",
+        bookingType: "UEZ_PAYOUT",
+        value: result.signedValue,
+        date: data.date,
+      },
+      comment: data.comment,
+    });
+
+    safeRevalidatePath("payoutUezAction", "/accounts");
+    safeRevalidatePath("payoutUezAction", "/my-accounts");
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof UezPayoutError) {
       return { ok: false, error: err.message };
     }
     throw err;

@@ -17,6 +17,7 @@ const BOOKING_TYPE_LABEL: Record<BookingType, string> = {
   CORRECTION: "Korrektur",
   CARRYOVER: "Vortrag",
   COMPENSATION_REDEMPTION: "Kompensationsbezug",
+  UEZ_PAYOUT: "UEZ-Auszahlung",
 };
 
 const BOOKING_TYPE_BADGE: Record<BookingType, string> = {
@@ -28,6 +29,7 @@ const BOOKING_TYPE_BADGE: Record<BookingType, string> = {
   CORRECTION: "bg-amber-100 text-amber-800",
   CARRYOVER: "bg-sky-100 text-sky-800",
   COMPENSATION_REDEMPTION: "bg-rose-100 text-rose-800",
+  UEZ_PAYOUT: "bg-amber-100 text-amber-900",
 };
 
 interface MonthGroup {
