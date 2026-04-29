@@ -48,8 +48,13 @@ const tenantBusinessSchema = z.object({
 
 type TenantBusinessRow = z.infer<typeof tenantBusinessSchema>;
 
+/** Prisma: `Tenant.uezPayoutPolicy` ist Schema-seitig `String` → TS `string`, nicht Enum-Literal */
+type TenantBusinessFromDb = Omit<TenantBusinessRow, "uezPayoutPolicy"> & {
+  uezPayoutPolicy: string;
+};
+
 function tenantBusinessUnchanged(
-  before: TenantBusinessRow,
+  before: TenantBusinessFromDb,
   next: TenantBusinessRow,
 ): boolean {
   return (
