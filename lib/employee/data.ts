@@ -4,8 +4,10 @@ import { prisma } from "@/lib/db";
 import type {
   MyAccountsView,
   MyRequestView,
+  MyShiftWishView,
   RequestStatus,
   RequestType,
+  ServiceTemplateWishOption,
 } from "@/components/employee/types";
 import { buildMyAccountsView } from "@/lib/employee/accounts-transform";
 import type { SessionUser } from "@/server/_shared";
@@ -18,6 +20,71 @@ function fmtRange(start: Date, end: Date): string {
     return `${format(start, "dd.MM.")} – ${format(end, "dd.MM.yyyy")}`;
   }
   return `${format(start, "dd.MM.yyyy")} – ${format(end, "dd.MM.yyyy")}`;
+}
+
+export async function loadServiceTemplatesForShiftWish(
+  tenantId: string,
+): Promise<ServiceTemplateWishOption[]> {
+  const rows = await prisma.serviceTemplate.findMany({
+    where: { tenantId, deletedAt: null, isActive: true },
+    orderBy: [{ name: "asc" }, { code: "asc" }],
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      startTime: true,
+      endTime: true,
+      breakMinutes: true,
+    },
+  });
+  return rows;
+}
+
+export async function loadMyShiftWishes(
+  user: Pick<SessionUser, "tenantId">,
+  employeeId: string,
+  options: { limit?: number; statusFilter?: RequestStatus[] } = {},
+): Promise<MyShiftWishView[]> {
+  const statusIn: RequestStatus[] = options.statusFilter ?? [
+    "OPEN",
+    "APPROVED",
+    "REJECTED",
+  ];
+  const rows = await prisma.shiftWish.findMany({
+    where: {
+      employeeId,
+      tenantId: user.tenantId,
+      deletedAt: null,
+      status: { in: statusIn },
+    },
+    orderBy: { createdAt: "desc" },
+    take: options.limit,
+    include: {
+      preferredServiceTemplate: {
+        select: { code: true, name: true },
+      },
+    },
+  });
+
+  return rows.map((r) => {
+    const tpl = r.preferredServiceTemplate;
+    const summaryLabel = tpl
+      ? `${tpl.name} (${tpl.code})`
+      : r.preferredOneTimeLabel
+        ? `${r.preferredOneTimeLabel} (${r.oneTimeStart}–${r.oneTimeEnd})`
+        : "Schicht-Wunsch";
+    return {
+      id: r.id,
+      status: r.status as RequestStatus,
+      dateIso: format(r.date, "yyyy-MM-dd"),
+      dateLabel: format(r.date, "dd.MM.yyyy"),
+      summaryLabel,
+      comment: r.comment,
+      decisionComment: r.decisionComment,
+      decidedAt: r.decidedAt ? r.decidedAt.toISOString() : null,
+      createdAt: r.createdAt.toISOString(),
+    };
+  });
 }
 
 export async function loadMyRequests(

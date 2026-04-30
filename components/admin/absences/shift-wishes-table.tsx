@@ -1,0 +1,301 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
+import {
+  approveShiftWishAction,
+  rejectShiftWishAction,
+} from "@/server/shift-wishes";
+
+const REASON_MAX = 300;
+
+export type ShiftWishRowStatus = "OPEN" | "APPROVED" | "REJECTED";
+
+export interface ShiftWishRow {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  employeeRoleLabel: string | null;
+  status: ShiftWishRowStatus;
+  dateLabel: string;
+  wishSummary: string;
+  comment: string | null;
+  decisionComment: string | null;
+  createdAtLabel: string;
+  decidedAtLabel: string | null;
+  decidedByEmail: string | null;
+}
+
+interface ShiftWishesTableProps {
+  rows: ShiftWishRow[];
+}
+
+const STATUS_LABEL: Record<ShiftWishRowStatus, string> = {
+  OPEN: "Offen",
+  APPROVED: "Genehmigt",
+  REJECTED: "Abgelehnt",
+};
+
+const STATUS_BADGE: Record<ShiftWishRowStatus, string> = {
+  OPEN: "bg-amber-100 text-amber-800",
+  APPROVED: "bg-emerald-100 text-emerald-800",
+  REJECTED: "bg-rose-100 text-rose-800",
+};
+
+export function ShiftWishesTable({ rows }: ShiftWishesTableProps) {
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-2xl border border-dashed border-neutral-200 bg-white p-10 text-center shadow-sm">
+        <p className="text-sm font-medium text-neutral-900">
+          Keine Schicht-Wünsche im aktuellen Filter.
+        </p>
+        <p className="mt-1 text-xs text-neutral-500">
+          Status oder Mitarbeitende filter anpassen.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-neutral-200 text-sm">
+          <thead className="bg-neutral-50 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
+            <tr>
+              <th className="px-4 py-3">Mitarbeitende:r</th>
+              <th className="px-4 py-3">Wunsch</th>
+              <th className="px-4 py-3">Datum</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Eingereicht</th>
+              <th className="px-4 py-3 text-right">Aktionen</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-neutral-100">
+            {rows.map((row) => (
+              <WishRow key={row.id} row={row} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function WishRow({ row }: { row: ShiftWishRow }) {
+  const [pending, startTransition] = useTransition();
+  const [approveOpen, setApproveOpen] = useState(false);
+  const [approveNote, setApproveNote] = useState("");
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+
+  function approve() {
+    startTransition(async () => {
+      const r = await approveShiftWishAction(
+        row.id,
+        approveNote || undefined,
+      );
+      if (r.ok) {
+        toast.success("Schicht-Wunsch genehmigt.");
+        setApproveOpen(false);
+        setApproveNote("");
+      } else toast.error(r.error);
+    });
+  }
+
+  function confirmReject() {
+    startTransition(async () => {
+      const r = await rejectShiftWishAction(row.id, rejectReason || undefined);
+      if (r.ok) {
+        toast.success("Schicht-Wunsch abgelehnt.");
+        setRejectOpen(false);
+        setRejectReason("");
+      } else toast.error(r.error);
+    });
+  }
+
+  return (
+    <tr className="align-top hover:bg-neutral-50/60">
+      <td className="px-4 py-3">
+        <div className="font-medium text-neutral-900">{row.employeeName}</div>
+        {row.employeeRoleLabel ? (
+          <div className="text-xs text-neutral-500">{row.employeeRoleLabel}</div>
+        ) : null}
+      </td>
+      <td className="px-4 py-3">
+        <div className="font-medium text-neutral-900">{row.wishSummary}</div>
+        {row.comment ? (
+          <p className="mt-1 line-clamp-2 max-w-xs text-xs text-neutral-600">
+            {row.comment}
+          </p>
+        ) : null}
+        {row.status === "REJECTED" && row.decisionComment ? (
+          <div className="mt-2 max-w-xs rounded-md border border-neutral-100 bg-neutral-50 px-2 py-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+              Begründung GL
+            </p>
+            <p className="mt-0.5 text-xs text-neutral-700">
+              {row.decisionComment}
+            </p>
+          </div>
+        ) : null}
+      </td>
+      <td className="px-4 py-3 text-neutral-700">{row.dateLabel}</td>
+      <td className="px-4 py-3">
+        <Badge
+          className={cn(STATUS_BADGE[row.status], "shrink-0")}
+          variant="secondary"
+        >
+          {STATUS_LABEL[row.status]}
+        </Badge>
+        {row.status !== "OPEN" && row.decidedAtLabel ? (
+          <p className="mt-1 text-xs text-neutral-500">
+            {row.decidedAtLabel}
+            {row.decidedByEmail ? ` · ${row.decidedByEmail}` : ""}
+          </p>
+        ) : null}
+      </td>
+      <td className="px-4 py-3 text-xs text-neutral-500">
+        {row.createdAtLabel}
+      </td>
+      <td className="px-4 py-3">
+        {row.status === "OPEN" ? (
+          <>
+            <div className="flex justify-end gap-2">
+              <Button
+                size="sm"
+                disabled={pending}
+                onClick={() => setApproveOpen(true)}
+              >
+                Genehmigen
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={pending}
+                onClick={() => setRejectOpen(true)}
+              >
+                Ablehnen
+              </Button>
+            </div>
+            <Dialog
+              open={approveOpen}
+              onOpenChange={(open) => {
+                setApproveOpen(open);
+                if (!open) setApproveNote("");
+              }}
+            >
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Schicht-Wunsch genehmigen</DialogTitle>
+                  <DialogDescription>
+                    Optional: interne Notiz zur Entscheidung (max.{" "}
+                    {REASON_MAX} Zeichen).
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-2">
+                  <Label htmlFor={`approve-wish-${row.id}`}>Begründung</Label>
+                  <textarea
+                    id={`approve-wish-${row.id}`}
+                    value={approveNote}
+                    onChange={(e) =>
+                      setApproveNote(e.target.value.slice(0, REASON_MAX))
+                    }
+                    rows={3}
+                    maxLength={REASON_MAX}
+                    className="min-h-[72px] w-full resize-y rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  />
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={pending}
+                      onClick={() => setApproveOpen(false)}
+                    >
+                      Abbrechen
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={pending}
+                      onClick={approve}
+                    >
+                      Genehmigen
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+            <Dialog
+              open={rejectOpen}
+              onOpenChange={(open) => {
+                setRejectOpen(open);
+                if (!open) setRejectReason("");
+              }}
+            >
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Schicht-Wunsch ablehnen</DialogTitle>
+                  <DialogDescription>
+                    Optional: Begründung für die Mitarbeitenden-Ansicht (max.{" "}
+                    {REASON_MAX} Zeichen).
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-2">
+                  <Label htmlFor={`reject-wish-${row.id}`}>Begründung</Label>
+                  <textarea
+                    id={`reject-wish-${row.id}`}
+                    value={rejectReason}
+                    onChange={(e) =>
+                      setRejectReason(e.target.value.slice(0, REASON_MAX))
+                    }
+                    rows={4}
+                    maxLength={REASON_MAX}
+                    placeholder="z. B. bereits besetzt …"
+                    className="min-h-[96px] w-full resize-y rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  />
+                  <p className="text-right text-xs text-neutral-400">
+                    {rejectReason.length}/{REASON_MAX}
+                  </p>
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={pending}
+                    onClick={() => setRejectOpen(false)}
+                  >
+                    Abbrechen
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    disabled={pending}
+                    onClick={confirmReject}
+                  >
+                    Ablehnen
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </>
+        ) : (
+          <div className="flex justify-end text-xs text-neutral-400">—</div>
+        )}
+      </td>
+    </tr>
+  );
+}

@@ -9,6 +9,28 @@ export type RequestType =
   | "PARENTAL_CARE";
 export type RequestStatus = "OPEN" | "APPROVED" | "REJECTED";
 
+/** Dienstvorlagen für Schicht-Wunsch (Mitarbeiter-UI). */
+export interface ServiceTemplateWishOption {
+  id: string;
+  code: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  breakMinutes: number;
+}
+
+export interface MyShiftWishView {
+  id: string;
+  status: RequestStatus;
+  dateIso: string;
+  dateLabel: string;
+  summaryLabel: string;
+  comment: string | null;
+  decisionComment: string | null;
+  decidedAt: string | null;
+  createdAt: string;
+}
+
 export interface MyDayView {
   iso: string;
   longDate: string;

@@ -26,6 +26,7 @@ import {
 import { archiveUntil } from "@/lib/archive";
 import { maybeSweepErtAfterPlanWrite } from "@/lib/ert/sweep";
 import { isoDateString, parseIsoDate } from "@/lib/time/week";
+import { shiftMinutes } from "@/lib/planning/shift-minutes";
 import { buildWeekSnapshot } from "./weeks";
 
 /** Abwesenheiten, die in PUBLISHED-KW bei geänderter Tagespriorität einen neuen Snapshot auslösen. */
@@ -61,22 +62,6 @@ function resolvedDayEqual(
   b: { kind: string; plannedMinutes: number },
 ): boolean {
   return a.kind === b.kind && a.plannedMinutes === b.plannedMinutes;
-}
-
-function timeToMinutes(value: string): number {
-  const [h, m] = value.split(":").map((p) => Number.parseInt(p, 10));
-  return h * 60 + m;
-}
-
-function shiftMinutes(
-  start: string,
-  end: string,
-  breakMinutes: number,
-): number {
-  const s = timeToMinutes(start);
-  const e = timeToMinutes(end);
-  const span = e >= s ? e - s : 24 * 60 - s + e;
-  return Math.max(0, span - breakMinutes);
 }
 
 async function ensureWeekEditable(weekId: string, tenantId: string): Promise<ActionResult | null> {

@@ -180,6 +180,7 @@ model Tenant {
   compensationCases CompensationCase[]
   publishedSnapshots PublishedSnapshot[]
   employeeExitSnapshots EmployeeExitSnapshot[]
+  shiftWishes ShiftWish[]
 }
 
 model Location {
@@ -234,6 +235,7 @@ model Employee {
   compensationCases    CompensationCase[]
   exitSnapshot         EmployeeExitSnapshot?
   cancelledAbsenceRequests AbsenceRequest[] @relation("AbsenceRequestCancelledBy")
+  shiftWishes          ShiftWish[]
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
 }
@@ -287,10 +289,39 @@ model ServiceTemplate {
   deletedAt      DateTime?
   archivedUntil  DateTime?
   planEntries    PlanEntry[]
+  shiftWishesPreferred ShiftWish[]       @relation("PreferredOn")
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
   @@unique([tenantId, code])
+}
+
+model ShiftWish {
+  id                          String           @id @default(cuid())
+  tenantId                    String
+  tenant                      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employeeId                  String
+  employee                    Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date                        DateTime
+  preferredServiceTemplateId String?
+  preferredServiceTemplate   ServiceTemplate? @relation("PreferredOn", fields: [preferredServiceTemplateId], references: [id], onDelete: SetNull)
+  preferredOneTimeLabel      String?
+  oneTimeStart               String?
+  oneTimeEnd                 String?
+  oneTimeBreakMinutes        Int?
+  comment                    String?
+  status                     RequestStatus    @default(OPEN)
+  decisionComment             String?
+  decidedAt                   DateTime?
+  decidedById                 String?
+  deletedAt                   DateTime?
+  archivedUntil               DateTime?
+  createdAt                  DateTime         @default(now())
+  updatedAt                  DateTime         @updatedAt
+
+  @@index([tenantId, status])
+  @@index([employeeId, date])
+  @@index([employeeId, status, createdAt])
 }
 
 model Week {

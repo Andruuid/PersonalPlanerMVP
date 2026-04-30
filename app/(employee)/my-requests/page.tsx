@@ -1,14 +1,16 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { loadMyRequests } from "@/lib/employee/data";
+import { loadMyRequests, loadMyShiftWishes, loadServiceTemplatesForShiftWish } from "@/lib/employee/data";
 import { RequestStack } from "@/components/employee/request-stack";
 import { StatusList } from "@/components/employee/status-list";
+import { ShiftWishStatusList } from "@/components/employee/shift-wish-status-list";
 import { AdminEmployeePreviewPicker } from "@/components/employee/admin-employee-preview-picker";
 import { loadEmployeesForPreviewPicker } from "@/lib/employee/admin-preview-picker";
 import {
   REQUEST_STATUS_LABELS,
   type MyRequestView,
+  type MyShiftWishView,
   type RequestStatus,
 } from "@/components/employee/types";
 import type { PrivacyRequestStatus } from "@/lib/generated/prisma/enums";
@@ -97,7 +99,11 @@ export default async function MyRequestsPage({ searchParams }: PageProps) {
     );
   }
 
-  const all = await loadMyRequests(session.user, employee.id);
+  const [all, shiftWishes, serviceTemplates] = await Promise.all([
+    loadMyRequests(session.user, employee.id),
+    loadMyShiftWishes(session.user, employee.id),
+    loadServiceTemplatesForShiftWish(session.user.tenantId),
+  ]);
   const privacyRequests = isAdminPreview
     ? []
     : await prisma.privacyRequest.findMany({
@@ -107,6 +113,7 @@ export default async function MyRequestsPage({ searchParams }: PageProps) {
         select: { id: true, type: true, status: true, createdAt: true },
       });
   const groups = groupByStatus(all);
+  const wishGroups = groupShiftWishesByStatus(shiftWishes);
 
   return (
     <div className="flex flex-col gap-6 lg:flex-row">
@@ -138,7 +145,11 @@ export default async function MyRequestsPage({ searchParams }: PageProps) {
                 Prüfung.
               </p>
             </header>
-            <RequestStack variant="inline" tztModel={employee.tztModel} />
+            <RequestStack
+              variant="inline"
+              tztModel={employee.tztModel}
+              serviceTemplates={serviceTemplates}
+            />
           </section>
         ) : null}
 
@@ -192,12 +203,20 @@ export default async function MyRequestsPage({ searchParams }: PageProps) {
         ) : null}
 
         <div className="space-y-6">
+          <header className="space-y-1">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-700">
+              Abwesenheitsanträge
+            </h2>
+            <p className="text-xs text-neutral-500">
+              Ferien, Frei, UEZ, TZT und Elternzeit.
+            </p>
+          </header>
           {STATUS_ORDER.map((status) => (
-            <section key={status} className="space-y-3">
+            <section key={`abs-${status}`} className="space-y-3">
               <header className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-700">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-600">
                   {REQUEST_STATUS_LABELS[status]}
-                </h2>
+                </h3>
                 <span className="text-xs text-neutral-500">
                   {groups[status].length}
                 </span>
@@ -206,6 +225,34 @@ export default async function MyRequestsPage({ searchParams }: PageProps) {
                 requests={groups[status]}
                 emptyHint={emptyHintFor(status, isAdminPreview)}
                 showCancel={!isAdminPreview}
+              />
+            </section>
+          ))}
+        </div>
+
+        <div className="space-y-6">
+          <header className="space-y-1">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-700">
+              Schicht-Wünsche
+            </h2>
+            <p className="text-xs text-neutral-500">
+              Gewünschter Dienst an einem bestimmten Tag — nach Genehmigung im
+              Plan.
+            </p>
+          </header>
+          {STATUS_ORDER.map((status) => (
+            <section key={`wish-${status}`} className="space-y-3">
+              <header className="flex items-center justify-between">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-600">
+                  {REQUEST_STATUS_LABELS[status]}
+                </h3>
+                <span className="text-xs text-neutral-500">
+                  {wishGroups[status].length}
+                </span>
+              </header>
+              <ShiftWishStatusList
+                wishes={wishGroups[status]}
+                emptyHint={emptyHintShiftWish(status, isAdminPreview)}
               />
             </section>
           ))}
@@ -225,6 +272,42 @@ function groupByStatus(
   };
   for (const r of requests) out[r.status].push(r);
   return out;
+}
+
+function groupShiftWishesByStatus(
+  wishes: MyShiftWishView[],
+): Record<RequestStatus, MyShiftWishView[]> {
+  const out: Record<RequestStatus, MyShiftWishView[]> = {
+    OPEN: [],
+    APPROVED: [],
+    REJECTED: [],
+  };
+  for (const w of wishes) out[w.status].push(w);
+  return out;
+}
+
+function emptyHintShiftWish(
+  status: RequestStatus,
+  preview: boolean,
+): string {
+  if (preview) {
+    switch (status) {
+      case "OPEN":
+        return "Keine offenen Schicht-Wünsche.";
+      case "APPROVED":
+        return "Keine genehmigten Schicht-Wünsche.";
+      case "REJECTED":
+        return "Keine abgelehnten Schicht-Wünsche.";
+    }
+  }
+  switch (status) {
+    case "OPEN":
+      return "Du hast keine offenen Schicht-Wünsche.";
+    case "APPROVED":
+      return "Noch keine genehmigten Schicht-Wünsche.";
+    case "REJECTED":
+      return "Kein Schicht-Wunsch wurde abgelehnt.";
+  }
 }
 
 function emptyHintFor(

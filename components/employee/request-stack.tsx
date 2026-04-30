@@ -7,12 +7,13 @@ import {
   CalendarX,
   Hourglass,
   Timer,
+  CalendarClock,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { RequestDialog } from "./request-dialog";
-import type { RequestType } from "./types";
+import type { RequestType, ServiceTemplateWishOption } from "./types";
 
 interface ButtonSpec {
   type: RequestType;
@@ -54,17 +55,24 @@ const BUTTONS: ButtonSpec[] = [
   },
 ];
 
+type DialogState =
+  | null
+  | { mode: "absence"; type: RequestType }
+  | { mode: "wish" };
+
 interface RequestStackProps {
   variant?: "panel" | "inline";
   /** Bei TARGET_REDUCTION gibt es keinen TZT-Abwesenheits-Antrag (Pensum = Reduktion). */
   tztModel?: "DAILY_QUOTA" | "TARGET_REDUCTION";
+  serviceTemplates: ServiceTemplateWishOption[];
 }
 
 export function RequestStack({
   variant = "panel",
   tztModel = "DAILY_QUOTA",
+  serviceTemplates,
 }: RequestStackProps) {
-  const [openType, setOpenType] = useState<RequestType | null>(null);
+  const [dialog, setDialog] = useState<DialogState>(null);
   const buttons =
     tztModel === "TARGET_REDUCTION"
       ? BUTTONS.filter((b) => b.type !== "TZT")
@@ -95,7 +103,7 @@ export function RequestStack({
             <Button
               key={btn.type}
               type="button"
-              onClick={() => setOpenType(btn.type)}
+              onClick={() => setDialog({ mode: "absence", type: btn.type })}
               variant={btn.variant === "primary" ? "default" : "outline"}
               className={cn(
                 "justify-start",
@@ -107,13 +115,24 @@ export function RequestStack({
             </Button>
           );
         })}
+        <Button
+          type="button"
+          variant="outline"
+          className="justify-start bg-white"
+          onClick={() => setDialog({ mode: "wish" })}
+        >
+          <CalendarClock className="mr-2 h-4 w-4" />
+          Schicht-Wunsch
+        </Button>
       </div>
 
       <RequestDialog
-        open={openType !== null}
-        type={openType}
+        open={dialog !== null}
+        absenceType={dialog?.mode === "absence" ? dialog.type : null}
+        defaultTab={dialog?.mode === "wish" ? "wish" : "absence"}
+        serviceTemplates={serviceTemplates}
         onOpenChange={(open) => {
-          if (!open) setOpenType(null);
+          if (!open) setDialog(null);
         }}
       />
     </section>

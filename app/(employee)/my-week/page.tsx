@@ -6,11 +6,12 @@ import { prisma } from "@/lib/db";
 import { Badge } from "@/components/ui/badge";
 import { currentIsoWeek, shiftWeek } from "@/lib/time/week";
 import { loadMyWeek } from "@/lib/employee/my-week";
-import { loadMyAccounts, loadMyRequests } from "@/lib/employee/data";
+import { loadMyAccounts, loadMyRequests, loadMyShiftWishes, loadServiceTemplatesForShiftWish } from "@/lib/employee/data";
 import { DayCard } from "@/components/employee/day-card";
 import { AccountsPanel } from "@/components/employee/accounts-panel";
 import { RequestStack } from "@/components/employee/request-stack";
 import { StatusList } from "@/components/employee/status-list";
+import { ShiftWishStatusList } from "@/components/employee/shift-wish-status-list";
 import { AdminEmployeePreviewPicker } from "@/components/employee/admin-employee-preview-picker";
 import { loadEmployeesForPreviewPicker } from "@/lib/employee/admin-preview-picker";
 
@@ -101,9 +102,11 @@ export default async function MyWeekPage({ searchParams }: PageProps) {
     { year: picked.year, weekNumber: picked.weekNumber },
   );
 
-  const [accounts, requests] = await Promise.all([
+  const [accounts, requests, shiftWishes, serviceTemplates] = await Promise.all([
     loadMyAccounts(session.user, employee.id, picked.year),
     loadMyRequests(session.user, employee.id, { limit: 5 }),
+    loadMyShiftWishes(session.user, employee.id, { limit: 5 }),
+    loadServiceTemplatesForShiftWish(session.user.tenantId),
   ]);
 
   const prevWeek = shiftWeek(picked, -1);
@@ -201,13 +204,29 @@ export default async function MyWeekPage({ searchParams }: PageProps) {
             emptyHint="Du hast noch keine Anträge gestellt — nutze die Buttons rechts, um Ferien, Frei oder TZT zu beantragen."
             showCancel={!isAdminPreview}
           />
+          <div className="mt-6 border-t border-neutral-100 pt-4">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-600">
+                Schicht-Wünsche
+              </h3>
+              <ShiftWishStatusList
+                wishes={shiftWishes}
+                emptyHint={
+                  isAdminPreview
+                    ? "Keine Schicht-Wünsche in der Kurzübersicht."
+                    : "Noch keine Schicht-Wünsche gestellt."
+                }
+              />
+            </div>
         </section>
       </div>
 
       <aside className="w-full shrink-0 space-y-4 lg:w-80 xl:w-96">
         <AccountsPanel accounts={accounts} />
         {!isAdminPreview ? (
-          <RequestStack tztModel={employee.tztModel} />
+          <RequestStack
+            tztModel={employee.tztModel}
+            serviceTemplates={serviceTemplates}
+          />
         ) : null}
       </aside>
     </div>

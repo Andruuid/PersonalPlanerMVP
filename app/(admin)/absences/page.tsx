@@ -13,6 +13,11 @@ import {
   type AbsenceRequestStatus,
   type AbsenceRequestType,
 } from "@/components/admin/absences/absences-table";
+import {
+  ShiftWishesTable,
+  type ShiftWishRow,
+  type ShiftWishRowStatus,
+} from "@/components/admin/absences/shift-wishes-table";
 import { AbsencesLiveRefresh } from "@/components/admin/absences/absences-live-refresh";
 
 export const metadata = { title: "Abwesenheiten · PersonalPlaner" };
@@ -86,7 +91,14 @@ export default async function AbsencesPage({ searchParams }: PageProps) {
     ...(employeeId !== "ALL" ? { employeeId } : {}),
   };
 
-  const [requests, statusCounts] = await Promise.all([
+  const wishWhere = {
+    tenantId: admin.tenantId,
+    deletedAt: null,
+    ...(status !== "ALL" ? { status } : {}),
+    ...(employeeId !== "ALL" ? { employeeId } : {}),
+  };
+
+  const [requests, statusCounts, shiftWishes] = await Promise.all([
     prisma.absenceRequest.findMany({
       where,
       orderBy: [{ status: "asc" }, { startDate: "asc" }, { createdAt: "desc" }],
@@ -106,12 +118,23 @@ export default async function AbsencesPage({ searchParams }: PageProps) {
         ...(employeeId !== "ALL" ? { employeeId } : {}),
       },
     }),
+    prisma.shiftWish.findMany({
+      where: wishWhere,
+      orderBy: [{ status: "asc" }, { date: "asc" }, { createdAt: "desc" }],
+      include: {
+        employee: {
+          select: { firstName: true, lastName: true, roleLabel: true },
+        },
+        preferredServiceTemplate: {
+          select: { code: true, name: true },
+        },
+      },
+    }),
   ]);
 
   const decidedByIds = Array.from(
     new Set(
-      requests
-        .map((r) => r.decidedById)
+      [...requests.map((r) => r.decidedById), ...shiftWishes.map((w) => w.decidedById)]
         .filter((id): id is string => Boolean(id)),
     ),
   );
@@ -140,6 +163,36 @@ export default async function AbsencesPage({ searchParams }: PageProps) {
     decidedByEmail: r.decidedById ? decidedByEmail.get(r.decidedById) ?? null : null,
   }));
 
+  const shiftRows: ShiftWishRow[] = shiftWishes.map((w) => {
+    const tpl = w.preferredServiceTemplate;
+    const wishSummary = tpl
+      ? `${tpl.name} (${tpl.code})`
+      : w.preferredOneTimeLabel &&
+          w.oneTimeStart &&
+          w.oneTimeEnd
+        ? `${w.preferredOneTimeLabel} (${w.oneTimeStart}–${w.oneTimeEnd})`
+        : "Schicht-Wunsch";
+
+    return {
+      id: w.id,
+      employeeId: w.employeeId,
+      employeeName: `${w.employee.firstName} ${w.employee.lastName}`,
+      employeeRoleLabel: w.employee.roleLabel,
+      status: w.status as ShiftWishRowStatus,
+      dateLabel: format(w.date, "dd.MM.yyyy"),
+      wishSummary,
+      comment: w.comment,
+      decisionComment: w.decisionComment,
+      createdAtLabel: format(w.createdAt, "dd.MM.yyyy HH:mm"),
+      decidedAtLabel: w.decidedAt
+        ? format(w.decidedAt, "dd.MM.yyyy HH:mm")
+        : null,
+      decidedByEmail: w.decidedById
+        ? decidedByEmail.get(w.decidedById) ?? null
+        : null,
+    };
+  });
+
   const totalAll = statusCounts.reduce((acc, row) => acc + row._count._all, 0);
   const counts: Record<StatusFilter, number> = {
     ALL: totalAll,
@@ -155,7 +208,7 @@ export default async function AbsencesPage({ searchParams }: PageProps) {
       <PageHeader
         caption="Anträge"
         title="Abwesenheiten"
-        description="Eingang aller Wünsche und Anträge. Direkt genehmigen oder ablehnen — Genehmigte Anträge erzeugen automatisch einen passenden Eintrag in der Wochenplanung."
+        description="Eingang von Abwesenheitsanträgen und Schicht-Wünschen. Genehmigte Einträge erscheinen automatisch in der Wochenplanung."
       />
 
       <AbsencesFilter
@@ -174,6 +227,16 @@ export default async function AbsencesPage({ searchParams }: PageProps) {
       />
 
       <AbsencesTable rows={rows} />
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-700">
+          Schicht-Wünsche
+        </h2>
+        <p className="text-xs text-neutral-500">
+          Gleiche Filter für Status und Mitarbeitende wie oben. Der Antragstyp-Filter gilt nur für Abwesenheiten.
+        </p>
+        <ShiftWishesTable rows={shiftRows} />
+      </section>
 
       <AbsencesLiveRefresh />
     </div>
