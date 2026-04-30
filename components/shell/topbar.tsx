@@ -13,6 +13,7 @@ import { AdminPreviewEmployeeBadge } from "./admin-preview-employee-badge";
 interface TopbarProps {
   variant: "admin" | "employee";
   email: string;
+  canSwitchTenant: boolean;
   showRoleToggle: boolean;
   /** Vor- und Nachname; nur in der Mitarbeiter-Ansicht als Kopfzeile nach «Personalplanung –». */
   employeeHeadingName?: string | null;
@@ -57,6 +58,7 @@ function PreviewEmployeeHeadingLoaded({ employeeId }: { employeeId: string }) {
 export function Topbar({
   variant,
   email,
+  canSwitchTenant,
   showRoleToggle,
   employeeHeadingName,
 }: TopbarProps) {
@@ -113,7 +115,7 @@ export function Topbar({
           </div>
         ) : null}
 
-        <UserMenu email={email} />
+        <UserMenu email={email} canSwitchTenant={canSwitchTenant} />
       </div>
 
       {showRoleToggle ? (

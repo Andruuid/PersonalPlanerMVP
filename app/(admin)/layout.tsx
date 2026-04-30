@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { AppShell } from "@/components/shell/app-shell";
 import { QuickActionsProvider } from "@/components/admin/quick-actions-provider";
+import { hasMultipleTenants } from "@/lib/permissions";
 
 export default async function AdminLayout({
   children,
@@ -16,6 +17,9 @@ export default async function AdminLayout({
   if (session.user.role !== "ADMIN") {
     redirect("/my-week");
   }
+  const canSwitchTenant = session.user.email
+    ? await hasMultipleTenants(session.user.email)
+    : false;
 
   const [locations, employees, tenantForForms] = await Promise.all([
     prisma.location.findMany({
@@ -57,6 +61,7 @@ export default async function AdminLayout({
       <AppShell
         variant="admin"
         email={session.user.email ?? ""}
+        canSwitchTenant={canSwitchTenant}
         showRoleToggle
       >
         {children}

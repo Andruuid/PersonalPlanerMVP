@@ -1,11 +1,13 @@
 import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 import { authConfig } from "@/lib/auth.config";
+import { homePathForRole } from "@/lib/auth-home-path";
 import { logDebug } from "@/lib/logging";
 
 const { auth } = NextAuth(authConfig);
 
 const PUBLIC_PATHS = ["/login", "/signup", "/api/auth", "/forbidden"];
+const SELECT_TENANT_PATH = "/select-tenant";
 const ADMIN_PATHS = [
   "/dashboard",
   "/planning",
@@ -27,22 +29,17 @@ function pathMatches(pathname: string, prefixes: readonly string[]): boolean {
   );
 }
 
-function homePathForRole(role: string): string {
-  if (role === "ADMIN") return "/dashboard";
-  if (role === "EMPLOYEE") return "/my-week";
-  if (role === "SYSTEM_ADMIN") return "/forbidden";
-  return "/login";
-}
-
 export default auth((req) => {
   const { nextUrl } = req;
   const pathname = nextUrl.pathname;
   const role = req.auth?.user?.role ?? "ANON";
   const tenantId = req.auth?.user?.tenantId;
+  const pendingTenantSelection = Boolean(req.auth?.user?.pendingTenantSelection);
   const hasStaleSessionClaims =
     Boolean(req.auth) &&
+    !pendingTenantSelection &&
     (role === "ADMIN" || role === "EMPLOYEE") &&
-    (!tenantId || tenantId.trim().length === 0);
+    (typeof tenantId !== "string" || tenantId.trim().length === 0);
 
   const loginUrl = new URL("/login", nextUrl);
   if (pathname !== "/login") {
@@ -54,7 +51,9 @@ export default auth((req) => {
 
   if (pathMatches(pathname, PUBLIC_PATHS)) {
     if (pathname === "/login" && req.auth && !hasStaleSessionClaims) {
-      const target = homePathForRole(role);
+      const target = pendingTenantSelection
+        ? SELECT_TENANT_PATH
+        : homePathForRole(role);
       logDebug("proxy", "Redirect authenticated user from /login", {
         pathname,
         role,
@@ -63,7 +62,9 @@ export default auth((req) => {
       return NextResponse.redirect(new URL(target, nextUrl));
     }
     if (pathname === "/signup" && req.auth && !hasStaleSessionClaims) {
-      const target = homePathForRole(role);
+      const target = pendingTenantSelection
+        ? SELECT_TENANT_PATH
+        : homePathForRole(role);
       logDebug("proxy", "Redirect authenticated user from /signup", {
         pathname,
         role,
@@ -92,6 +93,25 @@ export default auth((req) => {
     return NextResponse.redirect(loginUrl);
   }
 
+  if (pendingTenantSelection && pathname !== SELECT_TENANT_PATH) {
+    logDebug("proxy", "Redirect pending tenant selection to picker", {
+      pathname,
+      role,
+      target: SELECT_TENANT_PATH,
+    });
+    return NextResponse.redirect(new URL(SELECT_TENANT_PATH, nextUrl));
+  }
+
+  if (!pendingTenantSelection && pathname === SELECT_TENANT_PATH) {
+    const target = homePathForRole(role);
+    logDebug("proxy", "Redirect resolved tenant session away from picker", {
+      pathname,
+      role,
+      target,
+    });
+    return NextResponse.redirect(new URL(target, nextUrl));
+  }
+
   if (pathMatches(pathname, ADMIN_PATHS) && role !== "ADMIN") {
     const target = role === "EMPLOYEE" ? "/my-week" : "/forbidden";
     logDebug("proxy", "Redirect non-admin from admin path", {
@@ -118,7 +138,7 @@ export default auth((req) => {
   }
 
   if (pathname === "/") {
-    const target = homePathForRole(role);
+    const target = pendingTenantSelection ? SELECT_TENANT_PATH : homePathForRole(role);
     logDebug("proxy", "Redirect root path by role", { role, target });
     return NextResponse.redirect(new URL(target, nextUrl));
   }

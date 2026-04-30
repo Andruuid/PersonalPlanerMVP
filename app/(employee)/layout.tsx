@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { AppShell } from "@/components/shell/app-shell";
+import { hasMultipleTenants } from "@/lib/permissions";
 
 export default async function EmployeeLayout({
   children,
@@ -14,6 +15,9 @@ export default async function EmployeeLayout({
   }
   // Admins keep access so they can preview the Mitarbeiter-Ansicht.
   const showRoleToggle = session.user.role === "ADMIN";
+  const canSwitchTenant = session.user.email
+    ? await hasMultipleTenants(session.user.email)
+    : false;
 
   let employeeHeadingName: string | null = null;
   if (session.user.role === "EMPLOYEE") {
@@ -38,6 +42,7 @@ export default async function EmployeeLayout({
     <AppShell
       variant="employee"
       email={session.user.email ?? ""}
+      canSwitchTenant={canSwitchTenant}
       showRoleToggle={showRoleToggle}
       employeeHeadingName={employeeHeadingName}
     >

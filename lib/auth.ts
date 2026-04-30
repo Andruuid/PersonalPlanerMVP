@@ -12,13 +12,15 @@ declare module "next-auth" {
     user: {
       id: string;
       role: Role;
-      tenantId: string;
+      tenantId: string | null;
+      pendingTenantSelection: boolean;
       employeeId?: string | null;
     } & DefaultSession["user"];
   }
   interface User {
     role: Role;
-    tenantId: string;
+    tenantId: string | null;
+    pendingTenantSelection: boolean;
     employeeId?: string | null;
   }
 }
@@ -33,6 +35,7 @@ export const {
   auth,
   signIn,
   signOut,
+  unstable_update,
 } = NextAuth({
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
@@ -65,12 +68,10 @@ export const {
             },
             orderBy: [{ isActive: "desc" }, { createdAt: "asc" }],
           });
-          // TODO Prompt 9: tenant picker
-          if (users.length > 1) {
-            console.warn("Multi-tenant login flow not yet implemented");
-          }
-          const user = users.find((candidate) => isCredentialsLoginAllowed(candidate)) ?? null;
-          if (!user) {
+          const allowedUsers = users.filter((candidate) =>
+            isCredentialsLoginAllowed(candidate),
+          );
+          if (allowedUsers.length === 0) {
             logDebug("auth:authorize", "Authorize rejected", {
               email: emailLower,
               reason: "user-missing-or-inactive",
@@ -78,8 +79,13 @@ export const {
             return null;
           }
 
-          const valid = await bcrypt.compare(password, user.passwordHash);
-          if (!valid) {
+          const passwordMatches: typeof allowedUsers = [];
+          for (const candidate of allowedUsers) {
+            // Each tenant has its own user row, so we must validate all candidates.
+            const valid = await bcrypt.compare(password, candidate.passwordHash);
+            if (valid) passwordMatches.push(candidate);
+          }
+          if (passwordMatches.length === 0) {
             logDebug("auth:authorize", "Authorize rejected", {
               email: emailLower,
               reason: "password-mismatch",
@@ -87,18 +93,26 @@ export const {
             return null;
           }
 
+          const selectedUser = passwordMatches[0];
+          const pendingTenantSelection = passwordMatches.length > 1;
+
           logDebug("auth:authorize", "Authorize success", {
-            userId: user.id,
-            tenantId: user.tenantId,
-            role: user.role,
+            userId: selectedUser.id,
+            tenantId: pendingTenantSelection ? null : selectedUser.tenantId,
+            role: selectedUser.role,
+            pendingTenantSelection,
+            tenantCount: passwordMatches.length,
           });
           return {
-            id: user.id,
-            email: user.email,
-            name: user.email,
-            role: user.role,
-            tenantId: user.tenantId,
-            employeeId: user.employee?.id ?? null,
+            id: selectedUser.id,
+            email: selectedUser.email,
+            name: selectedUser.email,
+            role: selectedUser.role,
+            tenantId: pendingTenantSelection ? null : selectedUser.tenantId,
+            pendingTenantSelection,
+            employeeId: pendingTenantSelection
+              ? null
+              : (selectedUser.employee?.id ?? null),
           };
         } catch (err) {
           logError("auth:authorize", "Authorize failed with exception", { error: err });
@@ -108,13 +122,34 @@ export const {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         (token as Record<string, unknown>).role = user.role;
         (token as Record<string, unknown>).tenantId =
           user.role === "SYSTEM_ADMIN" ? null : user.tenantId;
+        (token as Record<string, unknown>).pendingTenantSelection =
+          user.pendingTenantSelection;
         (token as Record<string, unknown>).employeeId = user.employeeId ?? null;
         token.sub = user.id as string;
+      }
+      if (trigger === "update" && session) {
+        const next = session as Record<string, unknown>;
+        if (typeof next.role === "string") {
+          (token as Record<string, unknown>).role = next.role;
+        }
+        if (typeof next.tenantId === "string" || next.tenantId === null) {
+          (token as Record<string, unknown>).tenantId = next.tenantId;
+        }
+        if (typeof next.pendingTenantSelection === "boolean") {
+          (token as Record<string, unknown>).pendingTenantSelection =
+            next.pendingTenantSelection;
+        }
+        if (typeof next.employeeId === "string" || next.employeeId === null) {
+          (token as Record<string, unknown>).employeeId = next.employeeId;
+        }
+        if (typeof next.id === "string") {
+          token.sub = next.id;
+        }
       }
       return token;
     },
@@ -124,7 +159,8 @@ export const {
         session.user.id = (token.sub as string) ?? "";
         session.user.role = t.role as Role;
         session.user.tenantId =
-          typeof t.tenantId === "string" ? t.tenantId : "";
+          typeof t.tenantId === "string" ? t.tenantId : null;
+        session.user.pendingTenantSelection = Boolean(t.pendingTenantSelection);
         session.user.employeeId = (t.employeeId as string | null | undefined) ?? null;
       }
       return session;

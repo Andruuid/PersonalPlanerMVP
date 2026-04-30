@@ -23,10 +23,10 @@ export type ActionResult<T = undefined> =
 export async function requireAdmin(): Promise<SessionUser> {
   const session = await auth();
   if (!session?.user) {
-    throw new Error("Unauthorized: not signed in");
+    throw new Error("NotAuthenticated: not signed in");
   }
-  if (!session.user.tenantId) {
-    throw new Error("Unauthorized: tenant missing");
+  if (!session.user.tenantId || session.user.pendingTenantSelection) {
+    throw new Error("NotAuthenticated: tenant missing");
   }
   if (session.user.role !== "ADMIN") {
     throw new Error("Forbidden: admin role required");
@@ -43,10 +43,10 @@ export async function requireAdmin(): Promise<SessionUser> {
 export async function requireEmployee(): Promise<SessionUser> {
   const session = await auth();
   if (!session?.user) {
-    throw new Error("Unauthorized: not signed in");
+    throw new Error("NotAuthenticated: not signed in");
   }
-  if (!session.user.tenantId) {
-    throw new Error("Unauthorized: tenant missing");
+  if (!session.user.tenantId || session.user.pendingTenantSelection) {
+    throw new Error("NotAuthenticated: tenant missing");
   }
   if (!session.user.employeeId) {
     throw new Error("Forbidden: linked employee profile required");

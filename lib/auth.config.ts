@@ -16,12 +16,17 @@ export const authConfig: NextAuthConfig = {
           id?: string;
           role?: "SYSTEM_ADMIN" | "ADMIN" | "EMPLOYEE";
           tenantId?: string | null;
+          pendingTenantSelection?: boolean;
           employeeId?: string | null;
         };
         token.role = authUser.role;
         token.tenantId = authUser.tenantId;
+        token.pendingTenantSelection = authUser.pendingTenantSelection ?? false;
         token.employeeId = authUser.employeeId ?? null;
         token.sub = authUser.id ?? token.sub;
+      }
+      if (typeof token.pendingTenantSelection !== "boolean") {
+        token.pendingTenantSelection = false;
       }
       return token;
     },
@@ -30,7 +35,8 @@ export const authConfig: NextAuthConfig = {
         session.user.id = token.sub as string;
         session.user.role = token.role as "SYSTEM_ADMIN" | "ADMIN" | "EMPLOYEE";
         session.user.tenantId =
-          typeof token.tenantId === "string" ? token.tenantId : "";
+          typeof token.tenantId === "string" ? token.tenantId : null;
+        session.user.pendingTenantSelection = Boolean(token.pendingTenantSelection);
         session.user.employeeId =
           (token.employeeId as string | null | undefined) ?? null;
       }

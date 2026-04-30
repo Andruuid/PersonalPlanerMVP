@@ -5,6 +5,7 @@ import { useState } from "react";
 import { signOut } from "next-auth/react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { switchTenantAction } from "./actions";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,6 +17,7 @@ import {
 
 interface UserMenuProps {
   email: string;
+  canSwitchTenant: boolean;
 }
 
 async function forceServerSignOut(): Promise<string> {
@@ -57,7 +59,7 @@ async function forceServerSignOut(): Promise<string> {
     : "/login";
 }
 
-export function UserMenu({ email }: UserMenuProps) {
+export function UserMenu({ email, canSwitchTenant }: UserMenuProps) {
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   async function handleSignOut() {
@@ -114,6 +116,15 @@ export function UserMenu({ email }: UserMenuProps) {
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel className="truncate">{email}</DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {canSwitchTenant ? (
+          <DropdownMenuItem asChild>
+            <form action={switchTenantAction} className="w-full">
+              <button type="submit" className="w-full text-left">
+                Mandant wechseln
+              </button>
+            </form>
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuItem
           onSelect={(event) => {
             event.preventDefault();

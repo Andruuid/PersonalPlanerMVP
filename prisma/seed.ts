@@ -257,8 +257,9 @@ async function main() {
     });
   }
 
-  // Second-tenant sandbox admin reuses admin@demo.ch to validate tenant-scoped uniqueness.
-  const demoSandboxAdminEmail = "admin@demo.ch";
+  // Second-tenant sandbox admin keeps a distinct email so default demo admin
+  // still lands directly in one tenant.
+  const demoSandboxAdminEmail = "admin-second@demo.ch";
   const demoTenantPwd = await bcrypt.hash("admin123", 10);
   const demoSlugAdmin = await prisma.user.findFirst({
     where: { tenantId: demoTenant.id, email: demoSandboxAdminEmail },
@@ -278,6 +279,56 @@ async function main() {
         tenantId: demoTenant.id,
         email: demoSandboxAdminEmail,
         passwordHash: demoTenantPwd,
+        role: "ADMIN",
+        isActive: true,
+      },
+    });
+  }
+
+  // Dedicated multi-tenant demo account (same email + password in two tenants).
+  const multiTenantEmail = "multi.admin@demo.ch";
+  const multiTenantPwd = await bcrypt.hash("admin123", 10);
+  const defaultMulti = await prisma.user.findFirst({
+    where: { tenantId, email: multiTenantEmail },
+  });
+  if (defaultMulti) {
+    await prisma.user.update({
+      where: { id: defaultMulti.id },
+      data: {
+        passwordHash: multiTenantPwd,
+        role: "ADMIN",
+        isActive: true,
+      },
+    });
+  } else {
+    await prisma.user.create({
+      data: {
+        tenantId,
+        email: multiTenantEmail,
+        passwordHash: multiTenantPwd,
+        role: "ADMIN",
+        isActive: true,
+      },
+    });
+  }
+  const demoMulti = await prisma.user.findFirst({
+    where: { tenantId: demoTenant.id, email: multiTenantEmail },
+  });
+  if (demoMulti) {
+    await prisma.user.update({
+      where: { id: demoMulti.id },
+      data: {
+        passwordHash: multiTenantPwd,
+        role: "ADMIN",
+        isActive: true,
+      },
+    });
+  } else {
+    await prisma.user.create({
+      data: {
+        tenantId: demoTenant.id,
+        email: multiTenantEmail,
+        passwordHash: multiTenantPwd,
         role: "ADMIN",
         isActive: true,
       },

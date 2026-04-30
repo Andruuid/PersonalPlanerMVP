@@ -1,4 +1,5 @@
 import type { Role } from "@/lib/generated/prisma/enums";
+import { prisma } from "@/lib/db";
 
 export interface SessionUser {
   id: string;
@@ -39,4 +40,13 @@ export function assertAuthenticated(
   if (!user) {
     throw new Error("Unauthorized: not signed in");
   }
+}
+
+export async function hasMultipleTenants(userEmail: string): Promise<boolean> {
+  const email = userEmail.trim().toLowerCase();
+  if (!email) return false;
+  const count = await prisma.user.count({
+    where: { email, isActive: true },
+  });
+  return count > 1;
 }

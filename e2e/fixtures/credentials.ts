@@ -11,3 +11,8 @@ export const testEmployeeCredentials = {
   email: "anna.keller@demo.ch",
   password: "demo123",
 };
+
+export const testMultiTenantAdminCredentials = {
+  email: "multi.admin@demo.ch",
+  password: "admin123",
+};

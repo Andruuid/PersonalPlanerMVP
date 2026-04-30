@@ -5,6 +5,7 @@ import { APP_VERSION } from "@/lib/version";
 interface AppShellProps {
   variant: "admin" | "employee";
   email: string;
+  canSwitchTenant: boolean;
   showRoleToggle: boolean;
   employeeHeadingName?: string | null;
   rightRail?: React.ReactNode;
@@ -14,6 +15,7 @@ interface AppShellProps {
 export function AppShell({
   variant,
   email,
+  canSwitchTenant,
   showRoleToggle,
   employeeHeadingName,
   rightRail,
@@ -24,6 +26,7 @@ export function AppShell({
       <Topbar
         variant={variant}
         email={email}
+        canSwitchTenant={canSwitchTenant}
         showRoleToggle={showRoleToggle}
         employeeHeadingName={employeeHeadingName}
       />
