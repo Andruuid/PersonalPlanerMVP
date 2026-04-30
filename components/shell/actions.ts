@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { auth, unstable_update } from "@/lib/auth";
+import { auth, signOut, unstable_update } from "@/lib/auth";
 
 export async function switchTenantAction(): Promise<void> {
   const session = await auth();
@@ -17,4 +17,8 @@ export async function switchTenantAction(): Promise<void> {
     },
   });
   redirect("/select-tenant");
+}
+
+export async function logoutAction(): Promise<void> {
+  await signOut({ redirectTo: "/login" });
 }
