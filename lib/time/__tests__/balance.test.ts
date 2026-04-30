@@ -85,7 +85,7 @@ describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
 
   it("distinguishes weekend REGULAR_SHIFTED vs ADDITIONAL in weekly totals", () => {
     const days = isoWeekDays(YEAR, WEEK);
-    const baseWeek = {
+    const baseWeek: Record<string, Omit<PlanEntryByDate, "date">> = {
       [days[0].iso]: { kind: "SHIFT", plannedMinutes: 504 as const },
       [days[1].iso]: { kind: "SHIFT", plannedMinutes: 504 as const },
       [days[2].iso]: { kind: "VFT", plannedMinutes: 0 as const },
