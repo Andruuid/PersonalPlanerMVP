@@ -133,22 +133,32 @@ export const {
         token.sub = user.id as string;
       }
       if (trigger === "update" && session) {
-        const next = session as Record<string, unknown>;
-        if (typeof next.role === "string") {
-          (token as Record<string, unknown>).role = next.role;
+        // unstable_update may receive either the v5 Session shape
+        // ({ user: { role, tenantId, ... } }) or a flat payload from older
+        // call sites; read from .user when present, fall back to top-level.
+        const raw = session as Record<string, unknown>;
+        const userPart =
+          raw.user && typeof raw.user === "object"
+            ? (raw.user as Record<string, unknown>)
+            : raw;
+        if (typeof userPart.role === "string") {
+          (token as Record<string, unknown>).role = userPart.role;
         }
-        if (typeof next.tenantId === "string" || next.tenantId === null) {
-          (token as Record<string, unknown>).tenantId = next.tenantId;
+        if (typeof userPart.tenantId === "string" || userPart.tenantId === null) {
+          (token as Record<string, unknown>).tenantId = userPart.tenantId;
         }
-        if (typeof next.pendingTenantSelection === "boolean") {
+        if (typeof userPart.pendingTenantSelection === "boolean") {
           (token as Record<string, unknown>).pendingTenantSelection =
-            next.pendingTenantSelection;
+            userPart.pendingTenantSelection;
         }
-        if (typeof next.employeeId === "string" || next.employeeId === null) {
-          (token as Record<string, unknown>).employeeId = next.employeeId;
+        if (
+          typeof userPart.employeeId === "string" ||
+          userPart.employeeId === null
+        ) {
+          (token as Record<string, unknown>).employeeId = userPart.employeeId;
         }
-        if (typeof next.id === "string") {
-          token.sub = next.id;
+        if (typeof userPart.id === "string") {
+          token.sub = userPart.id;
         }
       }
       return token;
