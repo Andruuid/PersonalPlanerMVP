@@ -11,6 +11,37 @@ import {
  */
 
 test.describe("Session & Routing nach Auth-Zustand", () => {
+  async function openUserMenuAndSignOut(page: import("@playwright/test").Page) {
+    const menuTrigger = page.getByRole("button", { name: "Benutzermenü" });
+    const signOutItem = page.getByRole("menuitem", { name: /^Abmelden/ });
+
+    // Radix menu can be briefly detached in CI/headless runs; retry a few times.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await menuTrigger.click();
+      await signOutItem.waitFor({ state: "visible", timeout: 3_000 });
+      if (await signOutItem.isVisible()) {
+        await signOutItem.click();
+        return;
+      }
+      await page.waitForTimeout(200);
+    }
+
+    throw new Error("Logout menu item not reachable");
+  }
+
+  test("Logout über Benutzermenü beendet Session und schützt Employee-Routen", async ({
+    page,
+  }) => {
+    await loginAsSeedEmployee(page);
+    await expect(page).toHaveURL(/\/my-week/);
+
+    await openUserMenuAndSignOut(page);
+    await expect(page).toHaveURL(/\/login/);
+
+    await page.goto("/my-week");
+    await expect(page).toHaveURL(/\/login/);
+  });
+
   test("Ohne gültige Session: `/dashboard` führt zurück zur Anmeldung", async ({
     page,
     context,

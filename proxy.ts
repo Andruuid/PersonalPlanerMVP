@@ -127,5 +127,9 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)"],
+  // Keep Auth.js routes out of proxy execution.
+  // On some runtimes (e.g. Netlify), running auth middleware on
+  // `/api/auth/signout` can lead to conflicting Set-Cookie headers and a
+  // "logout seems ignored" effect.
+  matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico|.*\\..*).*)"],
 };
