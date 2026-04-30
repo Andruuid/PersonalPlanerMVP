@@ -27,6 +27,9 @@ const CALLBACK_COOKIE_NAMES = [
 
 const AUTH_COOKIE_NAME_PATTERN =
   /^(?:__Secure-|__Host-)?(?:next-auth|authjs)\.(?:session-token|csrf-token|callback-url)(?:\.\d+)?$/;
+const LOGOUT_DEBUG_ENABLED =
+  process.env.AUTH_LOGOUT_DEBUG === "1" ||
+  process.env.AUTH_LOGOUT_DEBUG === "true";
 
 function isCallbackCookie(name: string): boolean {
   return name.includes(".callback-url");
@@ -50,6 +53,13 @@ export async function POST() {
     }
   }
 
+  if (LOGOUT_DEBUG_ENABLED) {
+    console.info("[auth:logout] cookies selected for clearing", {
+      cookieCount: cookieNamesToClear.size,
+      cookies: [...cookieNamesToClear],
+    });
+  }
+
   for (const name of cookieNamesToClear) {
     cookieStore.delete(name);
   }
@@ -66,6 +76,12 @@ export async function POST() {
       httpOnly: !isCallbackCookie(name),
       secure: isSecureCookie(name),
       sameSite: "lax",
+    });
+  }
+
+  if (LOGOUT_DEBUG_ENABLED) {
+    console.info("[auth:logout] clear response prepared", {
+      cookieCount: cookieNamesToClear.size,
     });
   }
 

@@ -20,8 +20,28 @@ interface UserMenuProps {
   canSwitchTenant: boolean;
 }
 
+const REQUEST_TIMEOUT_MS = 8_000;
+
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    });
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
 async function forceServerSignOut(): Promise<string> {
-  const csrfResponse = await fetch("/api/auth/csrf", { cache: "no-store" });
+  const csrfResponse = await fetchWithTimeout("/api/auth/csrf", {
+    cache: "no-store",
+  });
   if (!csrfResponse.ok) {
     throw new Error("csrf-fetch-failed");
   }
@@ -38,7 +58,7 @@ async function forceServerSignOut(): Promise<string> {
     json: "true",
   });
 
-  const signoutResponse = await fetch("/api/auth/signout", {
+  const signoutResponse = await fetchWithTimeout("/api/auth/signout", {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -60,7 +80,7 @@ async function forceServerSignOut(): Promise<string> {
 }
 
 async function signOutViaAppRoute(): Promise<string> {
-  const response = await fetch("/api/logout", {
+  const response = await fetchWithTimeout("/api/logout", {
     method: "POST",
     cache: "no-store",
   });
@@ -88,15 +108,13 @@ export function UserMenu({ email, canSwitchTenant }: UserMenuProps) {
       try {
         targetUrl = await signOutViaAppRoute();
       } catch {
-        const result = await signOut({ redirect: false, callbackUrl: "/login" });
-        if (result?.url && result.url.startsWith("/")) {
-          targetUrl = result.url;
-        }
+        await signOut({ redirect: true, callbackUrl: "/login" });
+        return;
       }
 
       // Verify that the session is really gone. In production, a failed sign-out
       // previously looked like a silent dashboard reload.
-      const sessionResponse = await fetch("/api/auth/session", {
+      const sessionResponse = await fetchWithTimeout("/api/auth/session", {
         cache: "no-store",
       });
       if (sessionResponse.ok) {
