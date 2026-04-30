@@ -6,5 +6,11 @@ export default async function RootPage() {
   if (!session?.user) {
     redirect("/login");
   }
-  redirect(session.user.role === "ADMIN" ? "/dashboard" : "/my-week");
+  if (session.user.role === "ADMIN") {
+    redirect("/dashboard");
+  }
+  if (session.user.role === "EMPLOYEE") {
+    redirect("/my-week");
+  }
+  redirect("/forbidden");
 }

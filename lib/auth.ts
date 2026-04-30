@@ -107,7 +107,8 @@ export const {
     async jwt({ token, user }) {
       if (user) {
         (token as Record<string, unknown>).role = user.role;
-        (token as Record<string, unknown>).tenantId = user.tenantId;
+        (token as Record<string, unknown>).tenantId =
+          user.role === "SYSTEM_ADMIN" ? null : user.tenantId;
         (token as Record<string, unknown>).employeeId = user.employeeId ?? null;
         token.sub = user.id as string;
       }

@@ -181,6 +181,33 @@ async function main() {
     });
   }
 
+  // Platform system admin (not tenant-bound in session claims).
+  const systemAdminPwd = await bcrypt.hash("system123", 10);
+  const existingSystemAdmin = await prisma.user.findUnique({
+    where: { email: "system@platform.local" },
+  });
+  if (existingSystemAdmin) {
+    await prisma.user.update({
+      where: { id: existingSystemAdmin.id },
+      data: {
+        tenantId,
+        passwordHash: systemAdminPwd,
+        role: "SYSTEM_ADMIN",
+        isActive: true,
+      },
+    });
+  } else {
+    await prisma.user.create({
+      data: {
+        tenantId,
+        email: "system@platform.local",
+        passwordHash: systemAdminPwd,
+        role: "SYSTEM_ADMIN",
+        isActive: true,
+      },
+    });
+  }
+
   // Demo employees + their User accounts.
   for (const e of DEMO_EMPLOYEES) {
     const pwd = await bcrypt.hash(e.password, 10);

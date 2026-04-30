@@ -12,6 +12,10 @@ export interface SessionUser {
   employeeId?: string | null;
 }
 
+export interface SystemSessionUser extends Omit<SessionUser, "tenantId"> {
+  tenantId: string | null;
+}
+
 export type ActionResult<T = undefined> =
   | { ok: true; data?: T }
   | { ok: false; error: string; fieldErrors?: Record<string, string> };
@@ -53,6 +57,26 @@ export async function requireEmployee(): Promise<SessionUser> {
     role: session.user.role,
     tenantId: session.user.tenantId,
     employeeId: session.user.employeeId,
+  };
+}
+
+export async function requireSystemAdmin(): Promise<SystemSessionUser> {
+  const session = await auth();
+  if (!session?.user) {
+    throw new Error("Unauthorized: not signed in");
+  }
+  if (session.user.role !== "SYSTEM_ADMIN") {
+    throw new Error("Forbidden: system admin role required");
+  }
+  if (session.user.tenantId && session.user.tenantId.trim().length > 0) {
+    throw new Error("Forbidden: system admin must not be tenant-bound");
+  }
+  return {
+    id: session.user.id,
+    email: session.user.email ?? "",
+    role: session.user.role,
+    tenantId: null,
+    employeeId: session.user.employeeId ?? null,
   };
 }
 

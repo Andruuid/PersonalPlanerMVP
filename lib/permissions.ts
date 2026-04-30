@@ -11,6 +11,10 @@ export function isAdmin(user: SessionUser | null | undefined): boolean {
   return user?.role === "ADMIN";
 }
 
+export function isSystemAdmin(user: SessionUser | null | undefined): boolean {
+  return user?.role === "SYSTEM_ADMIN";
+}
+
 export function isEmployee(user: SessionUser | null | undefined): boolean {
   return user?.role === "EMPLOYEE";
 }
@@ -18,6 +22,14 @@ export function isEmployee(user: SessionUser | null | undefined): boolean {
 export function assertAdmin(user: SessionUser | null | undefined): asserts user is SessionUser {
   if (!isAdmin(user)) {
     throw new Error("Forbidden: admin role required");
+  }
+}
+
+export function requireSystemAdmin(
+  user: SessionUser | null | undefined
+): asserts user is SessionUser {
+  if (!isSystemAdmin(user)) {
+    throw new Error("Forbidden: system admin role required");
   }
 }
 

@@ -30,6 +30,7 @@ App läuft unter <http://localhost:3000>.
 
 | Rolle      | E-Mail                  | Passwort  |
 | ---------- | ----------------------- | --------- |
+| System-Admin | `system@platform.local` | `system123` |
 | Admin      | `admin@demo.ch`         | `admin123` |
 | Mitarbeiter | `anna.keller@demo.ch`   | `demo123` |
 | Mitarbeiter | `marco.huber@demo.ch`   | `demo123` |

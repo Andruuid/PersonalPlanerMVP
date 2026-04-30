@@ -5,7 +5,7 @@ import { logDebug } from "@/lib/logging";
 
 const { auth } = NextAuth(authConfig);
 
-const PUBLIC_PATHS = ["/login", "/signup", "/api/auth"];
+const PUBLIC_PATHS = ["/login", "/signup", "/api/auth", "/forbidden"];
 const ADMIN_PATHS = [
   "/dashboard",
   "/planning",
@@ -25,6 +25,13 @@ function pathMatches(pathname: string, prefixes: readonly string[]): boolean {
   return prefixes.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   );
+}
+
+function homePathForRole(role: string): string {
+  if (role === "ADMIN") return "/dashboard";
+  if (role === "EMPLOYEE") return "/my-week";
+  if (role === "SYSTEM_ADMIN") return "/forbidden";
+  return "/login";
 }
 
 export default auth((req) => {
@@ -47,7 +54,7 @@ export default auth((req) => {
 
   if (pathMatches(pathname, PUBLIC_PATHS)) {
     if (pathname === "/login" && req.auth && !hasStaleSessionClaims) {
-      const target = role === "ADMIN" ? "/dashboard" : "/my-week";
+      const target = homePathForRole(role);
       logDebug("proxy", "Redirect authenticated user from /login", {
         pathname,
         role,
@@ -56,7 +63,7 @@ export default auth((req) => {
       return NextResponse.redirect(new URL(target, nextUrl));
     }
     if (pathname === "/signup" && req.auth && !hasStaleSessionClaims) {
-      const target = role === "ADMIN" ? "/dashboard" : "/my-week";
+      const target = homePathForRole(role);
       logDebug("proxy", "Redirect authenticated user from /signup", {
         pathname,
         role,
@@ -86,12 +93,13 @@ export default auth((req) => {
   }
 
   if (pathMatches(pathname, ADMIN_PATHS) && role !== "ADMIN") {
+    const target = role === "EMPLOYEE" ? "/my-week" : "/forbidden";
     logDebug("proxy", "Redirect non-admin from admin path", {
       pathname,
       role,
-      target: "/my-week",
+      target,
     });
-    return NextResponse.redirect(new URL("/my-week", nextUrl));
+    return NextResponse.redirect(new URL(target, nextUrl));
   }
 
   // Admins are allowed to preview the employee view (Mitarbeiter-Ansicht
@@ -104,13 +112,13 @@ export default auth((req) => {
     logDebug("proxy", "Redirect non-employee role from employee path", {
       pathname,
       role,
-      target: "/login",
+      target: "/forbidden",
     });
-    return NextResponse.redirect(new URL("/login", nextUrl));
+    return NextResponse.redirect(new URL("/forbidden", nextUrl));
   }
 
   if (pathname === "/") {
-    const target = role === "ADMIN" ? "/dashboard" : "/my-week";
+    const target = homePathForRole(role);
     logDebug("proxy", "Redirect root path by role", { role, target });
     return NextResponse.redirect(new URL(target, nextUrl));
   }

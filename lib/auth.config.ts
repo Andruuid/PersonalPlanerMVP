@@ -14,8 +14,8 @@ export const authConfig: NextAuthConfig = {
       if (user) {
         const authUser = user as {
           id?: string;
-          role?: "ADMIN" | "EMPLOYEE";
-          tenantId?: string;
+          role?: "SYSTEM_ADMIN" | "ADMIN" | "EMPLOYEE";
+          tenantId?: string | null;
           employeeId?: string | null;
         };
         token.role = authUser.role;
@@ -28,7 +28,7 @@ export const authConfig: NextAuthConfig = {
     async session({ session, token }) {
       if (token && session.user) {
         session.user.id = token.sub as string;
-        session.user.role = token.role as "ADMIN" | "EMPLOYEE";
+        session.user.role = token.role as "SYSTEM_ADMIN" | "ADMIN" | "EMPLOYEE";
         session.user.tenantId =
           typeof token.tenantId === "string" ? token.tenantId : "";
         session.user.employeeId =
