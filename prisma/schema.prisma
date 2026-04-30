@@ -1,5 +1,5 @@
 // Prisma schema for PersonalPlanerMVP
-// Single-tenant Swiss SME planning + time-account web app.
+// Multi-tenant Swiss SME planning + time-account web app.
 
 generator client {
   provider = "prisma-client"

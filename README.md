@@ -3,7 +3,7 @@
 [![CI](https://github.com/Andruuid/PersonalPlanerMVP/actions/workflows/ci.yml/badge.svg)](https://github.com/Andruuid/PersonalPlanerMVP/actions/workflows/ci.yml)
 
 Next.js 16 + TypeScript MVP für Personalplanung & Zeitkonten in Schweizer KMU.
-Single-Tenant, Email/Passwort-Login, lokale SQLite-DB via Prisma 7 (libSQL),
+Multi-Tenant (mehrere Betriebe pro Datenbank, server- und DB-seitig getrennt), Email/Passwort-Login, lokale SQLite-DB via Prisma 7 (libSQL),
 Drag-and-Drop-Wochenplanung und Mitarbeitersicht.
 
 ## Tech-Stack
@@ -38,7 +38,7 @@ App läuft unter <http://localhost:3000>.
 
 Admin landet nach dem Login auf `/dashboard`, Mitarbeitende auf `/my-week`.
 
-Die Anmeldung verwendet nur E-Mail und Passwort; der Betrieb ergibt sich aus dem bestehenden Benutzerkonto (global eindeutige E-Mail).
+Die Anmeldung verwendet nur E-Mail und Passwort; der Betrieb ergibt sich aus dem bestehenden Benutzerkonto (global eindeutige E-Mail) (MVP-Verhalten; multi-mandanten Login folgt).
 
 ### End-to-End-Tests (Playwright)
 
