@@ -183,8 +183,8 @@ async function main() {
 
   // Platform system admin (not tenant-bound in session claims).
   const systemAdminPwd = await bcrypt.hash("system123", 10);
-  const existingSystemAdmin = await prisma.user.findUnique({
-    where: { email: "system@platform.local" },
+  const existingSystemAdmin = await prisma.user.findFirst({
+    where: { tenantId, email: "system@platform.local" },
   });
   if (existingSystemAdmin) {
     await prisma.user.update({
@@ -257,8 +257,8 @@ async function main() {
     });
   }
 
-  // Second-tenant sandbox admin uses a distinct email so User.email stays globally unique.
-  const demoSandboxAdminEmail = "demo-sandbox-admin@demo.ch";
+  // Second-tenant sandbox admin reuses admin@demo.ch to validate tenant-scoped uniqueness.
+  const demoSandboxAdminEmail = "admin@demo.ch";
   const demoTenantPwd = await bcrypt.hash("admin123", 10);
   const demoSlugAdmin = await prisma.user.findFirst({
     where: { tenantId: demoTenant.id, email: demoSandboxAdminEmail },

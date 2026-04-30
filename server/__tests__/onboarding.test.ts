@@ -99,7 +99,7 @@ describe("provisionNewTenant (smoke)", () => {
     expect(dup.fieldErrors?.slug).toBeDefined();
   });
 
-  it("lehnt doppelte Admin-E-Mail für zweiten Mandanten ab", async () => {
+  it("erlaubt gleiche Admin-E-Mail in zwei Mandanten", async () => {
     const ts = Date.now();
     const email = `duplicate-admin-${ts}@test.local`;
     const first = signupSchema.parse({
@@ -111,7 +111,7 @@ describe("provisionNewTenant (smoke)", () => {
     const okFirst = await provisionNewTenant(db.prisma, first);
     expect(okFirst.ok).toBe(true);
 
-    const dup = await provisionNewTenant(
+    const second = await provisionNewTenant(
       db.prisma,
       signupSchema.parse({
         businessName: "Zweite GmbH",
@@ -120,8 +120,15 @@ describe("provisionNewTenant (smoke)", () => {
         adminPassword: "secret12",
       }),
     );
-    expect(dup.ok).toBe(false);
-    if (dup.ok) throw new Error("expected failure");
-    expect(dup.fieldErrors?.adminEmail).toBeDefined();
+    expect(second.ok).toBe(true);
+    if (!second.ok) throw new Error("expected success");
+
+    const matchingUsers = await db.prisma.user.findMany({
+      where: { email },
+      orderBy: { tenantId: "asc" },
+      select: { tenantId: true },
+    });
+    expect(matchingUsers).toHaveLength(2);
+    expect(new Set(matchingUsers.map((u) => u.tenantId)).size).toBe(2);
   });
 });

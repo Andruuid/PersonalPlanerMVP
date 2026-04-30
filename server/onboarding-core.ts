@@ -104,20 +104,6 @@ export async function provisionNewTenant(
     };
   }
 
-  const existingUser = await db.user.findUnique({
-    where: { email: emailLower },
-    select: { id: true },
-  });
-  if (existingUser) {
-    return {
-      ok: false,
-      error: "Mit dieser E-Mail existiert bereits ein Konto.",
-      fieldErrors: {
-        adminEmail: "Mit dieser E-Mail ist bereits ein Konto registriert.",
-      },
-    };
-  }
-
   const passwordHash = await bcrypt.hash(input.adminPassword, 10);
 
   try {

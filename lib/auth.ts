@@ -56,17 +56,21 @@ export const {
           const emailLower = email.toLowerCase();
           logDebug("auth:authorize", "Authorize attempt", { email: emailLower });
 
-          const user = await prisma.user.findUnique({
-            where: {
-              email: emailLower,
-            },
+          const users = await prisma.user.findMany({
+            where: { email: emailLower },
             include: {
               employee: {
                 select: { id: true, status: true },
               },
             },
+            orderBy: [{ isActive: "desc" }, { createdAt: "asc" }],
           });
-          if (!user || !isCredentialsLoginAllowed(user)) {
+          // TODO Prompt 9: tenant picker
+          if (users.length > 1) {
+            console.warn("Multi-tenant login flow not yet implemented");
+          }
+          const user = users.find((candidate) => isCredentialsLoginAllowed(candidate)) ?? null;
+          if (!user) {
             logDebug("auth:authorize", "Authorize rejected", {
               email: emailLower,
               reason: "user-missing-or-inactive",

@@ -237,8 +237,8 @@ export async function createEmployeeAction(
   const data = parsed.data;
   const emailLower = data.email.toLowerCase();
 
-  const existing = await prisma.user.findUnique({
-    where: { email: emailLower },
+  const existing = await prisma.user.findFirst({
+    where: { tenantId: admin.tenantId, email: emailLower },
   });
   if (existing) {
     return {
@@ -425,8 +425,8 @@ export async function updateEmployeeAction(
   }
 
   if (emailLower !== before.user.email) {
-    const clash = await prisma.user.findUnique({
-      where: { email: emailLower },
+    const clash = await prisma.user.findFirst({
+      where: { tenantId: admin.tenantId, email: emailLower },
     });
     if (clash && clash.id !== before.userId) {
       return {
