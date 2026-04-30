@@ -27,13 +27,15 @@ const STATUS_ORDER: RequestStatus[] = ["OPEN", "APPROVED", "REJECTED", "WITHDRAW
 export default async function MyRequestsPage({ searchParams }: PageProps) {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  if (!session.user.tenantId) redirect("/select-tenant");
+  const tenantId = session.user.tenantId;
 
   const params = await searchParams;
   const isAdminPreview =
     session.user.role === "ADMIN" && Boolean(params.employee);
 
   if (session.user.role === "ADMIN" && !params.employee) {
-    const employees = await loadEmployeesForPreviewPicker(session.user.tenantId);
+    const employees = await loadEmployeesForPreviewPicker(tenantId);
     return (
       <AdminEmployeePreviewPicker
         title="Mitarbeiter:in für die Anträge-Vorschau wählen"
@@ -48,7 +50,7 @@ export default async function MyRequestsPage({ searchParams }: PageProps) {
     ? await prisma.employee.findFirst({
         where: {
           id: params.employee,
-          tenantId: session.user.tenantId,
+          tenantId,
           deletedAt: null,
         },
         select: {
@@ -61,7 +63,7 @@ export default async function MyRequestsPage({ searchParams }: PageProps) {
     : await prisma.employee.findFirst({
         where: {
           id: session.user.employeeId ?? "",
-          tenantId: session.user.tenantId,
+          tenantId,
           deletedAt: null,
         },
         select: {
@@ -100,14 +102,14 @@ export default async function MyRequestsPage({ searchParams }: PageProps) {
   }
 
   const [all, shiftWishes, serviceTemplates] = await Promise.all([
-    loadMyRequests(session.user, employee.id),
-    loadMyShiftWishes(session.user, employee.id),
-    loadServiceTemplatesForShiftWish(session.user.tenantId),
+    loadMyRequests({ tenantId }, employee.id),
+    loadMyShiftWishes({ tenantId }, employee.id),
+    loadServiceTemplatesForShiftWish(tenantId),
   ]);
   const privacyRequests = isAdminPreview
     ? []
     : await prisma.privacyRequest.findMany({
-        where: { employeeId: employee.id, tenantId: session.user.tenantId },
+        where: { employeeId: employee.id, tenantId },
         orderBy: { createdAt: "desc" },
         take: 20,
         select: { id: true, type: true, status: true, createdAt: true },

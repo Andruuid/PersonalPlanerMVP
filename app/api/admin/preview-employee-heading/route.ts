@@ -8,6 +8,9 @@ export async function GET(req: Request) {
   if (!session?.user || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (!session.user.tenantId) {
+    return NextResponse.json({ error: "Tenant missing" }, { status: 403 });
+  }
 
   const employeeId = new URL(req.url).searchParams.get("employeeId")?.trim();
   if (!employeeId) {

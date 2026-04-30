@@ -34,25 +34,26 @@ function sanitizeAuditPayloadsForExport(
 
 export async function GET() {
   const session = await auth();
-  if (!session?.user?.id || !session.user.employeeId) {
+  if (!session?.user?.id || !session.user.employeeId || !session.user.tenantId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const employeeId = session.user.employeeId;
+  const tenantId = session.user.tenantId;
   const employee = await prisma.employee.findFirst({
-    where: { id: employeeId, tenantId: session.user.tenantId, deletedAt: null },
+    where: { id: employeeId, tenantId, deletedAt: null },
     include: {
       user: { select: { id: true, email: true, role: true, isActive: true } },
-      accountBalances: { where: { tenantId: session.user.tenantId } },
-      bookings: { where: { tenantId: session.user.tenantId } },
+      accountBalances: { where: { tenantId } },
+      bookings: { where: { tenantId } },
       planEntries: {
         where: {
           deletedAt: null,
-          week: { tenantId: session.user.tenantId, deletedAt: null },
+          week: { tenantId, deletedAt: null },
         },
       },
-      absenceRequests: { where: { tenantId: session.user.tenantId } },
-      privacyRequests: { where: { tenantId: session.user.tenantId } },
+      absenceRequests: { where: { tenantId } },
+      privacyRequests: { where: { tenantId } },
     },
   });
   if (!employee) {
@@ -61,7 +62,7 @@ export async function GET() {
 
   const auditRows = await prisma.auditLog.findMany({
     where: {
-      tenantId: session.user.tenantId,
+      tenantId,
       OR: [
         { userId: session.user.id },
         { entity: "Employee", entityId: employee.id },

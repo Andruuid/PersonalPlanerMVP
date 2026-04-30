@@ -36,11 +36,13 @@ export async function selectTenantAction(formData: FormData): Promise<void> {
   }
 
   await unstable_update({
-    id: user.id,
-    role: user.role,
-    tenantId: user.role === "SYSTEM_ADMIN" ? null : user.tenantId,
-    employeeId: user.employee?.id ?? null,
-    pendingTenantSelection: false,
+    user: {
+      id: user.id,
+      role: user.role,
+      tenantId: user.role === "SYSTEM_ADMIN" ? null : user.tenantId,
+      employeeId: user.employee?.id ?? null,
+      pendingTenantSelection: false,
+    },
   });
   const cookieStore = await cookies();
   cookieStore.set("lastSelectedTenantId", user.tenantId, {

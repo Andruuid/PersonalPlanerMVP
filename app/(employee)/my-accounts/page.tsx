@@ -26,6 +26,8 @@ function pickYear(raw: string | undefined): number {
 export default async function MyAccountsPage({ searchParams }: PageProps) {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  if (!session.user.tenantId) redirect("/select-tenant");
+  const tenantId = session.user.tenantId;
 
   const params = await searchParams;
   const year = pickYear(params.year);
@@ -33,7 +35,7 @@ export default async function MyAccountsPage({ searchParams }: PageProps) {
     session.user.role === "ADMIN" && Boolean(params.employee);
 
   if (session.user.role === "ADMIN" && !params.employee) {
-    const employees = await loadEmployeesForPreviewPicker(session.user.tenantId);
+    const employees = await loadEmployeesForPreviewPicker(tenantId);
     return (
       <AdminEmployeePreviewPicker
         title="Mitarbeiter:in für die Konten-Vorschau wählen"
@@ -47,8 +49,8 @@ export default async function MyAccountsPage({ searchParams }: PageProps) {
 
   const employee = await prisma.employee.findFirst({
     where: isAdminPreview
-      ? { id: params.employee, tenantId: session.user.tenantId, deletedAt: null }
-      : { userId: session.user.id, tenantId: session.user.tenantId, deletedAt: null },
+      ? { id: params.employee, tenantId, deletedAt: null }
+      : { userId: session.user.id, tenantId, deletedAt: null },
     select: { id: true, firstName: true, lastName: true, roleLabel: true },
   });
 
@@ -80,8 +82,8 @@ export default async function MyAccountsPage({ searchParams }: PageProps) {
   }
 
   const [accounts, history] = await Promise.all([
-    loadMyAccounts(session.user, employee.id, year),
-    loadBookingHistory(session.user, employee.id, { year }),
+    loadMyAccounts({ tenantId }, employee.id, year),
+    loadBookingHistory({ tenantId }, employee.id, { year }),
   ]);
 
   const currentYear = new Date().getFullYear();

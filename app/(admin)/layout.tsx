@@ -17,23 +17,27 @@ export default async function AdminLayout({
   if (session.user.role !== "ADMIN") {
     redirect("/my-week");
   }
+  if (!session.user.tenantId) {
+    redirect("/select-tenant");
+  }
+  const tenantId = session.user.tenantId;
   const canSwitchTenant = session.user.email
     ? await hasMultipleTenants(session.user.email)
     : false;
 
   const [locations, employees, tenantForForms] = await Promise.all([
     prisma.location.findMany({
-      where: { tenantId: session.user.tenantId, deletedAt: null },
+      where: { tenantId, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
     prisma.employee.findMany({
-      where: { tenantId: session.user.tenantId, isActive: true, deletedAt: null },
+      where: { tenantId, isActive: true, deletedAt: null },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
       select: { id: true, firstName: true, lastName: true, roleLabel: true },
     }),
     prisma.tenant.findUnique({
-      where: { id: session.user.tenantId },
+      where: { id: tenantId },
       select: {
         defaultWeeklyTargetMinutes: true,
         defaultHazMinutesPerWeek: true,

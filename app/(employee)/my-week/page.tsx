@@ -44,6 +44,8 @@ function pickWeek(raw: { year?: string; week?: string }): {
 export default async function MyWeekPage({ searchParams }: PageProps) {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  if (!session.user.tenantId) redirect("/select-tenant");
+  const tenantId = session.user.tenantId;
 
   const params = await searchParams;
   const pickedEarly = pickWeek(params);
@@ -51,7 +53,7 @@ export default async function MyWeekPage({ searchParams }: PageProps) {
     session.user.role === "ADMIN" && Boolean(params.employee);
 
   if (session.user.role === "ADMIN" && !params.employee) {
-    const employees = await loadEmployeesForPreviewPicker(session.user.tenantId);
+    const employees = await loadEmployeesForPreviewPicker(tenantId);
     return (
       <AdminEmployeePreviewPicker
         title="Mitarbeiter:in für die Vorschau wählen"
@@ -68,8 +70,8 @@ export default async function MyWeekPage({ searchParams }: PageProps) {
 
   const employee = await prisma.employee.findFirst({
     where: isAdminPreview
-      ? { id: params.employee, tenantId: session.user.tenantId, deletedAt: null }
-      : { userId: session.user.id, tenantId: session.user.tenantId, deletedAt: null },
+      ? { id: params.employee, tenantId, deletedAt: null }
+      : { userId: session.user.id, tenantId, deletedAt: null },
     include: {
       location: { select: { id: true, name: true } },
     },
@@ -95,7 +97,7 @@ export default async function MyWeekPage({ searchParams }: PageProps) {
   const current = currentIsoWeek();
   const picked = pickWeek(params);
   const { header, days } = await loadMyWeek(
-    session.user,
+    { tenantId },
     employee.id,
     employee.locationId,
     current,
@@ -103,10 +105,10 @@ export default async function MyWeekPage({ searchParams }: PageProps) {
   );
 
   const [accounts, requests, shiftWishes, serviceTemplates] = await Promise.all([
-    loadMyAccounts(session.user, employee.id, picked.year),
-    loadMyRequests(session.user, employee.id, { limit: 5 }),
-    loadMyShiftWishes(session.user, employee.id, { limit: 5 }),
-    loadServiceTemplatesForShiftWish(session.user.tenantId),
+    loadMyAccounts({ tenantId }, employee.id, picked.year),
+    loadMyRequests({ tenantId }, employee.id, { limit: 5 }),
+    loadMyShiftWishes({ tenantId }, employee.id, { limit: 5 }),
+    loadServiceTemplatesForShiftWish(tenantId),
   ]);
 
   const prevWeek = shiftWeek(picked, -1);

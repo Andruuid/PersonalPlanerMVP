@@ -10,9 +10,11 @@ export async function switchTenantAction(): Promise<void> {
   }
 
   await unstable_update({
-    pendingTenantSelection: true,
-    tenantId: null,
-    employeeId: null,
+    user: {
+      pendingTenantSelection: true,
+      tenantId: null,
+      employeeId: null,
+    },
   });
   redirect("/select-tenant");
 }

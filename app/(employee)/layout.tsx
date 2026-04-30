@@ -15,6 +15,10 @@ export default async function EmployeeLayout({
   }
   // Admins keep access so they can preview the Mitarbeiter-Ansicht.
   const showRoleToggle = session.user.role === "ADMIN";
+  if (!session.user.tenantId) {
+    redirect("/select-tenant");
+  }
+  const tenantId = session.user.tenantId;
   const canSwitchTenant = session.user.email
     ? await hasMultipleTenants(session.user.email)
     : false;
@@ -24,7 +28,7 @@ export default async function EmployeeLayout({
     const emp = await prisma.employee.findFirst({
       where: {
         userId: session.user.id,
-        tenantId: session.user.tenantId,
+        tenantId,
         deletedAt: null,
       },
       select: { firstName: true, lastName: true },
