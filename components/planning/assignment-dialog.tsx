@@ -52,6 +52,8 @@ type Tab =
   | "HALF_DAY_OFF"
   | "VFT";
 
+type WeekendWorkClassification = "REGULAR_SHIFTED" | "ADDITIONAL";
+
 const ABSENCE_OPTIONS: Array<{
   value: NonNullable<UpsertPlanEntryInput & { kind: "ABSENCE" }>["absenceType"];
   label: string;
@@ -75,6 +77,12 @@ function timeParts(value: string): [number, number] {
   return [Number.isFinite(h) ? h : 0, Number.isFinite(m) ? m : 0];
 }
 
+function isWeekendIso(iso: string): boolean {
+  const date = new Date(`${iso}T00:00:00Z`);
+  const dow = date.getUTCDay();
+  return dow === 0 || dow === 6;
+}
+
 function grossShiftMinutes(start: string, end: string, breakM: number): number {
   const [sh, sm] = timeParts(start);
   const [eh, em] = timeParts(end);
@@ -92,6 +100,7 @@ function buildUpsertHypothesis(args: {
   oneTimeStart: string;
   oneTimeEnd: string;
   oneTimeBreakMinutes: number;
+  weekendWorkClassification: WeekendWorkClassification;
 }): PlanEntryByDate | null {
   const {
     tab,
@@ -101,6 +110,7 @@ function buildUpsertHypothesis(args: {
     oneTimeStart,
     oneTimeEnd,
     oneTimeBreakMinutes,
+    weekendWorkClassification,
   } = args;
   if (tab === "SHIFT") {
     const svc = services.find((s) => s.id === serviceId);
@@ -116,6 +126,7 @@ function buildUpsertHypothesis(args: {
       ),
       shiftStartTime: svc.startTime,
       shiftEndTime: svc.endTime,
+      weekendWorkClassification,
     };
   }
   if (tab === "ONE_TIME_SHIFT") {
@@ -130,6 +141,7 @@ function buildUpsertHypothesis(args: {
       ),
       shiftStartTime: oneTimeStart,
       shiftEndTime: oneTimeEnd,
+      weekendWorkClassification,
     };
   }
   if (tab === "HALF_DAY_OFF") {
@@ -217,6 +229,10 @@ function AssignmentForm({
     | "HOLIDAY_AUTO"
   >(initialEntry?.absenceType ?? "VACATION");
   const [error, setError] = useState<string | null>(null);
+  const [weekendWorkClassification, setWeekendWorkClassification] =
+    useState<WeekendWorkClassification>(
+      initialEntry?.weekendWorkClassification ?? "REGULAR_SHIFTED",
+    );
   const [pending, startTransition] = useTransition();
   const [deletePending, startDeleteTransition] = useTransition();
 
@@ -227,6 +243,7 @@ function AssignmentForm({
     }),
     [holidayIsos],
   );
+  const isWeekendDate = useMemo(() => isWeekendIso(isoDate), [isoDate]);
 
   const consecutiveStreakSaveRisk = useMemo(() => {
     const hyp = buildUpsertHypothesis({
@@ -237,6 +254,7 @@ function AssignmentForm({
       oneTimeStart,
       oneTimeEnd,
       oneTimeBreakMinutes: oneTimeBreak,
+      weekendWorkClassification,
     });
     if (!hyp) return false;
     return wouldConsecutiveWorkViolationOnUpsert(
@@ -259,6 +277,7 @@ function AssignmentForm({
     weekYear,
     weekNumber,
     holidayLookup,
+    weekendWorkClassification,
   ]);
 
   function handleSubmit() {
@@ -275,6 +294,9 @@ function AssignmentForm({
         employeeId,
         date: isoDate,
         serviceTemplateId: serviceId,
+        weekendWorkClassification: isWeekendDate
+          ? weekendWorkClassification
+          : undefined,
       };
     } else if (tab === "ONE_TIME_SHIFT") {
       if (!oneTimeLabel.trim()) {
@@ -290,6 +312,9 @@ function AssignmentForm({
         oneTimeEnd,
         oneTimeBreakMinutes: oneTimeBreak,
         oneTimeLabel,
+        weekendWorkClassification: isWeekendDate
+          ? weekendWorkClassification
+          : undefined,
       };
     } else if (tab === "ABSENCE") {
       payload = {
@@ -520,6 +545,41 @@ function AssignmentForm({
                 </option>
               ))}
             </select>
+          </div>
+        ) : null}
+
+        {isWeekendDate && (tab === "SHIFT" || tab === "ONE_TIME_SHIFT") ? (
+          <div className="space-y-2 rounded-md bg-neutral-50 px-3 py-3 ring-1 ring-neutral-200">
+            <LabelWithHelp
+              htmlFor="weekend-work-classification-regular"
+              label="Wochenendarbeit"
+              tooltip="Regulär verschoben: Tagessoll wie bisher. Zusätzliche Wochenendarbeit: Soll bleibt 0, Arbeitszeit zählt als Mehrarbeit."
+            />
+            <div className="space-y-2 text-sm text-neutral-800">
+              <label className="flex items-center gap-2">
+                <input
+                  id="weekend-work-classification-regular"
+                  type="radio"
+                  name="weekendWorkClassification"
+                  value="REGULAR_SHIFTED"
+                  checked={weekendWorkClassification === "REGULAR_SHIFTED"}
+                  onChange={() =>
+                    setWeekendWorkClassification("REGULAR_SHIFTED")
+                  }
+                />
+                Regulär verschobener Arbeitstag
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="weekendWorkClassification"
+                  value="ADDITIONAL"
+                  checked={weekendWorkClassification === "ADDITIONAL"}
+                  onChange={() => setWeekendWorkClassification("ADDITIONAL")}
+                />
+                Zusätzliche Wochenendarbeit
+              </label>
+            </div>
           </div>
         ) : null}
 

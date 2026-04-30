@@ -14,6 +14,7 @@ import {
   resolveDayFromEntries,
   type AbsenceType,
   type PlanEntryInput,
+  type WeekendWorkClassification,
 } from "@/lib/time/priority";
 import {
   requireAdmin,
@@ -50,11 +51,14 @@ function planRowToInput(e: {
   kind: string;
   absenceType: string | null;
   plannedMinutes: number;
+  weekendWorkClassification: string | null;
 }): PlanEntryInput {
   return {
     kind: e.kind as PlanEntryInput["kind"],
     absenceType: e.absenceType as AbsenceType | null,
     plannedMinutes: e.plannedMinutes,
+    weekendWorkClassification:
+      (e.weekendWorkClassification as WeekendWorkClassification | null) ?? null,
   };
 }
 
@@ -88,6 +92,7 @@ interface PlanEntrySnapshot {
   oneTimeBreakMinutes: number | null;
   oneTimeLabel: string | null;
   absenceType: string | null;
+  weekendWorkClassification: string | null;
   plannedMinutes: number;
   comment: string | null;
 }
@@ -101,6 +106,7 @@ function entrySnapshot(entry: {
   oneTimeBreakMinutes: number | null;
   oneTimeLabel: string | null;
   absenceType: string | null;
+  weekendWorkClassification: string | null;
   plannedMinutes: number;
   comment: string | null;
 }): PlanEntrySnapshot {
@@ -113,6 +119,7 @@ function entrySnapshot(entry: {
     oneTimeBreakMinutes: entry.oneTimeBreakMinutes,
     oneTimeLabel: entry.oneTimeLabel,
     absenceType: entry.absenceType,
+    weekendWorkClassification: entry.weekendWorkClassification,
     plannedMinutes: entry.plannedMinutes,
     comment: entry.comment,
   };
@@ -184,6 +191,7 @@ export async function upsertPlanEntryAction(
       | "CIVIL_SERVICE"
       | "HOLIDAY_AUTO"
       | null = null;
+    let weekendWorkClassification: WeekendWorkClassification | null = null;
 
     if (data.kind === "SHIFT") {
       const tpl = await prisma.serviceTemplate.findUnique({
@@ -202,6 +210,7 @@ export async function upsertPlanEntryAction(
       }
       serviceTemplateId = tpl.id;
       plannedMinutes = shiftMinutes(tpl.startTime, tpl.endTime, tpl.breakMinutes);
+      weekendWorkClassification = data.weekendWorkClassification ?? null;
     } else if (data.kind === "ONE_TIME_SHIFT") {
       oneTimeStart = data.oneTimeStart;
       oneTimeEnd = data.oneTimeEnd;
@@ -212,6 +221,7 @@ export async function upsertPlanEntryAction(
         data.oneTimeEnd,
         data.oneTimeBreakMinutes,
       );
+      weekendWorkClassification = data.weekendWorkClassification ?? null;
     } else if (data.kind === "ABSENCE") {
       absenceType = data.absenceType;
       if (
@@ -251,6 +261,7 @@ export async function upsertPlanEntryAction(
               oneTimeBreakMinutes,
               oneTimeLabel,
               absenceType,
+              weekendWorkClassification,
               plannedMinutes,
               comment: data.comment ?? null,
               deletedAt: null,
@@ -269,6 +280,7 @@ export async function upsertPlanEntryAction(
               oneTimeBreakMinutes,
               oneTimeLabel,
               absenceType,
+              weekendWorkClassification,
               plannedMinutes,
               comment: data.comment ?? null,
             },

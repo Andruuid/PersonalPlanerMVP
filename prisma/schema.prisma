@@ -33,6 +33,11 @@ enum PlanEntryKind {
   HALF_DAY_OFF
 }
 
+enum WeekendWorkClassification {
+  REGULAR_SHIFTED
+  ADDITIONAL
+}
+
 enum AbsenceType {
   VACATION
   SICK
@@ -395,6 +400,7 @@ model PlanEntry {
   oneTimeBreakMinutes Int?
   oneTimeLabel        String?
   absenceType         AbsenceType?
+  weekendWorkClassification WeekendWorkClassification?
   plannedMinutes      Int              @default(0)
   comment             String?
   deletedAt           DateTime?

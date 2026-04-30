@@ -19,10 +19,15 @@ export type PlanEntryKind =
   | "VFT"
   | "HALF_DAY_OFF";
 
+export type WeekendWorkClassification =
+  | "REGULAR_SHIFTED"
+  | "ADDITIONAL";
+
 export interface PlanEntryInput {
   kind: PlanEntryKind;
   absenceType?: AbsenceType | null;
   plannedMinutes: number;
+  weekendWorkClassification?: WeekendWorkClassification | null;
 }
 
 /**
@@ -52,6 +57,7 @@ export type DayKind =
 export interface ResolvedDay {
   kind: DayKind;
   plannedMinutes: number;
+  weekendWorkClassification?: WeekendWorkClassification | null;
 }
 
 const ANRECHENBAR_FALLBACK: Record<AbsenceType, DayKind> = {
@@ -131,6 +137,8 @@ export function resolveDay(
       return {
         kind: "WORK_ON_WEEKEND",
         plannedMinutes: entry.plannedMinutes,
+        weekendWorkClassification:
+          entry.weekendWorkClassification ?? "REGULAR_SHIFTED",
       };
     }
     return { kind: "WEEKEND_OFF", plannedMinutes: 0 };
@@ -202,7 +210,12 @@ export function resolveDayFromEntries(
       (entry) => isShiftLike(entry) && entry.plannedMinutes > 0,
     );
     if (weekendShift) {
-      return { kind: "WORK_ON_WEEKEND", plannedMinutes: weekendShift.plannedMinutes };
+      return {
+        kind: "WORK_ON_WEEKEND",
+        plannedMinutes: weekendShift.plannedMinutes,
+        weekendWorkClassification:
+          weekendShift.weekendWorkClassification ?? "REGULAR_SHIFTED",
+      };
     }
     const halfWd = entries.find((entry) => entry.kind === "HALF_DAY_OFF");
     if (halfWd) {

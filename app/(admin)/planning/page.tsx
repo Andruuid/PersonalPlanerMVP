@@ -28,7 +28,7 @@ import {
   type WeeklyComputation,
 } from "@/lib/time/balance";
 import { effectiveStandardWorkDays } from "@/lib/time/soll";
-import type { AbsenceType } from "@/lib/time/priority";
+import type { AbsenceType, WeekendWorkClassification } from "@/lib/time/priority";
 import { buildHolidayLookup } from "@/lib/time/holidays";
 import { requireAdmin } from "@/server/_shared";
 import {
@@ -100,6 +100,7 @@ function entryView(raw: {
   oneTimeBreakMinutes: number | null;
   oneTimeLabel: string | null;
   absenceType: string | null;
+  weekendWorkClassification: string | null;
 }): PlanEntryView {
   let shiftKey: ShiftKey = "EMPTY";
   let title = "Eintrag";
@@ -150,6 +151,8 @@ function entryView(raw: {
     oneTimeBreakMinutes: raw.oneTimeBreakMinutes,
     oneTimeLabel: raw.oneTimeLabel,
     absenceType: raw.absenceType as PlanEntryView["absenceType"],
+    weekendWorkClassification:
+      (raw.weekendWorkClassification as WeekendWorkClassification | null) ?? null,
     shiftKey,
     serviceBlockColorHex:
       raw.kind === "SHIFT" && raw.serviceTemplate
@@ -220,6 +223,7 @@ function planEntryToBalanceRow(e: {
   } | null;
   oneTimeStart: string | null;
   oneTimeEnd: string | null;
+  weekendWorkClassification: string | null;
 }): PlanEntryByDate {
   const shiftStartTime =
     e.kind === "SHIFT" && e.serviceTemplate
@@ -238,6 +242,8 @@ function planEntryToBalanceRow(e: {
     kind: e.kind as PlanEntryByDate["kind"],
     absenceType: (e.absenceType as AbsenceType | null | undefined) ?? null,
     plannedMinutes: e.plannedMinutes,
+    weekendWorkClassification:
+      (e.weekendWorkClassification as WeekendWorkClassification | null) ?? null,
     shiftStartTime,
     shiftEndTime,
   };
@@ -380,6 +386,7 @@ export default async function PlanningPage({ searchParams }: PageProps) {
       oneTimeBreakMinutes: e.oneTimeBreakMinutes,
       oneTimeLabel: e.oneTimeLabel,
       absenceType: e.absenceType,
+      weekendWorkClassification: e.weekendWorkClassification,
     });
   }
 

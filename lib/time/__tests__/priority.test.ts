@@ -33,12 +33,17 @@ describe("resolveDay", () => {
 
   it("returns WORK_ON_WEEKEND when a shift is scheduled on a weekend", () => {
     const r = resolveDay(
-      { kind: "SHIFT", plannedMinutes: 480 },
+      {
+        kind: "SHIFT",
+        plannedMinutes: 480,
+        weekendWorkClassification: "ADDITIONAL",
+      },
       false,
       true,
     );
     expect(r.kind).toBe("WORK_ON_WEEKEND");
     expect(r.plannedMinutes).toBe(480);
+    expect(r.weekendWorkClassification).toBe("ADDITIONAL");
   });
 
   it("returns EMPTY_WEEKDAY when no entry on a weekday", () => {

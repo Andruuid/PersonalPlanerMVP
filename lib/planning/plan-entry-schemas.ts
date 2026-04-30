@@ -5,6 +5,9 @@ const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const shiftSchema = z.object({
   kind: z.literal("SHIFT"),
   serviceTemplateId: z.string().min(1, "Dienstvorlage wählen"),
+  weekendWorkClassification: z
+    .enum(["REGULAR_SHIFTED", "ADDITIONAL"])
+    .optional(),
 });
 
 const oneTimeSchema = z.object({
@@ -17,6 +20,9 @@ const oneTimeSchema = z.object({
     .min(0, "Mindestens 0")
     .max(240, "Maximal 240"),
   oneTimeLabel: z.string().min(1, "Bezeichnung erforderlich").max(60),
+  weekendWorkClassification: z
+    .enum(["REGULAR_SHIFTED", "ADDITIONAL"])
+    .optional(),
 });
 
 const absenceSchema = z.object({

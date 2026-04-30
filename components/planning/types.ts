@@ -34,6 +34,7 @@ export interface PlanEntryView {
   oneTimeBreakMinutes: number | null;
   oneTimeLabel: string | null;
   absenceType: AbsenceType | null;
+  weekendWorkClassification: "REGULAR_SHIFTED" | "ADDITIONAL" | null;
   shiftKey: ShiftKey;
   /** Bei SHIFT: gespeicherte Vorlagenfarbe (#RRGGBB), sonst null */
   serviceBlockColorHex: string | null;

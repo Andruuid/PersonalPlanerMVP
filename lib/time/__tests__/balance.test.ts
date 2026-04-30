@@ -83,6 +83,53 @@ describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
     expect(result.weeklyUezDeltaMinutes).toBe(660); // 3360 - 2700
   });
 
+  it("distinguishes weekend REGULAR_SHIFTED vs ADDITIONAL in weekly totals", () => {
+    const days = isoWeekDays(YEAR, WEEK);
+    const baseWeek = {
+      [days[0].iso]: { kind: "SHIFT", plannedMinutes: 504 as const },
+      [days[1].iso]: { kind: "SHIFT", plannedMinutes: 504 as const },
+      [days[2].iso]: { kind: "VFT", plannedMinutes: 0 as const },
+      [days[3].iso]: { kind: "SHIFT", plannedMinutes: 504 as const },
+      [days[4].iso]: { kind: "SHIFT", plannedMinutes: 504 as const },
+    };
+
+    const regularShifted = computeWeeklyBalance(
+      YEAR,
+      WEEK,
+      asEntries({
+        ...baseWeek,
+        [days[5].iso]: {
+          kind: "SHIFT",
+          plannedMinutes: 504,
+          weekendWorkClassification: "REGULAR_SHIFTED",
+        },
+      }),
+      noHolidays,
+      FULL_PENSUM,
+    );
+    expect(regularShifted.totalSollMinutes).toBe(2520);
+    expect(regularShifted.totalIstMinutes).toBe(2520);
+    expect(regularShifted.weeklyZeitsaldoDeltaMinutes).toBe(0);
+
+    const additionalWeekend = computeWeeklyBalance(
+      YEAR,
+      WEEK,
+      asEntries({
+        ...baseWeek,
+        [days[5].iso]: {
+          kind: "SHIFT",
+          plannedMinutes: 504,
+          weekendWorkClassification: "ADDITIONAL",
+        },
+      }),
+      noHolidays,
+      FULL_PENSUM,
+    );
+    expect(additionalWeekend.totalSollMinutes).toBe(2016);
+    expect(additionalWeekend.totalIstMinutes).toBe(2520);
+    expect(additionalWeekend.weeklyZeitsaldoDeltaMinutes).toBe(504);
+  });
+
   it("treats vacation as anrechenbar — week balance stays at 0", () => {
     const days = isoWeekDays(YEAR, WEEK);
     const entries = asEntries({
@@ -455,5 +502,62 @@ describe("computeWeeklyBalance — partial pensum", () => {
     expect(result.totalIstMinutes).toBe(1512);
     expect(result.totalHolidayCreditMinutes).toBe(0);
     expect(result.weeklyZeitsaldoDeltaMinutes).toBe(0);
+  });
+
+  it("matches acceptance example: 8h x 5 with Saturday ADDITIONAL vs REGULAR_SHIFTED+VFT", () => {
+    const days = isoWeekDays(YEAR, WEEK);
+    const full40h = {
+      weeklyTargetMinutes: 2400,
+      // Set HAZ above 48h so the acceptance example yields +8h on Zeitsaldo.
+      hazMinutesPerWeek: 3000,
+      standardWorkDays: 5,
+    };
+
+    // Zusatzarbeit am Samstag: Soll bleibt 40h, Ist wird 48h, Delta +8h.
+    const additionalResult = computeWeeklyBalance(
+      YEAR,
+      WEEK,
+      asEntries({
+        [days[0].iso]: { kind: "SHIFT", plannedMinutes: 480 },
+        [days[1].iso]: { kind: "SHIFT", plannedMinutes: 480 },
+        [days[2].iso]: { kind: "SHIFT", plannedMinutes: 480 },
+        [days[3].iso]: { kind: "SHIFT", plannedMinutes: 480 },
+        [days[4].iso]: { kind: "SHIFT", plannedMinutes: 480 },
+        [days[5].iso]: {
+          kind: "SHIFT",
+          plannedMinutes: 480,
+          weekendWorkClassification: "ADDITIONAL",
+        },
+      }),
+      noHolidays,
+      full40h,
+    );
+    expect(additionalResult.totalSollMinutes).toBe(2400);
+    expect(additionalResult.totalIstMinutes).toBe(2880);
+    expect(additionalResult.weeklyZeitsaldoDeltaMinutes).toBe(480);
+
+    // Regulär verschoben: Mittwoch als VFT, Samstag regulärer Ersatzarbeitstag.
+    // Wochensoll bleibt 40h, Ist bleibt 40h, Delta 0.
+    const regularShiftedResult = computeWeeklyBalance(
+      YEAR,
+      WEEK,
+      asEntries({
+        [days[0].iso]: { kind: "SHIFT", plannedMinutes: 480 },
+        [days[1].iso]: { kind: "SHIFT", plannedMinutes: 480 },
+        [days[2].iso]: { kind: "VFT", plannedMinutes: 0 },
+        [days[3].iso]: { kind: "SHIFT", plannedMinutes: 480 },
+        [days[4].iso]: { kind: "SHIFT", plannedMinutes: 480 },
+        [days[5].iso]: {
+          kind: "SHIFT",
+          plannedMinutes: 480,
+          weekendWorkClassification: "REGULAR_SHIFTED",
+        },
+      }),
+      noHolidays,
+      full40h,
+    );
+    expect(regularShiftedResult.totalSollMinutes).toBe(2400);
+    expect(regularShiftedResult.totalIstMinutes).toBe(2400);
+    expect(regularShiftedResult.weeklyZeitsaldoDeltaMinutes).toBe(0);
   });
 });

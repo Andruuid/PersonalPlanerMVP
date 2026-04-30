@@ -120,19 +120,26 @@ export function computeWeeklyBalance(
     const holidayName = holidays.nameOf(iso);
     const dayEntries = byDate.get(iso) ?? [];
     const resolved = resolveDayFromEntries(dayEntries, isHoliday, isWeekend);
-    const sollMinutes = dailySollMinutes(
-      resolved.kind,
-      config.weeklyTargetMinutes,
-      tztModel,
-      standardWorkDays,
-    );
-    const istMinutes = anrechenbarIstMinutes(
-      resolved.kind,
-      resolved.plannedMinutes,
-      config.weeklyTargetMinutes,
-      tztModel,
-      standardWorkDays,
-    );
+    const isAdditionalWeekendWork =
+      resolved.kind === "WORK_ON_WEEKEND" &&
+      resolved.weekendWorkClassification === "ADDITIONAL";
+    const sollMinutes = isAdditionalWeekendWork
+      ? 0
+      : dailySollMinutes(
+          resolved.kind,
+          config.weeklyTargetMinutes,
+          tztModel,
+          standardWorkDays,
+        );
+    const istMinutes = isAdditionalWeekendWork
+      ? resolved.plannedMinutes
+      : anrechenbarIstMinutes(
+          resolved.kind,
+          resolved.plannedMinutes,
+          config.weeklyTargetMinutes,
+          tztModel,
+          standardWorkDays,
+        );
     const rawContribution = istMinutes - sollMinutes;
     const dayCalc: DayComputation = {
       iso,
