@@ -23,7 +23,7 @@ import {
   safeRevalidatePath,
   type ActionResult,
 } from "./_shared";
-import { archiveUntil } from "@/lib/archive";
+import { softDeleteFields } from "@/lib/archive";
 import { maybeSweepErtAfterPlanWrite } from "@/lib/ert/sweep";
 import { isoDateString, parseIsoDate } from "@/lib/time/week";
 import { shiftMinutes } from "@/lib/planning/shift-minutes";
@@ -396,8 +396,7 @@ export async function deletePlanEntryAction(
     await prisma.planEntry.update({
       where: { id: existing.id },
       data: {
-        deletedAt: new Date(),
-        archivedUntil: archiveUntil(),
+        ...softDeleteFields(admin.id),
       },
     });
 
@@ -553,8 +552,7 @@ export async function movePlanEntryAction(
         await tx.planEntry.update({
           where: { id: target.id },
           data: {
-            deletedAt: new Date(),
-            archivedUntil: archiveUntil(),
+            ...softDeleteFields(admin.id),
           },
         });
       }

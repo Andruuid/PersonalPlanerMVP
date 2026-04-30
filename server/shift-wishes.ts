@@ -4,7 +4,7 @@ import { getISOWeek, getISOWeekYear } from "date-fns";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
-import { archiveUntil } from "@/lib/archive";
+import { softDeleteFields } from "@/lib/archive";
 import { shiftMinutes } from "@/lib/planning/shift-minutes";
 import { isoDateString, parseIsoDate } from "@/lib/time/week";
 import { maybeSweepErtAfterPlanWrite } from "@/lib/ert/sweep";
@@ -353,7 +353,7 @@ export async function approveShiftWishAction(
       ? weekRow.deletedAt
         ? await tx.week.update({
             where: { id: weekRow.id },
-            data: { deletedAt: null, archivedUntil: null },
+            data: { deletedAt: null, archivedUntil: null, deletedById: null },
           })
         : weekRow
       : await tx.week.create({
@@ -387,7 +387,7 @@ export async function approveShiftWishAction(
       });
       await tx.planEntry.update({
         where: { id: existing.id },
-        data: { deletedAt: new Date(), archivedUntil: archiveUntil() },
+        data: softDeleteFields(admin.id),
       });
     }
 

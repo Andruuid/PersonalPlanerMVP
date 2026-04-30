@@ -477,10 +477,11 @@ export async function updateEmployeeAction(
       ? await bcrypt.hash(data.password, 10)
       : undefined;
   const nextExitDate = data.exitDate ?? null;
-  const nextDeletedAt = data.isActive ? null : before.deletedAt;
+  const nextDeletedAt = data.isActive ? null : (before.deletedAt ?? new Date());
   const nextArchivedUntil = data.isActive
     ? null
-    : (before.archivedUntil ?? (before.deletedAt ? archiveUntil(before.deletedAt) : null));
+    : (before.archivedUntil ?? archiveUntil(nextDeletedAt));
+  const nextDeletedById = data.isActive ? null : (before.deletedById ?? admin.id);
   const nextStatus = resolveEmployeeStatus({
     isActive: data.isActive,
     exitDate: nextExitDate,
@@ -520,6 +521,7 @@ export async function updateEmployeeAction(
         status: nextStatus,
         deletedAt: nextDeletedAt,
         archivedUntil: nextArchivedUntil,
+        deletedById: nextDeletedById,
       },
     });
 

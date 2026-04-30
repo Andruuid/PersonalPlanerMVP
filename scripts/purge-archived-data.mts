@@ -1,5 +1,8 @@
 /**
  * Purge soft-deleted archived data whose retention window has expired.
+ * DSGVO/HGB/OR rationale: personenbezogene und abrechnungsrelevante Daten bleiben
+ * wegen gesetzlicher Aufbewahrungspflichten mindestens 10 Jahre im Archiv, erst
+ * danach ist die physische Löschung zulässig und vorgesehen.
  *
  * Usage:
  *   npm run db:purge:archived -- --tenant-id=<tenant-id>

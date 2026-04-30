@@ -12,7 +12,7 @@ import {
   type ActionResult,
 } from "./_shared";
 import { DEFAULT_SERVICE_BLOCK_HEX } from "@/lib/planning/block-appearance";
-import { archiveUntil } from "@/lib/archive";
+import { softDeleteFields } from "@/lib/archive";
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const BLOCK_HEX_RE = /^#[0-9A-Fa-f]{6}$/;
@@ -339,8 +339,7 @@ export async function softDeleteServiceTemplateAction(
     where: { id: serviceId },
     data: {
       isActive: false,
-      deletedAt: archivedAt,
-      archivedUntil: archiveUntil(archivedAt),
+      ...softDeleteFields(admin.id, archivedAt),
     },
   });
 

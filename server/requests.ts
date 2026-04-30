@@ -21,6 +21,7 @@ import {
   type ActionResult,
 } from "./_shared";
 import { parseDecisionComment } from "@/server/decision-comment";
+import { softDeleteFields } from "@/lib/archive";
 
 const REQUEST_TO_ABSENCE: Record<
   | "VACATION"
@@ -178,7 +179,7 @@ export async function approveRequestAction(
         ? weekRow.deletedAt
           ? await tx.week.update({
               where: { id: weekRow.id },
-              data: { deletedAt: null, archivedUntil: null },
+              data: { deletedAt: null, archivedUntil: null, deletedById: null },
             })
           : weekRow
         : await tx.week.create({
@@ -218,7 +219,7 @@ export async function approveRequestAction(
         }
         await tx.planEntry.update({
           where: { id: existing.id },
-          data: { deletedAt: new Date(), archivedUntil: archiveUntil() },
+          data: softDeleteFields(admin.id),
         });
       }
       await tx.planEntry.create({

@@ -123,6 +123,12 @@ function buildUpdateFormData(): FormData {
   return fd;
 }
 
+function buildDeactivateFormData(): FormData {
+  const fd = buildUpdateFormData();
+  fd.delete("isActive");
+  return fd;
+}
+
 describe("employees audit coverage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -309,6 +315,85 @@ describe("employees audit coverage", () => {
           isActive: true,
           deletedAt: null,
           archivedUntil: null,
+          deletedById: null,
+        }),
+      }),
+    );
+  });
+
+  it("sets deletedById when an employee is soft-deleted through edit", async () => {
+    const employeeUpdate = vi.fn().mockResolvedValue({
+      id: "emp-1",
+      firstName: "Eva",
+      lastName: "Example",
+      roleLabel: "Service",
+      pensum: 80,
+      locationId: "loc-1",
+      vacationDaysPerYear: 25,
+      weeklyTargetMinutes: 2016,
+      hazMinutesPerWeek: 2700,
+      tztModel: "DAILY_QUOTA",
+      tztPeriodicQuotaDays: null,
+      tztPeriodMonths: null,
+      tztLastGrantedAt: null,
+      isActive: false,
+    });
+    prismaMock.employee.findUnique.mockResolvedValue({
+      id: "emp-1",
+      tenantId: "tenant-a",
+      userId: "user-1",
+      firstName: "Eva",
+      lastName: "Example",
+      roleLabel: "Service",
+      pensum: 80,
+      locationId: "loc-1",
+      vacationDaysPerYear: 25,
+      weeklyTargetMinutes: 2016,
+      hazMinutesPerWeek: 2700,
+      tztModel: "DAILY_QUOTA",
+      tztPeriodicQuotaDays: null,
+      tztPeriodMonths: null,
+      tztLastGrantedAt: null,
+      isActive: true,
+      deletedAt: null,
+      archivedUntil: null,
+      deletedById: null,
+      exitDate: null,
+      user: { id: "user-1", email: "employee@example.com", isActive: true, role: "EMPLOYEE" },
+    });
+    prismaMock.$transaction.mockImplementation(async (cb) =>
+      cb({
+        user: {
+          update: vi.fn().mockResolvedValue({ id: "user-1" }),
+        },
+        employee: {
+          update: employeeUpdate,
+        },
+        employeeExitSnapshot: {
+          findUnique: vi.fn().mockResolvedValue(null),
+        },
+        accountBalance: {
+          findMany: vi.fn().mockResolvedValue([]),
+        },
+        ertCase: {
+          findMany: vi.fn().mockResolvedValue([]),
+        },
+        compensationCase: {
+          findMany: vi.fn().mockResolvedValue([]),
+        },
+      }),
+    );
+
+    const result = await updateEmployeeAction(undefined, buildDeactivateFormData());
+
+    expect(result.ok).toBe(true);
+    expect(employeeUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          isActive: false,
+          deletedAt: expect.any(Date),
+          archivedUntil: expect.any(Date),
+          deletedById: "admin-1",
         }),
       }),
     );

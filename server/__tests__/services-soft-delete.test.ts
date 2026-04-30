@@ -95,6 +95,7 @@ describe("service template soft delete", () => {
           isActive: false,
           deletedAt: expect.any(Date),
           archivedUntil: expect.any(Date),
+          deletedById: "admin-1",
         }),
       }),
     );

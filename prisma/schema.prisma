@@ -150,6 +150,14 @@ model User {
   employee     Employee?
   bookings     Booking[]  @relation("BookingCreatedBy")
   privacyDecisions PrivacyRequest[] @relation("PrivacyRequestDecidedBy")
+  deletedTenants Tenant[] @relation("TenantDeletedBy")
+  deletedEmployees Employee[] @relation("EmployeeDeletedBy")
+  deletedLocations Location[] @relation("LocationDeletedBy")
+  deletedServiceTemplates ServiceTemplate[] @relation("ServiceTemplateDeletedBy")
+  deletedWeeks Week[] @relation("WeekDeletedBy")
+  deletedPlanEntries PlanEntry[] @relation("PlanEntryDeletedBy")
+  deletedAbsenceRequests AbsenceRequest[] @relation("AbsenceRequestDeletedBy")
+  deletedShiftWishes ShiftWish[] @relation("ShiftWishDeletedBy")
   auditLogs    AuditLog[]
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
@@ -178,6 +186,8 @@ model Tenant {
   createdAt     DateTime            @default(now())
   deletedAt     DateTime?
   archivedUntil DateTime?
+  deletedById   String?
+  deletedBy     User?               @relation("TenantDeletedBy", fields: [deletedById], references: [id], onDelete: NoAction)
   users         User[]
   employees     Employee[]
   locations     Location[]
@@ -205,6 +215,8 @@ model Location {
   holidays           Holiday[]
   deletedAt          DateTime?
   archivedUntil      DateTime?
+  deletedById        String?
+  deletedBy          User?      @relation("LocationDeletedBy", fields: [deletedById], references: [id], onDelete: NoAction)
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
 }
@@ -239,6 +251,8 @@ model Employee {
   status               EmployeeStatus    @default(AKTIV)
   deletedAt            DateTime?
   archivedUntil        DateTime?
+  deletedById          String?
+  deletedBy            User?              @relation("EmployeeDeletedBy", fields: [deletedById], references: [id], onDelete: NoAction)
   planEntries          PlanEntry[]
   absenceRequests      AbsenceRequest[]
   privacyRequests      PrivacyRequest[]
@@ -264,6 +278,8 @@ model PrivacyRequest {
   note        String?
   decidedById String?
   decidedBy   User?                @relation("PrivacyRequestDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+  /// PrivacyRequest bleibt bewusst ohne Soft-Delete: DSGVO-Ablauf und Entscheidungshistorie
+  /// müssen revisionssicher vollständig erhalten bleiben; Löschbarkeit ist fachlich nicht vorgesehen.
   decidedAt   DateTime?
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
@@ -280,6 +296,8 @@ model Holiday {
   name        String
   locationId  String
   location    Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  /// Holiday bleibt bewusst ohne Soft-Delete: Feiertags-Stammdaten sind vollständig
+  /// ersetzbar, und Löschungen werden bereits über AuditLog nachvollziehbar protokolliert.
   createdAt   DateTime @default(now())
 
   @@unique([locationId, date])
@@ -301,6 +319,8 @@ model ServiceTemplate {
   isActive       Boolean     @default(true)
   deletedAt      DateTime?
   archivedUntil  DateTime?
+  deletedById    String?
+  deletedBy      User?       @relation("ServiceTemplateDeletedBy", fields: [deletedById], references: [id], onDelete: NoAction)
   planEntries    PlanEntry[]
   shiftWishesPreferred ShiftWish[]       @relation("PreferredOn")
   createdAt      DateTime    @default(now())
@@ -329,6 +349,8 @@ model ShiftWish {
   decidedById                 String?
   deletedAt                   DateTime?
   archivedUntil               DateTime?
+  deletedById                 String?
+  deletedBy                   User?            @relation("ShiftWishDeletedBy", fields: [deletedById], references: [id], onDelete: NoAction)
   createdAt                  DateTime         @default(now())
   updatedAt                  DateTime         @updatedAt
 
@@ -348,6 +370,8 @@ model Week {
   closedAt      DateTime?
   deletedAt     DateTime?
   archivedUntil DateTime?
+  deletedById   String?
+  deletedBy     User?                @relation("WeekDeletedBy", fields: [deletedById], references: [id], onDelete: NoAction)
   planEntries   PlanEntry[]
   snapshots     PublishedSnapshot[]
   createdAt     DateTime            @default(now())
@@ -375,6 +399,8 @@ model PlanEntry {
   comment             String?
   deletedAt           DateTime?
   archivedUntil       DateTime?
+  deletedById         String?
+  deletedBy           User?            @relation("PlanEntryDeletedBy", fields: [deletedById], references: [id], onDelete: NoAction)
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
 
@@ -407,6 +433,8 @@ model AbsenceRequest {
   decidedById   String?
   deletedAt     DateTime?
   archivedUntil DateTime?
+  deletedById   String?
+  deletedBy     User?         @relation("AbsenceRequestDeletedBy", fields: [deletedById], references: [id], onDelete: NoAction)
   cancelledAt   DateTime?
   cancelledById String?
   cancelledBy   Employee?      @relation("AbsenceRequestCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)

@@ -27,7 +27,7 @@ export async function getOrCreateWeekForTenant(
   if (existing && existing.deletedAt) {
     const revived = await prisma.week.update({
       where: { id: existing.id },
-      data: { deletedAt: null, archivedUntil: null },
+      data: { deletedAt: null, archivedUntil: null, deletedById: null },
     });
     return revived as WeekIdentity;
   }
