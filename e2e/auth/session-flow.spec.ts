@@ -47,7 +47,14 @@ test.describe("Session & Routing nach Auth-Zustand", () => {
       await menuTrigger.click();
       await signOutItem.waitFor({ state: "visible", timeout: 3_000 });
       if (await signOutItem.isVisible()) {
+        const logoutResponse = page.waitForResponse(
+          (response) =>
+            response.url().includes("/api/logout") &&
+            response.request().method() === "POST",
+        );
         await signOutItem.click();
+        const response = await logoutResponse;
+        expect(response.status()).toBe(303);
         return;
       }
       await page.waitForTimeout(200);

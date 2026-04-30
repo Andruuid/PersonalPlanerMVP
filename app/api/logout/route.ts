@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -39,8 +40,8 @@ function isSecureCookie(name: string): boolean {
   return name.startsWith("__Secure-") || name.startsWith("__Host-");
 }
 
-export async function POST() {
-  // Channel 1: write via next/headers cookies() — Next.js request-mutation API.
+async function clearAuthCookies(request: NextRequest) {
+  // Channel 1: write via next/headers cookies() - Next.js request-mutation API.
   const cookieStore = await cookies();
   const cookieNamesToClear = new Set<string>([
     ...SESSION_COOKIE_NAMES,
@@ -64,7 +65,9 @@ export async function POST() {
     cookieStore.delete(name);
   }
 
-  const response = NextResponse.json({ url: "/login" });
+  const response = NextResponse.redirect(new URL("/login", request.url), {
+    status: 303,
+  });
 
   // Channel 2: write directly on the outgoing response. Belt-and-braces in
   // case the adapter on the host (notably Netlify) doesn't reflect channel 1
@@ -86,4 +89,8 @@ export async function POST() {
   }
 
   return response;
+}
+
+export async function POST(request: NextRequest) {
+  return clearAuthCookies(request);
 }

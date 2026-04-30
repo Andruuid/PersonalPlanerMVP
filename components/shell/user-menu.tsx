@@ -2,7 +2,7 @@
 
 import { LogOut, UserCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { logoutAction, switchTenantAction } from "./actions";
+import { switchTenantAction } from "./actions";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,7 +43,7 @@ export function UserMenu({ email, canSwitchTenant }: UserMenuProps) {
           </DropdownMenuItem>
         ) : null}
         <DropdownMenuItem asChild>
-          <form action={logoutAction} className="w-full">
+          <form action="/api/logout" method="post" className="w-full">
             <button type="submit" className="flex w-full items-center text-left">
               <LogOut className="mr-2 h-4 w-4" />
               Abmelden
