@@ -1,6 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { loginOnPage } from "../fixtures/login-helper";
-import { testAdminCredentials } from "../fixtures/credentials";
+import { loginAsSeedAdmin } from "../fixtures/session";
 
 /**
  * Smoke nach Admin-Login: sichtbare Shell und ein KPI-Verweis (ohne Datenlogik zu testen).
@@ -11,8 +10,7 @@ import { testAdminCredentials } from "../fixtures/credentials";
 test.describe("Dashboard (Smoke)", () => {
   test("zeigt Überschrift Dashboard und KPI-Navigation", async ({ page }) => {
     await test.step("Als Admin anmelden", async () => {
-      await loginOnPage(page, testAdminCredentials);
-      await page.waitForURL(/\/dashboard/, { timeout: 15_000 });
+      await loginAsSeedAdmin(page);
     });
 
     await test.step("Haupttitel der Übersichtsseite prüfen", async () => {

@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const baseURL =
-  process.env.PLAYWRIGHT_TEST_BASE_URL ?? "http://127.0.0.1:3000";
+  process.env.PLAYWRIGHT_TEST_BASE_URL ?? "http://localhost:3001";
 
 /**
  * Siehe README: Datenbank migrieren und seed vor dem ersten E2E-Lauf.
@@ -31,9 +31,11 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev",
+    command: "npm run dev -- --port 3001",
     url: baseURL,
-    reuseExistingServer: !process.env.CI,
+    // Always boot a fresh dev server for E2E to avoid stale in-memory Prisma
+    // client/schema state from long-running local sessions.
+    reuseExistingServer: false,
     timeout: 120_000,
     stdout: "pipe",
     stderr: "pipe",

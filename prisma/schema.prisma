@@ -61,6 +61,9 @@ enum RequestStatus {
   OPEN
   APPROVED
   REJECTED
+  /// WITHDRAWN: Mitarbeitende zieht den eigenen offenen Antrag/Wunsch zurück (nur bei OPEN).
+  WITHDRAWN
+  /// CANCELLED: technische/administrative Stornierung (nicht Mitarbeitenden-Rückzug).
   CANCELLED
 }
 

@@ -20,7 +20,12 @@ import {
 
 const REASON_MAX = 300;
 
-export type ShiftWishRowStatus = "OPEN" | "APPROVED" | "REJECTED";
+export type ShiftWishRowStatus =
+  | "OPEN"
+  | "APPROVED"
+  | "REJECTED"
+  | "WITHDRAWN"
+  | "CANCELLED";
 
 export interface ShiftWishRow {
   id: string;
@@ -45,12 +50,16 @@ const STATUS_LABEL: Record<ShiftWishRowStatus, string> = {
   OPEN: "Offen",
   APPROVED: "Genehmigt",
   REJECTED: "Abgelehnt",
+  WITHDRAWN: "Zurückgezogen",
+  CANCELLED: "Storniert",
 };
 
 const STATUS_BADGE: Record<ShiftWishRowStatus, string> = {
   OPEN: "bg-amber-100 text-amber-800",
   APPROVED: "bg-emerald-100 text-emerald-800",
   REJECTED: "bg-rose-100 text-rose-800",
+  WITHDRAWN: "bg-neutral-200 text-neutral-700",
+  CANCELLED: "bg-neutral-200 text-neutral-700",
 };
 
 export function ShiftWishesTable({ rows }: ShiftWishesTableProps) {

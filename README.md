@@ -53,11 +53,14 @@ npm run db:seed
 
 Zugänge entsprechen der Tabelle „Demo-Konten“ (Demo-Stammdaten unter dem Tenant slug `default` im Seed).
 
-Nach Auth- oder Prisma-Änderungen: wenn lokal bereits `npm run dev` auf Port 3000 läuft, neu starten — Playwright verwendet den bestehenden Server (`reuseExistingServer`), sonst können E2E-Logins gegen veralteten Code laufen.
+E2E startet absichtlich immer einen **frischen** Dev-Server auf Port **3001**
+(`playwright.config.ts`: `next dev --port 3001`, `reuseExistingServer: false`).
+So vermeiden wir veralteten Runtime-/Prisma-Status aus bereits laufenden lokalen
+`npm run dev`-Sessions auf Port 3000.
 
 | Skript                 | Zweck                                        |
 | ---------------------- | -------------------------------------------- |
-| `npm run test:e2e`     | Alle E2E-Tests headless (`playwright.config`: startet ggf. `npm run dev` auf Port 3000) |
+| `npm run test:e2e`     | Alle E2E-Tests headless (`playwright.config`: startet immer frischen `npm run dev -- --port 3001`) |
 | `npm run test:e2e:headed` | Gleiche Tests mit sichtbarem Browser     |
 | `npm run test:e2e:ui`  | [Playwright UI Mode](https://playwright.dev/docs/test-ui-mode) zum Debuggen |
 

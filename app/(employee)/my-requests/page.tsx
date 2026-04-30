@@ -22,7 +22,7 @@ interface PageProps {
   searchParams: Promise<{ employee?: string }>;
 }
 
-const STATUS_ORDER: RequestStatus[] = ["OPEN", "APPROVED", "REJECTED"];
+const STATUS_ORDER: RequestStatus[] = ["OPEN", "APPROVED", "REJECTED", "WITHDRAWN"];
 
 export default async function MyRequestsPage({ searchParams }: PageProps) {
   const session = await auth();
@@ -269,6 +269,8 @@ function groupByStatus(
     OPEN: [],
     APPROVED: [],
     REJECTED: [],
+    WITHDRAWN: [],
+    CANCELLED: [],
   };
   for (const r of requests) out[r.status].push(r);
   return out;
@@ -281,6 +283,8 @@ function groupShiftWishesByStatus(
     OPEN: [],
     APPROVED: [],
     REJECTED: [],
+    WITHDRAWN: [],
+    CANCELLED: [],
   };
   for (const w of wishes) out[w.status].push(w);
   return out;
@@ -298,6 +302,10 @@ function emptyHintShiftWish(
         return "Keine genehmigten Schicht-Wünsche.";
       case "REJECTED":
         return "Keine abgelehnten Schicht-Wünsche.";
+      case "WITHDRAWN":
+        return "Keine zurückgezogenen Schicht-Wünsche.";
+      case "CANCELLED":
+        return "Keine stornierten Schicht-Wünsche.";
     }
   }
   switch (status) {
@@ -307,6 +315,10 @@ function emptyHintShiftWish(
       return "Noch keine genehmigten Schicht-Wünsche.";
     case "REJECTED":
       return "Kein Schicht-Wunsch wurde abgelehnt.";
+    case "WITHDRAWN":
+      return "Du hast keine zurückgezogenen Schicht-Wünsche.";
+    case "CANCELLED":
+      return "Keine stornierten Schicht-Wünsche.";
   }
 }
 
@@ -322,6 +334,10 @@ function emptyHintFor(
         return "Keine genehmigten Anträge.";
       case "REJECTED":
         return "Keine abgelehnten Anträge.";
+      case "WITHDRAWN":
+        return "Keine zurückgezogenen Anträge.";
+      case "CANCELLED":
+        return "Keine stornierten Anträge.";
     }
   }
   switch (status) {
@@ -331,6 +347,10 @@ function emptyHintFor(
       return "Noch keine genehmigten Anträge.";
     case "REJECTED":
       return "Bisher wurde kein Antrag abgelehnt.";
+    case "WITHDRAWN":
+      return "Du hast keine zurückgezogenen Anträge.";
+    case "CANCELLED":
+      return "Keine stornierten Anträge.";
   }
 }
 

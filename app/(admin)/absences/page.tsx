@@ -30,7 +30,14 @@ interface PageProps {
   }>;
 }
 
-const STATUS_VALUES: StatusFilter[] = ["ALL", "OPEN", "APPROVED", "REJECTED"];
+const STATUS_VALUES: StatusFilter[] = [
+  "ALL",
+  "OPEN",
+  "APPROVED",
+  "REJECTED",
+  "WITHDRAWN",
+  "CANCELLED",
+];
 const TYPE_VALUES: TypeFilter[] = [
   "ALL",
   "VACATION",
@@ -201,6 +208,10 @@ export default async function AbsencesPage({ searchParams }: PageProps) {
       statusCounts.find((s) => s.status === "APPROVED")?._count._all ?? 0,
     REJECTED:
       statusCounts.find((s) => s.status === "REJECTED")?._count._all ?? 0,
+    WITHDRAWN:
+      statusCounts.find((s) => s.status === "WITHDRAWN")?._count._all ?? 0,
+    CANCELLED:
+      statusCounts.find((s) => s.status === "CANCELLED")?._count._all ?? 0,
   };
 
   return (

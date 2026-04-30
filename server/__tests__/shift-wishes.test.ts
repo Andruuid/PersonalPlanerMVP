@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   prismaMock,
   requireAdminMock,
+  requireEmployeeMock,
   writeAuditMock,
   safeRevalidatePathMock,
 } = vi.hoisted(() => ({
@@ -23,6 +24,7 @@ const {
     $transaction: vi.fn(),
   },
   requireAdminMock: vi.fn(),
+  requireEmployeeMock: vi.fn(),
   writeAuditMock: vi.fn(),
   safeRevalidatePathMock: vi.fn(),
 }));
@@ -37,7 +39,7 @@ vi.mock("@/lib/audit", () => ({
 
 vi.mock("@/server/_shared", () => ({
   requireAdmin: requireAdminMock,
-  requireEmployee: vi.fn(),
+  requireEmployee: requireEmployeeMock,
   safeRevalidatePath: safeRevalidatePathMock,
   fieldErrorsFromZod: vi.fn(),
   readOptionalString: vi.fn(),
@@ -47,7 +49,11 @@ vi.mock("@/lib/ert/sweep", () => ({
   maybeSweepErtAfterPlanWrite: vi.fn(),
 }));
 
-import { approveShiftWishAction, rejectShiftWishAction } from "@/server/shift-wishes";
+import {
+  approveShiftWishAction,
+  rejectShiftWishAction,
+  withdrawShiftWishAction,
+} from "@/server/shift-wishes";
 
 describe("approveShiftWishAction CLOSED week protection", () => {
   beforeEach(() => {
@@ -122,5 +128,52 @@ describe("rejectShiftWishAction", () => {
     expect(prismaMock.shiftWish.update).toHaveBeenCalled();
     expect(writeAuditMock).toHaveBeenCalled();
     expect(safeRevalidatePathMock).toHaveBeenCalled();
+  });
+});
+
+describe("withdrawShiftWishAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    requireEmployeeMock.mockResolvedValue({
+      id: "user-1",
+      email: "e@test.local",
+      role: "EMPLOYEE",
+      tenantId: "tenant-a",
+      employeeId: "emp-1",
+    });
+  });
+
+  it("withdraws own open wish with WITHDRAW audit action", async () => {
+    prismaMock.shiftWish.findUnique.mockResolvedValue({
+      id: "wish-3",
+      tenantId: "tenant-a",
+      employeeId: "emp-1",
+      status: "OPEN",
+      date: new Date("2026-04-18T00:00:00.000Z"),
+      deletedAt: null,
+      decisionComment: null,
+    });
+    prismaMock.shiftWish.update.mockResolvedValue({});
+
+    const result = await withdrawShiftWishAction("wish-3");
+
+    expect(result).toEqual({ ok: true });
+    expect(prismaMock.shiftWish.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "wish-3" },
+        data: expect.objectContaining({
+          status: "WITHDRAWN",
+          decidedById: "user-1",
+        }),
+      }),
+    );
+    expect(writeAuditMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "WITHDRAW",
+        entity: "ShiftWish",
+        entityId: "wish-3",
+        newValue: expect.objectContaining({ status: "WITHDRAWN" }),
+      }),
+    );
   });
 });

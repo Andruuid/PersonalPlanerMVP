@@ -73,7 +73,7 @@ export interface ServiceOption {
 export interface RequestView {
   id: string;
   type: "VACATION" | "FREE_REQUESTED" | "UEZ_BEZUG" | "TZT" | "FREE_DAY" | "PARENTAL_CARE";
-  status: "OPEN" | "APPROVED" | "REJECTED";
+  status: "OPEN" | "APPROVED" | "REJECTED" | "WITHDRAWN" | "CANCELLED";
   startDate: string;
   endDate: string;
   rangeLabel: string;

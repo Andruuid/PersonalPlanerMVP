@@ -26,7 +26,6 @@ test.describe("Session & Routing nach Auth-Zustand", () => {
     await expect(page).toHaveURL(/\/dashboard/);
     await context.clearCookies();
     await page.goto("/dashboard");
-    await page.waitForURL(/\/login/, { timeout: 15_000 });
     await expect(page).toHaveURL(/\/login/);
   });
 
@@ -39,7 +38,6 @@ test.describe("Session & Routing nach Auth-Zustand", () => {
      */
     await loginAsSeedAdmin(page);
     await page.goto("/login");
-    await page.waitForURL(/\/dashboard/, { timeout: 10_000 });
     await expect(page).toHaveURL(/\/dashboard/);
     await expect(
       page.getByRole("heading", { level: 1, name: "Dashboard" }),
@@ -55,7 +53,6 @@ test.describe("Session & Routing nach Auth-Zustand", () => {
      */
     await loginAsSeedEmployee(page);
     await page.goto("/");
-    await page.waitForURL(/\/my-week/, { timeout: 10_000 });
     await expect(page).toHaveURL(/\/my-week/);
     await expect(
       page.getByRole("heading", { level: 1, name: "Meine Woche" }),

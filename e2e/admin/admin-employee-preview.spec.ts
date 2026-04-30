@@ -1,6 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { loginOnPage } from "../fixtures/login-helper";
-import { testAdminCredentials } from "../fixtures/credentials";
+import { loginAsSeedAdmin } from "../fixtures/session";
 
 /**
  * Admin «Mitarbeiter-Ansicht»: Picker und Vorschau mit ?employee=.
@@ -11,8 +10,7 @@ test.describe("Admin employee preview", () => {
   test("nach Umschalten Mitarbeiter auswählen und Wochenansicht sehen", async ({
     page,
   }) => {
-    await loginOnPage(page, testAdminCredentials);
-    await page.waitForURL(/\/dashboard/, { timeout: 15_000 });
+    await loginAsSeedAdmin(page);
 
     await page.getByRole("tab", { name: "Mitarbeiter-Ansicht" }).click();
     await expect(page).toHaveURL(/\/my-week/);

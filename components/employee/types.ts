@@ -7,7 +7,12 @@ export type RequestType =
   | "TZT"
   | "FREE_DAY"
   | "PARENTAL_CARE";
-export type RequestStatus = "OPEN" | "APPROVED" | "REJECTED";
+export type RequestStatus =
+  | "OPEN"
+  | "APPROVED"
+  | "REJECTED"
+  | "WITHDRAWN"
+  | "CANCELLED";
 
 /** Dienstvorlagen für Schicht-Wunsch (Mitarbeiter-UI). */
 export interface ServiceTemplateWishOption {
@@ -98,10 +103,14 @@ export const REQUEST_STATUS_LABELS: Record<RequestStatus, string> = {
   OPEN: "Offen",
   APPROVED: "Genehmigt",
   REJECTED: "Abgelehnt",
+  WITHDRAWN: "Zurückgezogen",
+  CANCELLED: "Storniert",
 };
 
 export const REQUEST_STATUS_BADGE: Record<RequestStatus, string> = {
   OPEN: "bg-amber-100 text-amber-800",
   APPROVED: "bg-emerald-100 text-emerald-800",
   REJECTED: "bg-rose-100 text-rose-800",
+  WITHDRAWN: "bg-neutral-200 text-neutral-700",
+  CANCELLED: "bg-neutral-200 text-neutral-700",
 };

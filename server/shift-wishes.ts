@@ -545,3 +545,57 @@ export async function rejectShiftWishAction(
   revalidateWishPaths("rejectShiftWishAction");
   return { ok: true };
 }
+
+export async function withdrawShiftWishAction(
+  wishId: string,
+): Promise<ActionResult> {
+  const employee = await requireEmployee();
+  const employeeId = employee.employeeId;
+  if (!employeeId) {
+    return { ok: false, error: "Kein Mitarbeitenden-Profil verknüpft." };
+  }
+
+  const wish = await prisma.shiftWish.findUnique({
+    where: { id: wishId },
+  });
+  if (!wish || wish.tenantId !== employee.tenantId) {
+    return { ok: false, error: "Wunsch nicht gefunden." };
+  }
+  if (wish.deletedAt) {
+    return { ok: false, error: "Wunsch nicht gefunden." };
+  }
+  if (wish.employeeId !== employeeId) {
+    return { ok: false, error: "Kein Zugriff auf diesen Wunsch." };
+  }
+  if (wish.status !== "OPEN") {
+    return { ok: false, error: "Nur offene Wünsche können zurückgezogen werden." };
+  }
+
+  await prisma.shiftWish.update({
+    where: { id: wishId },
+    data: {
+      status: "WITHDRAWN",
+      decidedAt: new Date(),
+      decidedById: employee.id,
+      decisionComment: null,
+    },
+  });
+
+  await writeAudit({
+    userId: employee.id,
+    action: "WITHDRAW",
+    entity: "ShiftWish",
+    entityId: wishId,
+    oldValue: {
+      status: wish.status,
+      decisionComment: wish.decisionComment ?? null,
+    },
+    newValue: {
+      status: "WITHDRAWN",
+      date: isoDateString(wish.date),
+    },
+  });
+
+  revalidateWishPaths("withdrawShiftWishAction");
+  return { ok: true };
+}

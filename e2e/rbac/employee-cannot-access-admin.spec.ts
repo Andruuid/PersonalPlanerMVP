@@ -21,7 +21,7 @@ test.describe("RBAC: Mitarbeitende keine Admin-Bereiche", () => {
     await loginAsSeedEmployee(page);
     await expect(page).toHaveURL(/\/my-week/);
     await page.goto("/planning");
-    await page.waitForURL(/\/my-week/, { timeout: 10_000 });
+    await expect(page).toHaveURL(/\/my-week/);
     await expect(page).not.toHaveURL(/\/planning/);
     await expect(
       page.getByRole("heading", { level: 1, name: "Meine Woche" }),
@@ -35,7 +35,7 @@ test.describe("RBAC: Mitarbeitende keine Admin-Bereiche", () => {
      */
     await loginAsSeedEmployee(page);
     await page.goto("/employees");
-    await page.waitForURL(/\/my-week/, { timeout: 10_000 });
+    await expect(page).toHaveURL(/\/my-week/);
     await expect(
       page.getByRole("heading", { level: 1, name: "Meine Woche" }),
     ).toBeVisible();
@@ -50,7 +50,7 @@ test.describe("RBAC: Mitarbeitende keine Admin-Bereiche", () => {
      */
     await loginAsSeedEmployee(page);
     await page.goto("/accounts");
-    await page.waitForURL(/\/my-week/, { timeout: 10_000 });
+    await expect(page).toHaveURL(/\/my-week/);
     await expect(
       page.getByRole("heading", { level: 1, name: "Meine Woche" }),
     ).toBeVisible();
@@ -65,7 +65,7 @@ test.describe("RBAC: Mitarbeitende keine Admin-Bereiche", () => {
      */
     await loginAsSeedEmployee(page);
     await page.goto("/audit");
-    await page.waitForURL(/\/my-week/, { timeout: 10_000 });
+    await expect(page).toHaveURL(/\/my-week/);
     await expect(
       page.getByRole("heading", { level: 1, name: "Meine Woche" }),
     ).toBeVisible();

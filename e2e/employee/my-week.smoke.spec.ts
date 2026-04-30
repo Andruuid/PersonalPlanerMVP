@@ -1,6 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { loginOnPage } from "../fixtures/login-helper";
-import { testEmployeeCredentials } from "../fixtures/credentials";
+import { loginAsSeedEmployee } from "../fixtures/session";
 
 /**
  * Smoke nach Mitarbeitenden-Login: Seite „Meine Woche“ mit Wochentitel und Kernbereichen.
@@ -9,8 +8,7 @@ import { testEmployeeCredentials } from "../fixtures/credentials";
 test.describe("Meine Woche (Smoke)", () => {
   test("zeigt Meine-Woche-Überschrift und Kernbereiche", async ({ page }) => {
     await test.step("Als Mitarbeitende:r anmelden", async () => {
-      await loginOnPage(page, testEmployeeCredentials);
-      await page.waitForURL(/\/my-week/, { timeout: 15_000 });
+      await loginAsSeedEmployee(page);
     });
 
     await test.step("Haupttitel und KW-Zeile sichtbar", async () => {

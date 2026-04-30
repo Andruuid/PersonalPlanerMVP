@@ -15,4 +15,7 @@ export async function loginOnPage(
   await page.getByLabel("E-Mail").fill(creds.email);
   await page.getByLabel("Passwort").fill(creds.password);
   await page.getByRole("button", { name: "Anmelden" }).click();
+  // Auth uses a server action + redirect; wait for it to settle before callers
+  // assert routed destinations.
+  await page.waitForLoadState("networkidle");
 }

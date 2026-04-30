@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { cancelOwnRequestAction } from "@/server/requests";
+import { withdrawRequestAction } from "@/server/requests";
 import {
   REQUEST_STATUS_BADGE,
   REQUEST_STATUS_LABELS,
@@ -50,9 +50,9 @@ function RequestRow({
 }) {
   const [pending, startTransition] = useTransition();
 
-  function cancel() {
+  function withdraw() {
     startTransition(async () => {
-      const result = await cancelOwnRequestAction(request.id);
+      const result = await withdrawRequestAction(request.id);
       if (result.ok) {
         toast.success("Antrag zurückgezogen.");
       } else {
@@ -99,7 +99,7 @@ function RequestRow({
             size="sm"
             variant="ghost"
             disabled={pending}
-            onClick={cancel}
+            onClick={withdraw}
             className="text-rose-700 hover:bg-rose-50"
           >
             Zurückziehen

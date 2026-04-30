@@ -20,7 +20,6 @@ import {
   safeRevalidatePath,
   type ActionResult,
 } from "./_shared";
-import { archiveUntil } from "@/lib/archive";
 import { parseDecisionComment } from "@/server/decision-comment";
 
 const REQUEST_TO_ABSENCE: Record<
@@ -536,10 +535,11 @@ export async function createAbsenceRequestAction(
   safeRevalidatePath("createAbsenceRequestAction", "/my-week");
   safeRevalidatePath("createAbsenceRequestAction", "/absences");
   safeRevalidatePath("createAbsenceRequestAction", "/planning");
+  safeRevalidatePath("createAbsenceRequestAction", "/dashboard");
   return { ok: true };
 }
 
-export async function cancelOwnRequestAction(
+export async function withdrawRequestAction(
   requestId: string,
 ): Promise<ActionResult> {
   const employee = await requireEmployee();
@@ -564,21 +564,18 @@ export async function cancelOwnRequestAction(
   }
 
   const now = new Date();
-  const archivedUntil = archiveUntil(now);
   await prisma.absenceRequest.update({
     where: { id: requestId },
     data: {
-      status: "CANCELLED",
+      status: "WITHDRAWN",
       cancelledAt: now,
       cancelledById: employee.employeeId,
-      deletedAt: now,
-      archivedUntil,
     },
   });
 
   await writeAudit({
     userId: employee.id,
-    action: "CANCEL",
+    action: "WITHDRAW",
     entity: "AbsenceRequest",
     entityId: requestId,
     oldValue: {
@@ -588,17 +585,16 @@ export async function cancelOwnRequestAction(
       status: request.status,
     },
     newValue: {
-      status: "CANCELLED",
+      status: "WITHDRAWN",
       cancelledAt: now.toISOString(),
       cancelledById: employee.employeeId,
-      deletedAt: now.toISOString(),
-      archivedUntil: archivedUntil.toISOString(),
     },
   });
 
-  safeRevalidatePath("cancelOwnRequestAction", "/my-requests");
-  safeRevalidatePath("cancelOwnRequestAction", "/absences");
-  safeRevalidatePath("cancelOwnRequestAction", "/planning");
+  safeRevalidatePath("withdrawRequestAction", "/my-requests");
+  safeRevalidatePath("withdrawRequestAction", "/absences");
+  safeRevalidatePath("withdrawRequestAction", "/planning");
+  safeRevalidatePath("withdrawRequestAction", "/dashboard");
   return { ok: true };
 }
 
@@ -616,6 +612,12 @@ export async function reopenRequestAction(
   }
   if (request.deletedAt) {
     return { ok: false, error: "Antrag nicht gefunden." };
+  }
+  if (request.status === "WITHDRAWN" || request.status === "CANCELLED") {
+    return {
+      ok: false,
+      error: "Zurückgezogene oder stornierte Anträge können nicht wieder eröffnet werden.",
+    };
   }
 
   await prisma.absenceRequest.update({

@@ -4,7 +4,13 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { buildAbsenceFilterSearchParams } from "./filter-query";
 
-export type StatusFilter = "ALL" | "OPEN" | "APPROVED" | "REJECTED";
+export type StatusFilter =
+  | "ALL"
+  | "OPEN"
+  | "APPROVED"
+  | "REJECTED"
+  | "WITHDRAWN"
+  | "CANCELLED";
 export type TypeFilter =
   | "ALL"
   | "VACATION"
@@ -28,6 +34,8 @@ const STATUS_TABS: Array<{ key: StatusFilter; label: string }> = [
   { key: "OPEN", label: "Offen" },
   { key: "APPROVED", label: "Genehmigt" },
   { key: "REJECTED", label: "Abgelehnt" },
+  { key: "WITHDRAWN", label: "Zurückgezogen" },
+  { key: "CANCELLED", label: "Storniert" },
 ];
 
 const TYPE_OPTIONS: Array<{ value: TypeFilter; label: string }> = [

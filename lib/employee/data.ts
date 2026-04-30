@@ -49,6 +49,8 @@ export async function loadMyShiftWishes(
     "OPEN",
     "APPROVED",
     "REJECTED",
+    "WITHDRAWN",
+    "CANCELLED",
   ];
   const rows = await prisma.shiftWish.findMany({
     where: {

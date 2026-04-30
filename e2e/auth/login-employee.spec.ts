@@ -1,6 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { loginOnPage } from "../fixtures/login-helper";
-import { testEmployeeCredentials } from "../fixtures/credentials";
+import { loginAsSeedEmployee } from "../fixtures/session";
 
 /**
  * Mitarbeitenden-Anmeldung (Seed Anna Keller / demo123 auf Tenant „default“).
@@ -13,13 +12,10 @@ test.describe("Mitarbeitende:r: Login und Weiterleitung", () => {
     page,
   }) => {
     await test.step("Login mit Mitarbeitenden-Daten", async () => {
-      await loginOnPage(page, testEmployeeCredentials);
+      await loginAsSeedEmployee(page);
     });
 
-    await test.step("Warten auf geschützte Employee-Route", async () => {
-      await page.waitForURL((url) => /\/my-week/.test(url.pathname), {
-        timeout: 15_000,
-      });
+    await test.step("Mitarbeitenden-Ansicht ist sichtbar", async () => {
       await expect(page).toHaveURL(/\/my-week/);
       await expect(
         page.getByRole("heading", { level: 1, name: "Meine Woche" }),

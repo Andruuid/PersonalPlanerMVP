@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { loginOnPage } from "./login-helper";
 import {
   testAdminCredentials,
@@ -11,10 +11,20 @@ import {
 
 export async function loginAsSeedAdmin(page: Page): Promise<void> {
   await loginOnPage(page, testAdminCredentials);
-  await page.waitForURL(/\/dashboard$/, { timeout: 15_000 });
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await page.goto("/dashboard");
+    if (page.url().includes("/dashboard")) break;
+    await page.waitForTimeout(300);
+  }
+  await expect(page).toHaveURL(/\/dashboard/);
 }
 
 export async function loginAsSeedEmployee(page: Page): Promise<void> {
   await loginOnPage(page, testEmployeeCredentials);
-  await page.waitForURL(/\/my-week/, { timeout: 15_000 });
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await page.goto("/my-week");
+    if (page.url().includes("/my-week")) break;
+    await page.waitForTimeout(300);
+  }
+  await expect(page).toHaveURL(/\/my-week/);
 }

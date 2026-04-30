@@ -25,7 +25,12 @@ export type AbsenceRequestType =
   | "UEZ_BEZUG"
   | "TZT"
   | "FREE_DAY";
-export type AbsenceRequestStatus = "OPEN" | "APPROVED" | "REJECTED";
+export type AbsenceRequestStatus =
+  | "OPEN"
+  | "APPROVED"
+  | "REJECTED"
+  | "WITHDRAWN"
+  | "CANCELLED";
 
 export interface AbsenceRequestRow {
   id: string;
@@ -60,12 +65,16 @@ const STATUS_LABEL: Record<AbsenceRequestStatus, string> = {
   OPEN: "Offen",
   APPROVED: "Genehmigt",
   REJECTED: "Abgelehnt",
+  WITHDRAWN: "Zurückgezogen",
+  CANCELLED: "Storniert",
 };
 
 const STATUS_BADGE: Record<AbsenceRequestStatus, string> = {
   OPEN: "bg-amber-100 text-amber-800",
   APPROVED: "bg-emerald-100 text-emerald-800",
   REJECTED: "bg-rose-100 text-rose-800",
+  WITHDRAWN: "bg-neutral-200 text-neutral-700",
+  CANCELLED: "bg-neutral-200 text-neutral-700",
 };
 
 const REASON_MAX = 300;
@@ -258,7 +267,7 @@ function Row({ row }: { row: AbsenceRequestRow }) {
               </DialogContent>
             </Dialog>
           </>
-        ) : (
+        ) : row.status === "APPROVED" || row.status === "REJECTED" ? (
           <div className="flex justify-end">
             <Button
               size="sm"
@@ -269,6 +278,8 @@ function Row({ row }: { row: AbsenceRequestRow }) {
               Wieder eröffnen
             </Button>
           </div>
+        ) : (
+          <div className="flex justify-end text-xs text-neutral-400">—</div>
         )}
       </td>
     </tr>
