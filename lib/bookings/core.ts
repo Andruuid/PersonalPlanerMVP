@@ -994,6 +994,156 @@ export async function applyManualBooking(
 }
 
 // ---------------------------------------------------------------------------
+// Sonn-/Feiertagskompensation — ausschliessliche Korrekturbuchungen
+// ---------------------------------------------------------------------------
+
+export class CompensationCorrectionError extends Error {
+  constructor(
+    message: string,
+    readonly code:
+      | "EMPLOYEE_NOT_FOUND"
+      | "ZERO_VALUE"
+      | "WOULD_GO_NEGATIVE"
+      | "EMPLOYMENT_NOT_ACTIVE_ON_DATE",
+  ) {
+    super(message);
+    this.name = "CompensationCorrectionError";
+  }
+}
+
+export interface ApplyCompensationCorrectionInput {
+  employeeId: string;
+  tenantId?: string;
+  /** Local-midnight date of the booking. */
+  date: Date;
+  /** Signed minutes (CORRECTION; positive erhöht den Saldo). */
+  signedMinutes: number;
+  comment: string;
+  createdByUserId: string;
+}
+
+export interface ApplyCompensationCorrectionResult {
+  bookingId: string;
+  signedValue: number;
+}
+
+/**
+ * Nur `BookingType.CORRECTION` auf SONNTAG_FEIERTAG_KOMPENSATION.
+ * Anfangsbestände (OPENING) bleiben auf diesem Konto gesperrt (allgemeiner
+ * manueller Booking-Pfad).
+ */
+export async function applyCompensationCorrection(
+  prisma: PrismaClient,
+  input: ApplyCompensationCorrectionInput,
+): Promise<ApplyCompensationCorrectionResult> {
+  const signedValue = Math.trunc(input.signedMinutes);
+  if (signedValue === 0) {
+    throw new CompensationCorrectionError(
+      "Wert darf nicht 0 sein",
+      "ZERO_VALUE",
+    );
+  }
+
+  const employee = await prisma.employee.findUnique({
+    where: { id: input.employeeId },
+    select: {
+      id: true,
+      tenantId: true,
+      vacationDaysPerYear: true,
+      entryDate: true,
+      exitDate: true,
+      deletedAt: true,
+    },
+  });
+  if (
+    !employee ||
+    employee.deletedAt ||
+    (input.tenantId && employee.tenantId !== input.tenantId)
+  ) {
+    throw new CompensationCorrectionError(
+      "Mitarbeitende:r nicht gefunden",
+      "EMPLOYEE_NOT_FOUND",
+    );
+  }
+  if (!isEmployeeActiveOnDate(employee, input.date)) {
+    throw new CompensationCorrectionError(
+      "Buchungsdatum liegt ausserhalb der Anstellungsdauer.",
+      "EMPLOYMENT_NOT_ACTIVE_ON_DATE",
+    );
+  }
+
+  const year = input.date.getFullYear();
+  const booking = await prisma.$transaction(async (tx) => {
+    await ensureBalanceRow(
+      tx,
+      employee.id,
+      employee.tenantId,
+      "SONNTAG_FEIERTAG_KOMPENSATION",
+      year,
+      employee.vacationDaysPerYear,
+    );
+    const row = await tx.accountBalance.findUnique({
+      where: {
+        employeeId_accountType_year: {
+          employeeId: employee.id,
+          accountType: "SONNTAG_FEIERTAG_KOMPENSATION",
+          year,
+        },
+      },
+    });
+    if (!row) {
+      throw new CompensationCorrectionError(
+        "Mitarbeitende:r nicht gefunden",
+        "EMPLOYEE_NOT_FOUND",
+      );
+    }
+
+    const start = new Date(year, 0, 1);
+    const end = new Date(year + 1, 0, 1);
+    const existing = await tx.booking.findMany({
+      where: {
+        employeeId: employee.id,
+        accountType: "SONNTAG_FEIERTAG_KOMPENSATION",
+        date: { gte: start, lt: end },
+        bookingType: { not: "OPENING" },
+      },
+      select: { value: true },
+    });
+    const movementSum = existing.reduce((acc, b) => acc + b.value, 0);
+    const balanceBeforeCorrection = row.openingValue + movementSum;
+
+    if (balanceBeforeCorrection + signedValue < 0) {
+      throw new CompensationCorrectionError(
+        "Korrektur würde Saldo unter 0 bringen.",
+        "WOULD_GO_NEGATIVE",
+      );
+    }
+
+    const created = await tx.booking.create({
+      data: {
+        tenantId: employee.tenantId,
+        employeeId: employee.id,
+        accountType: "SONNTAG_FEIERTAG_KOMPENSATION",
+        date: input.date,
+        value: signedValue,
+        bookingType: "CORRECTION",
+        comment: input.comment,
+        createdByUserId: input.createdByUserId,
+      },
+    });
+    await recomputeBalance(
+      tx,
+      employee.id,
+      "SONNTAG_FEIERTAG_KOMPENSATION",
+      year,
+    );
+    return created;
+  });
+
+  return { bookingId: booking.id, signedValue };
+}
+
+// ---------------------------------------------------------------------------
 // TZT Modell 1 — periodische Kontingent-Freigabe (Cron)
 // ---------------------------------------------------------------------------
 

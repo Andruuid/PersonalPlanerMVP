@@ -12,6 +12,10 @@ import {
   type ManualBookingFormDefaults,
 } from "./manual-booking-form";
 import {
+  CompensationCorrectionForm,
+  type CompensationCorrectionDefaults,
+} from "./compensation-correction-form";
+import {
   CompensationRedemptionForm,
   type CompensationRedemptionDefaults,
 } from "./compensation-redemption-form";
@@ -44,6 +48,7 @@ const ACCOUNT_ORDER: AccountType[] = [
 type DialogState =
   | { mode: "closed" }
   | { mode: "manual-booking"; preset: Partial<ManualBookingFormDefaults> }
+  | { mode: "compensation-correction"; preset: CompensationCorrectionDefaults }
   | { mode: "redeem-compensation"; preset: CompensationRedemptionDefaults }
   | { mode: "uez-payout"; preset: UezPayoutDefaults };
 
@@ -65,6 +70,10 @@ export function AccountsTable({
     preset: Partial<ManualBookingFormDefaults> = {},
   ) {
     setDialog({ mode: "manual-booking", preset });
+  }
+
+  function openCompensationCorrection(preset: CompensationCorrectionDefaults) {
+    setDialog({ mode: "compensation-correction", preset });
   }
 
   function openRedeem(preset: CompensationRedemptionDefaults) {
@@ -176,6 +185,25 @@ export function AccountsTable({
                               )
                             ) : null}
                           </div>
+                        ) : accountType === "SONNTAG_FEIERTAG_KOMPENSATION" ? (
+                          <div className="space-y-2">
+                            <AccountCell account={account} />
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2 text-xs"
+                              onClick={() =>
+                                openCompensationCorrection({
+                                  employeeId: row.employeeId,
+                                  date: todayIso,
+                                  balanceMinutes: account.currentValue,
+                                })
+                              }
+                            >
+                              Korrektur Sonn-/Feiertag
+                            </Button>
+                          </div>
                         ) : (
                           <AccountCell account={account} />
                         )}
@@ -247,6 +275,13 @@ export function AccountsTable({
         onOpenChange={(open) => !open && close()}
       >
         <DialogContent className="sm:max-w-2xl">
+          {dialog.mode === "compensation-correction" ? (
+            <CompensationCorrectionForm
+              employees={employees}
+              defaults={dialog.preset}
+              onSuccess={close}
+            />
+          ) : null}
           {dialog.mode === "manual-booking" ? (
             <ManualBookingForm
               employees={employees}

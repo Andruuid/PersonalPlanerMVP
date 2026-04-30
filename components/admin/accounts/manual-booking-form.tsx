@@ -23,9 +23,8 @@ export interface EmployeePickOption {
 
 export interface ManualBookingFormDefaults {
   employeeId: string;
-  // SONNTAG_FEIERTAG_KOMPENSATION ist hier bewusst nicht erlaubt: Bewegungen
-  // entstehen ausschliesslich aus dem Wochenabschluss (AUTO_WEEKLY) oder dem
-  // Bezug-Workflow (`redeemCompensationAction`).
+  // Kein SONNTAG_FEIERTAG_KOMPENSATION: Korrekturen dort nur via
+  // «Korrektur Sonn-/Feiertag», sonst AUTO_WEEKLY / Bezug-Workflow.
   accountType: "ZEITSALDO" | "FERIEN" | "UEZ" | "TZT" | "PARENTAL_CARE";
   date: string;
   bookingType: "MANUAL_CREDIT" | "MANUAL_DEBIT" | "CORRECTION" | "OPENING";

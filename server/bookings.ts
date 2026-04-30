@@ -5,9 +5,11 @@ import { prisma } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import { isoDateString, parseIsoDate } from "@/lib/time/week";
 import {
+  applyCompensationCorrection,
   applyManualBooking,
   applyUezPayout,
   applyYearEndCarryover,
+  CompensationCorrectionError,
   deleteBooking,
   DeleteBookingError,
   ManualBookingError,
@@ -23,12 +25,10 @@ import {
 } from "./_shared";
 
 // Real, persistable accounts per Spec — these can carry an opening balance
-// and accept manual bookings. SONNTAG_FEIERTAG_KOMPENSATION is a fristgebundener
-// offener Fall (Spec): Bewegungen entstehen ausschliesslich aus AUTO_WEEKLY
-// (Wochenabschluss) oder dem expliziten Bezug-Workflow
-// (`server/compensations.ts` → BookingType.COMPENSATION_REDEMPTION). Direkte
-// MANUAL_CREDIT/MANUAL_DEBIT/CORRECTION/OPENING-Buchungen sind dort
-// semantisch falsch und werden hier zurückgewiesen.
+// and accept manual bookings / generic Korrekturen. SONNTAG_FEIERTAG_KOMPENSATION
+// ist weiterhin ohne Anfangsbestände und ohne allgemeinen manuellen Buchungsdialog:
+// AUTO_WEEKLY, COMPENSATION_REDEMPTION (Bezug) plus dedizierte
+// `correctCompensationAction` (nur BookingType CORRECTION).
 const MANUAL_BOOKING_ACCOUNT_TYPES = [
   "ZEITSALDO",
   "FERIEN",
@@ -117,6 +117,91 @@ export async function manualBookingAction(
     return { ok: true };
   } catch (err) {
     if (err instanceof ManualBookingError) {
+      return { ok: false, error: err.message };
+    }
+    throw err;
+  }
+}
+
+const compensationCorrectionSchema = z.object({
+  employeeId: z.string().min(1, "Mitarbeitende:r erforderlich"),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Datum ungültig"),
+  minutes: z.coerce
+    .number({ message: "Minuten erforderlich" })
+    .int("Ganzzahl in Minuten erforderlich")
+    .positive("Minuten müssen grösser als 0 sein"),
+  correctionSign: z.enum(["plus", "minus"]),
+  comment: z
+    .string()
+    .min(3, "Bitte einen Grund angeben")
+    .max(300, "Maximal 300 Zeichen"),
+});
+
+/**
+ * Korrekturbuchung (CORRECTION) auf SONNTAG_FEIERTAG_KOMPENSATION, positiv oder negativ.
+ * Anfangsbestände (OPENING) bleiben hierfür weiter gesperrt.
+ */
+export async function correctCompensationAction(
+  _prev: ActionResult | undefined,
+  formData: FormData,
+): Promise<ActionResult> {
+  const admin = await requireAdmin();
+
+  const raw = {
+    employeeId: readOptionalString(formData.get("employeeId")) ?? "",
+    date: readOptionalString(formData.get("date")) ?? "",
+    minutes: formData.get("minutes"),
+    correctionSign:
+      readOptionalString(formData.get("correctionSign")) ?? "plus",
+    comment: readOptionalString(formData.get("comment")) ?? "",
+  };
+
+  const parsed = compensationCorrectionSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: "Bitte Eingaben prüfen.",
+      fieldErrors: fieldErrorsFromZod(parsed.error),
+    };
+  }
+  const data = parsed.data;
+
+  const date = parseIsoDate(data.date);
+  if (!date) return { ok: false, error: "Datum ungültig." };
+
+  const signedMinutes =
+    data.correctionSign === "plus" ? data.minutes : -data.minutes;
+
+  try {
+    const result = await applyCompensationCorrection(prisma, {
+      employeeId: data.employeeId,
+      tenantId: admin.tenantId,
+      date,
+      signedMinutes,
+      comment: data.comment,
+      createdByUserId: admin.id,
+    });
+
+    await writeAudit({
+      userId: admin.id,
+      action: "COMPENSATION_CORRECTION",
+      entity: "Booking",
+      entityId: result.bookingId,
+      newValue: {
+        employeeId: data.employeeId,
+        accountType: "SONNTAG_FEIERTAG_KOMPENSATION",
+        bookingType: "CORRECTION",
+        value: result.signedValue,
+        date: data.date,
+      },
+      comment: data.comment,
+    });
+
+    safeRevalidatePath("correctCompensationAction", "/accounts");
+    safeRevalidatePath("correctCompensationAction", "/my-accounts");
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof CompensationCorrectionError) {
       return { ok: false, error: err.message };
     }
     throw err;
