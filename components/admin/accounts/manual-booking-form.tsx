@@ -43,7 +43,7 @@ const ACCOUNT_OPTIONS: Array<{
   hint: string;
 }> = [
   { value: "ZEITSALDO", label: "Zeitsaldo", hint: "Wert in Minuten (z. B. 60 = +1h)" },
-  { value: "FERIEN", label: "Ferien", hint: "Wert in Tagen (z. B. 0.5 = halber Tag)" },
+  { value: "FERIEN", label: "Ferien", hint: "Wert in Minuten (z. B. 480 = 1 Tag bei 8h)" },
   { value: "UEZ", label: "UEZ", hint: "Wert in Minuten" },
   { value: "TZT", label: "TZT", hint: "Wert in Tagen" },
   {
@@ -136,7 +136,7 @@ export function ManualBookingForm({ employees, defaults, onSuccess }: Props) {
           <LabelWithHelp
             htmlFor="accountType"
             label="Konto"
-            tooltip="Legt Einheit und Kontologik fest: Zeitsaldo/UEZ in Minuten, Ferien/TZT in Tagen."
+            tooltip="Legt Einheit und Kontologik fest: Zeitsaldo/UEZ/Ferien in Minuten, TZT in Tagen."
           />
           <select
             id="accountType"

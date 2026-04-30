@@ -11,6 +11,7 @@ export type AccountBalanceRow = {
 
 export type EmployeeStammdatenForAccounts = {
   vacationDaysPerYear: number;
+  baseDailySollMinutes: number;
 } | null;
 
 type AccountTypeKey =
@@ -49,12 +50,21 @@ export function buildMyAccountsView(
   const ferien: MyAccountValue | null =
     ferienFromDb ??
     (employee
-      ? { unit: "DAYS", value: employee.vacationDaysPerYear }
+      ? {
+          unit: "MINUTES",
+          value: employee.vacationDaysPerYear * employee.baseDailySollMinutes,
+          baseDailySollMinutes: employee.baseDailySollMinutes,
+        }
       : null);
+
+  const ferienWithMeta =
+    ferien && employee
+      ? { ...ferien, baseDailySollMinutes: employee.baseDailySollMinutes }
+      : ferien;
 
   return {
     zeitsaldo: pick(balances, "ZEITSALDO"),
-    ferien,
+    ferien: ferienWithMeta,
     tzt: pick(balances, "TZT"),
     uez: pick(balances, "UEZ"),
     sonntagFeiertagKompensation: pick(balances, "SONNTAG_FEIERTAG_KOMPENSATION"),

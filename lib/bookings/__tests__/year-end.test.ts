@@ -79,19 +79,19 @@ describe("applyYearEndCarryover", () => {
     expect(carry?.date.getDate()).toBe(1);
   });
 
-  it("opens FERIEN at the annual allowance and carries leftover days on top", async () => {
+  it("opens FERIEN in minutes and carries leftover minutes on top", async () => {
     const employee = await seedEmployee(db.prisma, {
       locationId,
       vacationDaysPerYear: 25,
     });
     const date = parseIsoDate(`${FROM_YEAR}-12-15`)!;
 
-    // Open the FERIEN row at 25 with a manual debit of 13 → currentValue = 12
+    // Opening is 25 days × 504 min, then debit 13 days × 504 min.
     await applyManualBooking(db.prisma, {
       employeeId: employee.id,
       accountType: "FERIEN",
       date,
-      value: 13,
+      value: 6552,
       bookingType: "MANUAL_DEBIT",
       comment: "Bezogen",
       createdByUserId: adminId,
@@ -106,7 +106,7 @@ describe("applyYearEndCarryover", () => {
         },
       },
     });
-    expect(closing?.currentValue).toBe(12);
+    expect(closing?.currentValue).toBe(6048);
 
     await applyYearEndCarryover(db.prisma, FROM_YEAR, adminId);
 
@@ -119,8 +119,8 @@ describe("applyYearEndCarryover", () => {
         },
       },
     });
-    expect(newYear?.openingValue).toBe(25);
-    expect(newYear?.currentValue).toBe(37);
+    expect(newYear?.openingValue).toBe(12600);
+    expect(newYear?.currentValue).toBe(18648);
   });
 
   it("does not write a CARRYOVER booking when closing balance is 0", async () => {

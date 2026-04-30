@@ -4,7 +4,7 @@ import {
   type AccountBalanceRow,
 } from "@/lib/employee/accounts-transform";
 
-const employee = { vacationDaysPerYear: 25 };
+const employee = { vacationDaysPerYear: 25, baseDailySollMinutes: 504 };
 
 describe("buildMyAccountsView", () => {
   it("populates UEZ and Sonn-/Feiertagskompensation when their AccountBalance rows exist", () => {
@@ -35,6 +35,10 @@ describe("buildMyAccountsView", () => {
 
   it("falls back to Stammdaten allowance for FERIEN until the row is materialised", () => {
     const view = buildMyAccountsView([], employee);
-    expect(view.ferien).toEqual({ unit: "DAYS", value: 25 });
+    expect(view.ferien).toEqual({
+      unit: "MINUTES",
+      value: 12600,
+      baseDailySollMinutes: 504,
+    });
   });
 });

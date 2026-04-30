@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parentalCareDaysDebit, vacationDaysDebit } from "../vacation";
 
 describe("vacationDaysDebit", () => {
-  it("counts only VACATION days", () => {
+  it("returns VACATION debit in minutes", () => {
     expect(
       vacationDaysDebit([
         { kind: "VACATION" },
@@ -10,8 +10,8 @@ describe("vacationDaysDebit", () => {
         { kind: "WEEKEND_OFF" },
         { kind: "HOLIDAY" }, // priority would have collapsed a vacation-on-holiday
         { kind: "WORK" },
-      ]),
-    ).toBe(2);
+      ], 480),
+    ).toBe(960);
   });
 
   it("returns 0 if there is no vacation in the week", () => {
@@ -20,7 +20,7 @@ describe("vacationDaysDebit", () => {
         { kind: "WORK" },
         { kind: "SICK" },
         { kind: "HOLIDAY" },
-      ]),
+      ], 504),
     ).toBe(0);
   });
 });

@@ -48,7 +48,7 @@ describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
     expect(result.weeklyWorkMinutes).toBe(2520);
     expect(result.weeklyUesAusweisMinutes).toBe(0);
     expect(result.weeklyUezDeltaMinutes).toBe(0);
-    expect(result.vacationDaysDebit).toBe(0);
+    expect(result.vacationMinutesDebit).toBe(0);
   });
 
   it("caps Zeitsaldo at HAZ and books only the excess into UEZ", () => {
@@ -148,7 +148,7 @@ describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
     );
     expect(result.weeklyZeitsaldoDeltaMinutes).toBe(0);
     expect(result.totalHolidayCreditMinutes).toBe(0);
-    expect(result.vacationDaysDebit).toBe(5);
+    expect(result.vacationMinutesDebit).toBe(2520);
   });
 
   it("UEZ_BEZUG leaves weekly Zeitsaldo delta at 0 (full Soll, anrechenbar Ist)", () => {
@@ -168,7 +168,7 @@ describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
       FULL_PENSUM,
     );
     expect(result.weeklyZeitsaldoDeltaMinutes).toBe(0);
-    expect(result.vacationDaysDebit).toBe(0);
+    expect(result.vacationMinutesDebit).toBe(0);
   });
 
   it("free-requested deducts from Zeitsaldo (Soll - Ist = -Tagessoll)", () => {
@@ -189,7 +189,7 @@ describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
     );
     expect(result.weeklyZeitsaldoDeltaMinutes).toBe(-504);
     expect(result.totalHolidayCreditMinutes).toBe(0);
-    expect(result.vacationDaysDebit).toBe(0);
+    expect(result.vacationMinutesDebit).toBe(0);
     expect(result.days[0].contributionMinutes).toBe(-504);
     expect(result.days[0].displayContributionMinutes).toBe(0);
     expect({
@@ -217,7 +217,7 @@ describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
     );
     expect(result.weeklyZeitsaldoDeltaMinutes).toBe(0);
     expect(result.totalHolidayCreditMinutes).toBe(0);
-    expect(result.vacationDaysDebit).toBe(0);
+    expect(result.vacationMinutesDebit).toBe(0);
     expect(result.parentalCareDaysDebit).toBe(0);
   });
 
@@ -246,7 +246,7 @@ describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
     );
     expect(result.days[0].kind).toBe("SICK");
     expect(result.weeklyZeitsaldoDeltaMinutes).toBe(0);
-    expect(result.vacationDaysDebit).toBe(0);
+    expect(result.vacationMinutesDebit).toBe(0);
     expect(result.parentalCareDaysDebit).toBe(0);
   });
 
@@ -271,7 +271,7 @@ describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
       FULL_PENSUM,
     );
     expect(result.weeklyZeitsaldoDeltaMinutes).toBe(0);
-    expect(result.vacationDaysDebit).toBe(0);
+    expect(result.vacationMinutesDebit).toBe(0);
     expect(result.parentalCareDaysDebit).toBe(1);
   });
 
@@ -320,7 +320,7 @@ describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
     expect(result.days[0].istMinutes).toBe(0);
     expect(result.weeklyZeitsaldoDeltaMinutes).toBe(0);
     expect(result.weeklyUesAusweisMinutes).toBe(0);
-    expect(result.vacationDaysDebit).toBe(0);
+    expect(result.vacationMinutesDebit).toBe(0);
     expect(result.parentalCareDaysDebit).toBe(0);
   });
 
@@ -392,7 +392,7 @@ describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
     expect(result.days[0].kind).toBe("HOLIDAY");
     expect(result.days[0].holidayCreditMinutes).toBe(504);
     expect(result.totalHolidayCreditMinutes).toBe(504);
-    expect(result.vacationDaysDebit).toBe(0);
+    expect(result.vacationMinutesDebit).toBe(0);
     expect(result.weeklyZeitsaldoDeltaMinutes).toBe(0);
   });
 

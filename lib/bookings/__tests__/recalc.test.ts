@@ -76,7 +76,7 @@ describe("recalcWeekClose", () => {
     expect(balance?.openingValue).toBe(0);
   });
 
-  it("creates a FERIEN debit (-5) for a full vacation week with 0 delta", async () => {
+  it("creates a FERIEN debit in minutes for a full vacation week", async () => {
     const employee = await seedEmployee(db.prisma, { locationId });
     for (let i = 0; i < 5; i++) {
       await seedAbsenceEntry(db.prisma, {
@@ -94,7 +94,7 @@ describe("recalcWeekClose", () => {
     });
     expect(bookings).toHaveLength(1);
     expect(bookings[0].accountType).toBe("FERIEN");
-    expect(bookings[0].value).toBe(-5);
+    expect(bookings[0].value).toBe(-2520);
 
     const ferien = await db.prisma.accountBalance.findUnique({
       where: {
@@ -105,8 +105,8 @@ describe("recalcWeekClose", () => {
         },
       },
     });
-    expect(ferien?.openingValue).toBe(25);
-    expect(ferien?.currentValue).toBe(20);
+    expect(ferien?.openingValue).toBe(12600);
+    expect(ferien?.currentValue).toBe(10080);
   });
 
   it("creates a parental/care leave debit on its dedicated account", async () => {
@@ -166,13 +166,13 @@ describe("recalcWeekClose", () => {
       },
     });
     // 4 vacation days debited (Thu was overridden to HOLIDAY)
-    expect(ferien?.currentValue).toBe(21);
+    expect(ferien?.currentValue).toBe(10584);
 
     const ferienBookings = await db.prisma.booking.findMany({
       where: { employeeId: employee.id, accountType: "FERIEN" },
     });
     expect(ferienBookings).toHaveLength(1);
-    expect(ferienBookings[0].value).toBe(-4);
+    expect(ferienBookings[0].value).toBe(-2016);
   });
 
   it("creates a UEZ booking when weekly work exceeds the HAZ cap", async () => {
@@ -557,7 +557,44 @@ describe("recalcWeekClose", () => {
         },
       },
     });
-    expect(vacationerFerien?.currentValue).toBe(20);
+    expect(vacationerFerien?.currentValue).toBe(10080);
+  });
+
+  it("debits one personal Tagessoll for 50% pensum vacation day", async () => {
+    const employee = await seedEmployee(db.prisma, {
+      locationId,
+      weeklyTargetMinutes: 1260,
+      vacationDaysPerYear: 25,
+    });
+    await seedAbsenceEntry(db.prisma, {
+      weekId,
+      employeeId: employee.id,
+      isoDate: weekDays[0],
+      absenceType: "VACATION",
+    });
+
+    await recalcWeekClose(db.prisma, weekId, adminId);
+
+    const ferienBooking = await db.prisma.booking.findFirst({
+      where: {
+        employeeId: employee.id,
+        bookingType: "AUTO_WEEKLY",
+        accountType: "FERIEN",
+      },
+    });
+    expect(ferienBooking?.value).toBe(-252);
+
+    const ferien = await db.prisma.accountBalance.findUnique({
+      where: {
+        employeeId_accountType_year: {
+          employeeId: employee.id,
+          accountType: "FERIEN",
+          year: YEAR,
+        },
+      },
+    });
+    expect(ferien?.openingValue).toBe(6300);
+    expect(ferien?.currentValue).toBe(6048);
   });
 
   it("is a no-op when the weekId does not exist", async () => {

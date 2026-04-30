@@ -6,6 +6,10 @@ import {
   ManualBookingError,
   normalizeUezPayoutPolicy,
 } from "@/lib/bookings/core";
+import {
+  baseDailySollMinutes,
+  effectiveStandardWorkDays,
+} from "@/lib/time/soll";
 import { prisma } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import type {
@@ -141,7 +145,7 @@ export interface BookingHistoryRow {
 
 const DEFAULT_UNITS: Record<AccountType, AccountUnit> = {
   ZEITSALDO: "MINUTES",
-  FERIEN: "DAYS",
+  FERIEN: "MINUTES",
   UEZ: "MINUTES",
   TZT: "DAYS",
   SONNTAG_FEIERTAG_KOMPENSATION: "MINUTES",
@@ -199,6 +203,7 @@ export interface AdminAccountsRow {
   roleLabel: string | null;
   vacationDaysPerYear: number;
   weeklyTargetMinutes: number;
+  baseDailySollMinutes: number;
   hazMinutesPerWeek: number;
   tztModel: "DAILY_QUOTA" | "TARGET_REDUCTION";
   locationId: string;
@@ -263,7 +268,18 @@ export async function loadAdminAccountsTable(
     rows: employees.map((e) => {
       const accounts: Record<AccountType, AccountSummary> = {
         ZEITSALDO: emptySummary("ZEITSALDO"),
-        FERIEN: { ...emptySummary("FERIEN"), openingValue: e.vacationDaysPerYear },
+        FERIEN: {
+          ...emptySummary("FERIEN"),
+          openingValue:
+            e.vacationDaysPerYear *
+            baseDailySollMinutes(
+              e.weeklyTargetMinutes,
+              effectiveStandardWorkDays(
+                e.standardWorkDays,
+                e.tenant.defaultStandardWorkDays,
+              ),
+            ),
+        },
         UEZ: emptySummary("UEZ"),
         TZT: emptySummary("TZT"),
         SONNTAG_FEIERTAG_KOMPENSATION: emptySummary(
@@ -287,6 +303,13 @@ export async function loadAdminAccountsTable(
         roleLabel: e.roleLabel,
         vacationDaysPerYear: e.vacationDaysPerYear,
         weeklyTargetMinutes: e.weeklyTargetMinutes,
+        baseDailySollMinutes: baseDailySollMinutes(
+          e.weeklyTargetMinutes,
+          effectiveStandardWorkDays(
+            e.standardWorkDays,
+            e.tenant.defaultStandardWorkDays,
+          ),
+        ),
         hazMinutesPerWeek: e.hazMinutesPerWeek,
         tztModel: e.tztModel as "DAILY_QUOTA" | "TARGET_REDUCTION",
         locationId: e.locationId,

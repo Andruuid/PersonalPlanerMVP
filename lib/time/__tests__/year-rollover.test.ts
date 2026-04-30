@@ -25,22 +25,22 @@ describe("planYearRollover", () => {
   it("Ferien rollover keeps opening = annual allowance and carries the rest as a booking", () => {
     const plan = planYearRollover({
       accountType: "FERIEN",
-      unit: "DAYS",
-      closingValue: 4.5,
-      annualAllowance: 25,
+      unit: "MINUTES",
+      closingValue: 2268,
+      annualAllowance: 12600,
     });
-    expect(plan.newYearOpening).toBe(25);
-    expect(plan.carryoverBooking).toBe(4.5);
+    expect(plan.newYearOpening).toBe(12600);
+    expect(plan.carryoverBooking).toBe(2268);
   });
 
   it("Ferien rollover with no allowance still carries the closing value", () => {
     const plan = planYearRollover({
       accountType: "FERIEN",
-      unit: "DAYS",
-      closingValue: 3,
+      unit: "MINUTES",
+      closingValue: 1512,
     });
     expect(plan.newYearOpening).toBe(0);
-    expect(plan.carryoverBooking).toBe(3);
+    expect(plan.carryoverBooking).toBe(1512);
   });
 
   it("TZT carries forward 1:1 (manual-only)", () => {

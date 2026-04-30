@@ -35,7 +35,28 @@ export function formatDays(days: number, suffix: "Tage" | "Tag" = "Tage"): strin
   return `${sign}${abs.toFixed(1)} ${suffix}`;
 }
 
-export function formatAccountValue(unit: AccountUnit, value: number): string {
+function formatHoursCompact(minutes: number): string {
+  const hours = Math.round((minutes / 60) * 10) / 10;
+  return `${hours.toFixed(1)} h`;
+}
+
+export function formatFerienMinutes(
+  minutes: number,
+  baseDailyMinutes: number,
+): string {
+  if (baseDailyMinutes <= 0) return formatMinutesAsHours(minutes);
+  const days = minutes / baseDailyMinutes;
+  return `${formatDays(days)} (${formatHoursCompact(minutes)})`;
+}
+
+export function formatAccountValue(
+  unit: AccountUnit,
+  value: number,
+  opts?: { accountType?: AccountType; baseDailyMinutes?: number },
+): string {
+  if (opts?.accountType === "FERIEN" && opts.baseDailyMinutes) {
+    return formatFerienMinutes(value, opts.baseDailyMinutes);
+  }
   if (unit === "MINUTES") return formatMinutesAsHours(value);
   return formatDays(value);
 }

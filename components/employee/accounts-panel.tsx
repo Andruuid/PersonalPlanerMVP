@@ -40,6 +40,14 @@ function formatDays(days: number): string {
   return `${rounded.toFixed(1)} Tage`;
 }
 
+function formatFerienValue(value: MyAccountValue): string {
+  const daily = value.baseDailySollMinutes;
+  if (!daily || daily <= 0) return formatMinutesAsHours(value.value);
+  const days = value.value / daily;
+  const hours = Math.round((value.value / 60) * 10) / 10;
+  return `${formatDays(days)} (${hours.toFixed(1)} h)`;
+}
+
 function formatTztDays(days: number): string {
   const rounded = Math.round(days * 10) / 10;
   if (Math.abs(rounded) === 1) return `${rounded.toFixed(1)} Tag`;
@@ -59,7 +67,7 @@ const CARDS: AccountCardConfig[] = [
     label: "Ferien",
     icon: PalmtreeIcon,
     iconClass: "bg-sky-100 text-sky-700",
-    unitLabel: (v) => (v ? formatDays(v.value) : "0.0 Tage"),
+    unitLabel: (v) => (v ? formatFerienValue(v) : "0.0 Tage (0.0 h)"),
   },
   {
     key: "tzt",

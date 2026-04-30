@@ -83,7 +83,12 @@ function getAccountValue(
   const yearBalances = input.balancesByYear[year];
   const fromBalance = yearBalances?.[accountType];
   if (typeof fromBalance === "number") return fromBalance;
-  if (accountType === "FERIEN") return input.vacationDaysPerYear;
+  if (accountType === "FERIEN") {
+    return (
+      input.vacationDaysPerYear *
+      baseDailySollMinutes(input.weeklyTargetMinutes, input.standardWorkDays)
+    );
+  }
   return 0;
 }
 
@@ -104,12 +109,17 @@ export function evaluateRequestEntitlement(
   if (sollDaysByYear.size === 0) return { ok: true };
 
   if (effectiveType === "VACATION") {
+    const dailyTargetMinutes = baseDailySollMinutes(
+      input.weeklyTargetMinutes,
+      input.standardWorkDays,
+    );
     for (const [year, requestedDays] of sollDaysByYear) {
+      const neededMinutes = requestedDays * dailyTargetMinutes;
       const available = getAccountValue(input, year, "FERIEN");
-      if (available < requestedDays) {
+      if (available < neededMinutes) {
         return {
           ok: false,
-          error: `Zu wenig Ferienguthaben (${year}): benötigt ${requestedDays}, verfügbar ${available}.`,
+          error: `Zu wenig Ferienguthaben (${year}): benötigt ${Math.round(neededMinutes)} Min., verfügbar ${Math.round(available)} Min.`,
         };
       }
     }

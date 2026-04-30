@@ -66,6 +66,7 @@ export interface MyWeekHeader {
 export interface MyAccountValue {
   unit: "MINUTES" | "DAYS";
   value: number;
+  baseDailySollMinutes?: number;
 }
 
 export interface MyAccountsView {

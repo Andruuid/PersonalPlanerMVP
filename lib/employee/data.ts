@@ -11,6 +11,10 @@ import type {
 } from "@/components/employee/types";
 import { buildMyAccountsView } from "@/lib/employee/accounts-transform";
 import type { SessionUser } from "@/server/_shared";
+import {
+  baseDailySollMinutes,
+  effectiveStandardWorkDays,
+} from "@/lib/time/soll";
 
 function fmtRange(start: Date, end: Date): string {
   const sameDay = start.toDateString() === end.toDateString();
@@ -132,9 +136,27 @@ export async function loadMyAccounts(
     }),
     prisma.employee.findFirst({
       where: { id: employeeId, tenantId: user.tenantId, deletedAt: null },
-      select: { vacationDaysPerYear: true },
+      select: {
+        vacationDaysPerYear: true,
+        weeklyTargetMinutes: true,
+        standardWorkDays: true,
+        tenant: { select: { defaultStandardWorkDays: true } },
+      },
     }),
   ]);
 
-  return buildMyAccountsView(balances, employee);
+  const employeeForAccounts = employee
+    ? {
+        vacationDaysPerYear: employee.vacationDaysPerYear,
+        baseDailySollMinutes: baseDailySollMinutes(
+          employee.weeklyTargetMinutes,
+          effectiveStandardWorkDays(
+            employee.standardWorkDays,
+            employee.tenant.defaultStandardWorkDays,
+          ),
+        ),
+      }
+    : null;
+
+  return buildMyAccountsView(balances, employeeForAccounts);
 }

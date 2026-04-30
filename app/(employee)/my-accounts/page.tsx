@@ -125,7 +125,10 @@ export default async function MyAccountsPage({ searchParams }: PageProps) {
               Alle Buchungen für {year}, gruppiert nach Monat.
             </p>
           </header>
-          <BookingHistory rows={history} />
+          <BookingHistory
+            rows={history}
+            ferienBaseDailySollMinutes={accounts.ferien?.baseDailySollMinutes}
+          />
         </section>
       </div>
     </div>

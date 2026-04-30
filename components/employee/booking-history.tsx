@@ -51,9 +51,10 @@ function groupByMonth(rows: BookingHistoryRow[]): MonthGroup[] {
 
 interface Props {
   rows: BookingHistoryRow[];
+  ferienBaseDailySollMinutes?: number;
 }
 
-export function BookingHistory({ rows }: Props) {
+export function BookingHistory({ rows, ferienBaseDailySollMinutes }: Props) {
   if (rows.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-neutral-200 bg-white p-6 text-center text-sm text-neutral-500">
@@ -102,7 +103,10 @@ export function BookingHistory({ rows }: Props) {
                             : "text-neutral-900",
                     )}
                   >
-                    {formatAccountValue(r.unit, r.value)}
+                    {formatAccountValue(r.unit, r.value, {
+                      accountType: r.accountType,
+                      baseDailyMinutes: ferienBaseDailySollMinutes,
+                    })}
                   </span>
                   <Badge
                     className={`shrink-0 ${BOOKING_TYPE_BADGE[r.bookingType]}`}

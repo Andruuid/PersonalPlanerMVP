@@ -17,7 +17,7 @@ import {
   computeWeeklyBalance,
   type PlanEntryByDate,
 } from "@/lib/time/balance";
-import { effectiveStandardWorkDays } from "@/lib/time/soll";
+import { baseDailySollMinutes, effectiveStandardWorkDays } from "@/lib/time/soll";
 import { buildHolidayLookup } from "@/lib/time/holidays";
 import { isoDateString, isoWeekDays } from "@/lib/time/week";
 import { hasRestWindowMinutes, type TimeInterval } from "@/lib/time/ert";
@@ -32,7 +32,7 @@ type Tx = Prisma.TransactionClient;
 
 export const ACCOUNT_UNITS: Record<AccountType, AccountUnit> = {
   ZEITSALDO: "MINUTES",
-  FERIEN: "DAYS",
+  FERIEN: "MINUTES",
   UEZ: "MINUTES",
   TZT: "DAYS",
   SONNTAG_FEIERTAG_KOMPENSATION: "MINUTES",
@@ -54,6 +54,17 @@ const HEAVY_INTERACTIVE_TX: { timeout: number; maxWait: number } = {
   maxWait: 10_000,
 };
 const ERT_MIN_REST_MINUTES = 35 * 60;
+
+function ferienAllowanceMinutes(
+  vacationDaysPerYear: number,
+  weeklyTargetMinutes: number,
+  standardWorkDays: number,
+): number {
+  return (
+    vacationDaysPerYear *
+    baseDailySollMinutes(weeklyTargetMinutes, standardWorkDays)
+  );
+}
 
 function dateAtMidnight(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -291,7 +302,7 @@ async function upsertAndAdvanceCompensationCases(
           tenantId,
           "SONNTAG_FEIERTAG_KOMPENSATION",
           year,
-          vacationDaysPerYear,
+          0,
         );
         await tx.booking.create({
           data: {
@@ -335,9 +346,8 @@ function isEmployeeActiveOnDate(
 
 /**
  * Ensure an `AccountBalance` row exists for (employee, accountType, year).
- * For FERIEN we seed openingValue from `vacationDaysPerYear` so even before
- * any bookings the new year shows the full allowance. All other accounts
- * open at 0.
+ * For FERIEN we seed openingValue in minutes (annual vacation days multiplied
+ * by personal Tagessoll minutes). All other accounts open at 0.
  */
 async function ensureBalanceRow(
   tx: Tx,
@@ -345,14 +355,14 @@ async function ensureBalanceRow(
   tenantId: string,
   accountType: AccountType,
   year: number,
-  vacationDaysPerYear: number,
+  ferienOpeningMinutes: number,
 ): Promise<void> {
   const existing = await tx.accountBalance.findUnique({
     where: { employeeId_accountType_year: { employeeId, accountType, year } },
   });
   if (existing) return;
 
-  const opening = accountType === "FERIEN" ? vacationDaysPerYear : 0;
+  const opening = accountType === "FERIEN" ? ferienOpeningMinutes : 0;
   await tx.accountBalance.create({
     data: {
       tenantId,
@@ -423,6 +433,24 @@ export async function applyEmployeeOpeningBalances(
   input: EmployeeOpeningBalancesInput,
 ): Promise<number> {
   const year = input.entryDate.getFullYear();
+  const employee = await tx.employee.findUnique({
+    where: { id: input.employeeId },
+    select: {
+      weeklyTargetMinutes: true,
+      standardWorkDays: true,
+      tenant: { select: { defaultStandardWorkDays: true } },
+    },
+  });
+  const ferienOpeningMinutes = employee
+    ? ferienAllowanceMinutes(
+        input.vacationDaysPerYear,
+        employee.weeklyTargetMinutes,
+        effectiveStandardWorkDays(
+          employee.standardWorkDays,
+          employee.tenant.defaultStandardWorkDays,
+        ),
+      )
+    : 0;
   let created = 0;
   for (const accountType of ACCOUNT_TYPES) {
     const value = input.openings[accountType];
@@ -433,7 +461,7 @@ export async function applyEmployeeOpeningBalances(
       input.tenantId,
       accountType,
       year,
-      input.vacationDaysPerYear,
+      ferienOpeningMinutes,
     );
     await tx.booking.create({
       data: {
@@ -735,11 +763,11 @@ export async function recalcWeekClose(
           value: result.weeklyUezDeltaMinutes,
         });
       }
-      if (result.vacationDaysDebit !== 0) {
+      if (result.vacationMinutesDebit !== 0) {
         bookingsToCreate.push({
           accountType: "FERIEN",
           bookingType: "AUTO_WEEKLY",
-          value: -result.vacationDaysDebit,
+          value: -result.vacationMinutesDebit,
         });
       }
       if (result.parentalCareDaysDebit !== 0) {
@@ -758,6 +786,14 @@ export async function recalcWeekClose(
       }
 
       const defaultComment = `KW ${week.weekNumber}/${week.year}`;
+      const ferienOpeningMinutes = ferienAllowanceMinutes(
+        employee.vacationDaysPerYear,
+        employee.weeklyTargetMinutes,
+        effectiveStandardWorkDays(
+          employee.standardWorkDays,
+          employee.tenant.defaultStandardWorkDays,
+        ),
+      );
       for (const b of bookingsToCreate) {
         await ensureBalanceRow(
           tx,
@@ -765,7 +801,7 @@ export async function recalcWeekClose(
           employee.tenantId,
           b.accountType,
           yearForBookings,
-          employee.vacationDaysPerYear,
+          ferienOpeningMinutes,
         );
         await tx.booking.create({
           data: {
@@ -916,6 +952,9 @@ export async function applyManualBooking(
       id: true,
       tenantId: true,
       vacationDaysPerYear: true,
+      weeklyTargetMinutes: true,
+      standardWorkDays: true,
+      tenant: { select: { defaultStandardWorkDays: true } },
       entryDate: true,
       exitDate: true,
       deletedAt: true,
@@ -945,13 +984,21 @@ export async function applyManualBooking(
       : input.value;
 
   const booking = await prisma.$transaction(async (tx) => {
+    const ferienOpeningMinutes = ferienAllowanceMinutes(
+      employee.vacationDaysPerYear,
+      employee.weeklyTargetMinutes,
+      effectiveStandardWorkDays(
+        employee.standardWorkDays,
+        employee.tenant.defaultStandardWorkDays,
+      ),
+    );
     await ensureBalanceRow(
       tx,
       employee.id,
       employee.tenantId,
       input.accountType,
       year,
-      employee.vacationDaysPerYear,
+      ferienOpeningMinutes,
     );
     const created = await tx.booking.create({
       data: {
@@ -1080,7 +1127,7 @@ export async function applyCompensationCorrection(
       employee.tenantId,
       "SONNTAG_FEIERTAG_KOMPENSATION",
       year,
-      employee.vacationDaysPerYear,
+      0,
     );
     const row = await tx.accountBalance.findUnique({
       where: {
@@ -1277,7 +1324,7 @@ export async function applyTztPeriodicGrant(
           row.tenantId,
           "TZT",
           year,
-          row.vacationDaysPerYear,
+          0,
         );
 
         const booking = await tx.booking.create({
@@ -1418,7 +1465,7 @@ export async function applyCompensationRedemption(
       employee.tenantId,
       "SONNTAG_FEIERTAG_KOMPENSATION",
       year,
-      employee.vacationDaysPerYear,
+      0,
     );
     const balance = await tx.accountBalance.findUnique({
       where: {
@@ -1585,7 +1632,7 @@ export async function applyUezPayout(
       employee.tenantId,
       "UEZ",
       year,
-      employee.vacationDaysPerYear,
+      0,
     );
     const balance = await tx.accountBalance.findUnique({
       where: {
@@ -1716,7 +1763,7 @@ export interface YearEndCarryoverResult {
  *
  * Idempotent: prior CARRYOVER bookings dated to Jan 1 of the destination
  * year are removed and rewritten. Opening balance for the new year is set
- * to the configured allowance (FERIEN: vacationDaysPerYear, others: 0).
+ * to the configured allowance (FERIEN in minutes, others: 0).
  */
 export async function applyYearEndCarryover(
   prisma: PrismaClient,
@@ -1735,7 +1782,12 @@ export async function applyYearEndCarryover(
   if (tenantId) employeeWhere.tenantId = tenantId;
 
   const employees = (
-    await prisma.employee.findMany({ where: employeeWhere })
+    await prisma.employee.findMany({
+      where: employeeWhere,
+      include: {
+        tenant: { select: { defaultStandardWorkDays: true } },
+      },
+    })
   ).filter((employee) => isEmployeeActiveOnDate(employee, carryDate));
 
   let bookingsCreated = 0;
@@ -1754,7 +1806,16 @@ export async function applyYearEndCarryover(
         });
         const closingValue = closing?.currentValue ?? 0;
         const allowance =
-          accountType === "FERIEN" ? employee.vacationDaysPerYear : 0;
+          accountType === "FERIEN"
+            ? ferienAllowanceMinutes(
+                employee.vacationDaysPerYear,
+                employee.weeklyTargetMinutes,
+                effectiveStandardWorkDays(
+                  employee.standardWorkDays,
+                  employee.tenant.defaultStandardWorkDays,
+                ),
+              )
+            : 0;
 
         const plan = planYearRollover({
           accountType,

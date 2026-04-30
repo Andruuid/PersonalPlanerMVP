@@ -58,7 +58,7 @@ export interface WeeklyComputation {
   weeklyWorkMinutes: number;
   weeklyUesAusweisMinutes: number;
   weeklyUezDeltaMinutes: number;
-  vacationDaysDebit: number;
+  vacationMinutesDebit: number;
   parentalCareDaysDebit: number;
   dailyRestViolations: Array<{ date: string; gapMinutes: number }>;
   weeklyRestOk: boolean;
@@ -184,7 +184,10 @@ export function computeWeeklyBalance(
     config.hazMinutesPerWeek,
   );
   const weeklyUez = weeklyUezContribution(weeklyWork, config.hazMinutesPerWeek);
-  const vacation = vacationDaysDebit(days);
+  const vacation = vacationDaysDebit(
+    days,
+    baseDailySollMinutes(config.weeklyTargetMinutes, standardWorkDays),
+  );
   const parentalCare = parentalCareDaysDebit(days);
 
   const weekEndExclusive = addDays(weekStart, 7);
@@ -221,7 +224,7 @@ export function computeWeeklyBalance(
     weeklyWorkMinutes: weeklyWork,
     weeklyUesAusweisMinutes: weeklyUesAusweis,
     weeklyUezDeltaMinutes: weeklyUez,
-    vacationDaysDebit: vacation,
+    vacationMinutesDebit: vacation,
     parentalCareDaysDebit: parentalCare,
     dailyRestViolations,
     weeklyRestOk: weeklyRest.ok,

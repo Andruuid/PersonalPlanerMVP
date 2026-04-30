@@ -169,9 +169,9 @@ describe("applyManualBooking", () => {
       employeeId: employee.id,
       accountType: "FERIEN",
       date,
-      value: 1,
+      value: 504,
       bookingType: "MANUAL_CREDIT",
-      comment: "+1 Tag",
+      comment: "+1 Tag (in Minuten)",
       createdByUserId: adminId,
     });
 
@@ -184,8 +184,8 @@ describe("applyManualBooking", () => {
         },
       },
     });
-    expect(balance?.openingValue).toBe(28);
-    expect(balance?.currentValue).toBe(29);
+    expect(balance?.openingValue).toBe(14112);
+    expect(balance?.currentValue).toBe(14616);
   });
 
   it("rejects a value of 0", async () => {

@@ -43,7 +43,7 @@ describe("applyEmployeeOpeningBalances", () => {
         createdByUserId: adminId,
         openings: {
           ZEITSALDO: 120,
-          FERIEN: 2.5,
+          FERIEN: 1260,
           TZT: 1,
         },
       }),
@@ -82,8 +82,8 @@ describe("applyEmployeeOpeningBalances", () => {
     });
     // OPENING bookings are folded into openingValue (allowance + opening
     // delta), and excluded from the recompute sum to avoid double counting.
-    expect(ferien?.openingValue).toBe(27.5);
-    expect(ferien?.currentValue).toBe(27.5);
+    expect(ferien?.openingValue).toBe(13860);
+    expect(ferien?.currentValue).toBe(13860);
 
     const tzt = await db.prisma.accountBalance.findUnique({
       where: {

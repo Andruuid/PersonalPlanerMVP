@@ -23,6 +23,7 @@ test.describe("Mitarbeitende: Zeitkonten-Sicht", () => {
     await expect(page).toHaveURL(/\/my-accounts/);
     await expect(page.getByRole("heading", { level: 1, name: "Meine Konten" })).toBeVisible();
     await expect(page.getByText(/^Konten ·/)).toBeVisible();
+    await expect(page.getByText(/\d+\.\d Tage \(\d+\.\d h\)/)).toBeVisible();
     await expect(page.getByRole("heading", { level: 2, name: "Buchungs-Historie" })).toBeVisible();
   });
 });

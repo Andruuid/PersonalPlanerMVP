@@ -157,7 +157,11 @@ export function AccountsTable({
                       <td key={accountType} className="px-4 py-3">
                         {accountType === "UEZ" ? (
                           <div className="space-y-2">
-                            <AccountCell account={account} />
+                            <AccountCell
+                              account={account}
+                              accountType={accountType}
+                              baseDailySollMinutes={row.baseDailySollMinutes}
+                            />
                             {account.currentValue > 0 ? (
                               uezPayoutPolicy === "BLOCKED" ? (
                                 <span
@@ -187,7 +191,11 @@ export function AccountsTable({
                           </div>
                         ) : accountType === "SONNTAG_FEIERTAG_KOMPENSATION" ? (
                           <div className="space-y-2">
-                            <AccountCell account={account} />
+                            <AccountCell
+                              account={account}
+                              accountType={accountType}
+                              baseDailySollMinutes={row.baseDailySollMinutes}
+                            />
                             <Button
                               type="button"
                               size="sm"
@@ -205,7 +213,11 @@ export function AccountsTable({
                             </Button>
                           </div>
                         ) : (
-                          <AccountCell account={account} />
+                          <AccountCell
+                            account={account}
+                            accountType={accountType}
+                            baseDailySollMinutes={row.baseDailySollMinutes}
+                          />
                         )}
                       </td>
                     );
@@ -330,7 +342,15 @@ function HeaderWithHelp({ label, tooltip }: { label: string; tooltip: string }) 
   );
 }
 
-function AccountCell({ account }: { account: AccountSummary }) {
+function AccountCell({
+  account,
+  accountType,
+  baseDailySollMinutes,
+}: {
+  account: AccountSummary;
+  accountType: AccountType;
+  baseDailySollMinutes: number;
+}) {
   const positive = account.currentValue > 0;
   const negative = account.currentValue < 0;
   return (
@@ -345,10 +365,17 @@ function AccountCell({ account }: { account: AccountSummary }) {
               : "text-neutral-900")
         }
       >
-        {formatAccountValue(account.unit, account.currentValue)}
+        {formatAccountValue(account.unit, account.currentValue, {
+          accountType,
+          baseDailyMinutes: baseDailySollMinutes,
+        })}
       </div>
       <div className="text-xs text-neutral-500">
-        Eröffnung {formatAccountValue(account.unit, account.openingValue)}
+        Eröffnung{" "}
+        {formatAccountValue(account.unit, account.openingValue, {
+          accountType,
+          baseDailyMinutes: baseDailySollMinutes,
+        })}
       </div>
     </div>
   );
