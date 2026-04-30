@@ -49,7 +49,7 @@ export async function loadAdminUsers(): Promise<AdminUserRow[]> {
     }
   }
 
-  return users.map((user) => ({
+  const rows = users.map((user) => ({
     id: user.id,
     email: user.email,
     role: user.role,
@@ -59,6 +59,15 @@ export async function loadAdminUsers(): Promise<AdminUserRow[]> {
       : null,
     lastLoginAtIso: lastLoginByUser.get(user.id) ?? null,
   }));
+
+  return rows.sort((a, b) => {
+    const adminRankA = a.role === "ADMIN" ? 0 : 1;
+    const adminRankB = b.role === "ADMIN" ? 0 : 1;
+    if (adminRankA !== adminRankB) {
+      return adminRankA - adminRankB;
+    }
+    return a.email.localeCompare(b.email, "de-CH", { sensitivity: "base" });
+  });
 }
 
 export async function setAdminUserLockAction(
