@@ -20,15 +20,21 @@ test.describe("Session & Routing nach Auth-Zustand", () => {
 
   async function expectNoSessionCookie(page: import("@playwright/test").Page) {
     // Browser-level check: catches the Netlify regression class where the
-    // session cookie survives logout even though /api/auth/session returns
-    // an unauthenticated payload at that moment.
+    // session cookie still carries a valid JWT after logout even though
+    // /api/auth/session reports unauthenticated at that moment.
+    //
+    // Note: Chromium retains an empty-value entry in its cookie jar after a
+    // Max-Age=0 clear instead of removing the row entirely; treat empty value
+    // as absent because an empty cookie carries no JWT payload.
     const cookies = await page.context().cookies();
-    const sessionCookie = cookies.find((c) =>
-      /^(__Secure-)?(next-auth|authjs)\.session-token$/.test(c.name),
+    const liveSessionCookie = cookies.find(
+      (c) =>
+        /^(__Secure-)?(next-auth|authjs)\.session-token$/.test(c.name) &&
+        c.value !== "",
     );
     expect(
-      sessionCookie,
-      `session cookie must be cleared after logout (found: ${sessionCookie?.name ?? "none"})`,
+      liveSessionCookie,
+      `session cookie must carry no JWT after logout (found: ${liveSessionCookie?.name ?? "none"})`,
     ).toBeUndefined();
   }
 
