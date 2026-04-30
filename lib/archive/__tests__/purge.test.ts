@@ -74,6 +74,7 @@ describe("purgeArchivedData", () => {
       weeks: 1,
       employees: 1,
       locations: 1,
+      serviceTemplates: 0,
     });
     expect(result.deleted).toEqual({
       planEntries: 0,
@@ -81,6 +82,7 @@ describe("purgeArchivedData", () => {
       weeks: 0,
       employees: 0,
       locations: 0,
+      serviceTemplates: 0,
     });
 
     expect(await db.prisma.planEntry.count()).toBe(1);
@@ -200,6 +202,7 @@ describe("purgeArchivedData", () => {
       weeks: 1,
       employees: 1,
       locations: 1,
+      serviceTemplates: 0,
     });
 
     expect(await db.prisma.employee.findUnique({ where: { id: expiredEmployee.id } })).toBeNull();
@@ -304,6 +307,55 @@ describe("purgeArchivedData", () => {
     expect(result.deleted.absenceRequests).toBe(1);
     expect(
       await db.prisma.absenceRequest.findUnique({ where: { id: ar.id } }),
+    ).toBeNull();
+  });
+
+  it("purges soft-deleted service templates after linked plan entries are purged", async () => {
+    const locationId = await seedLocation(db.prisma, "ST Purge Loc");
+    const { id: employeeId, tenantId } = await seedEmployee(db.prisma, {
+      locationId,
+    });
+    const tpl = await db.prisma.serviceTemplate.create({
+      data: {
+        tenantId,
+        name: "Purge Svc",
+        code: "PURGESVC",
+        startTime: "08:00",
+        endTime: "17:00",
+        deletedAt: new Date("2025-01-01T00:00:00.000Z"),
+        archivedUntil: new Date("2026-01-01T00:00:00.000Z"),
+      },
+    });
+    const week = await db.prisma.week.create({
+      data: {
+        tenantId,
+        year: 2025,
+        weekNumber: 42,
+        status: "CLOSED",
+      },
+    });
+    await db.prisma.planEntry.create({
+      data: {
+        weekId: week.id,
+        employeeId,
+        date: new Date("2025-10-20T00:00:00.000Z"),
+        kind: "SHIFT",
+        serviceTemplateId: tpl.id,
+        plannedMinutes: 480,
+        deletedAt: new Date("2025-01-01T00:00:00.000Z"),
+        archivedUntil: new Date("2026-01-01T00:00:00.000Z"),
+      },
+    });
+
+    const result = await purgeArchivedData(db.prisma, {
+      allTenants: true,
+      now: new Date("2037-01-01T00:00:00.000Z"),
+    });
+
+    expect(result.deleted.planEntries).toBe(1);
+    expect(result.deleted.serviceTemplates).toBe(1);
+    expect(
+      await db.prisma.serviceTemplate.findUnique({ where: { id: tpl.id } }),
     ).toBeNull();
   });
 });

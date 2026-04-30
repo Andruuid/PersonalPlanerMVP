@@ -20,6 +20,7 @@ export interface PurgeArchivedResult {
     weeks: number;
     employees: number;
     locations: number;
+    serviceTemplates: number;
   };
   deleted: {
     planEntries: number;
@@ -27,6 +28,7 @@ export interface PurgeArchivedResult {
     weeks: number;
     employees: number;
     locations: number;
+    serviceTemplates: number;
   };
 }
 
@@ -41,7 +43,7 @@ export async function purgeArchivedData(
   }
   const tenantId = options.tenantId;
 
-  const [planEntries, absenceRequests, weeks, employees, locations] =
+  const [planEntries, absenceRequests, weeks, employees, locations, serviceTemplates] =
     await Promise.all([
     prisma.planEntry.findMany({
       where: {
@@ -101,6 +103,20 @@ export async function purgeArchivedData(
       },
       select: { id: true },
     }),
+    prisma.serviceTemplate.findMany({
+      where: {
+        deletedAt: { not: null },
+        archivedUntil: { lte: asOf },
+        planEntries: {
+          every: {
+            deletedAt: { not: null },
+            archivedUntil: { lte: asOf },
+          },
+        },
+        ...(tenantId ? { tenantId } : {}),
+      },
+      select: { id: true },
+    }),
   ]);
 
   const candidates = {
@@ -109,6 +125,7 @@ export async function purgeArchivedData(
     weeks: weeks.length,
     employees: employees.length,
     locations: locations.length,
+    serviceTemplates: serviceTemplates.length,
   };
 
   if (dryRun) {
@@ -122,6 +139,7 @@ export async function purgeArchivedData(
         weeks: 0,
         employees: 0,
         locations: 0,
+        serviceTemplates: 0,
       },
     };
   }
@@ -132,6 +150,15 @@ export async function purgeArchivedData(
         ? (
             await tx.planEntry.deleteMany({
               where: { id: { in: planEntries.map((e) => e.id) } },
+            })
+          ).count
+        : 0;
+
+    const serviceTemplatesDeleted =
+      serviceTemplates.length > 0
+        ? (
+            await tx.serviceTemplate.deleteMany({
+              where: { id: { in: serviceTemplates.map((s) => s.id) } },
             })
           ).count
         : 0;
@@ -174,6 +201,7 @@ export async function purgeArchivedData(
 
     return {
       planEntries: planEntriesDeleted,
+      serviceTemplates: serviceTemplatesDeleted,
       absenceRequests: absenceRequestsDeleted,
       weeks: weeksDeleted,
       employees: employeesDeleted,

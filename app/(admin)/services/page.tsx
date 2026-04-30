@@ -11,7 +11,7 @@ export const metadata = { title: "Dienste · PersonalPlaner" };
 export default async function ServicesPage() {
   const admin = await requireAdmin();
   const services = await prisma.serviceTemplate.findMany({
-    where: { tenantId: admin.tenantId },
+    where: { tenantId: admin.tenantId, deletedAt: null },
     orderBy: [{ isActive: "desc" }, { name: "asc" }],
   });
 

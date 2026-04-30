@@ -275,7 +275,11 @@ export default async function PlanningPage({ searchParams }: PageProps) {
         },
       }),
       prisma.serviceTemplate.findMany({
-        where: { tenantId: admin.tenantId, isActive: true },
+        where: {
+          tenantId: admin.tenantId,
+          isActive: true,
+          deletedAt: null,
+        },
         orderBy: { name: "asc" },
       }),
       prisma.planEntry.findMany({

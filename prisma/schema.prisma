@@ -284,6 +284,8 @@ model ServiceTemplate {
   requiredCount  Int?
   blockColorHex   String?
   isActive       Boolean     @default(true)
+  deletedAt      DateTime?
+  archivedUntil  DateTime?
   planEntries    PlanEntry[]
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt

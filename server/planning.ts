@@ -197,7 +197,12 @@ export async function upsertPlanEntryAction(
       const tpl = await prisma.serviceTemplate.findUnique({
         where: { id: data.serviceTemplateId },
       });
-      if (!tpl || !tpl.isActive || tpl.tenantId !== admin.tenantId) {
+      if (
+        !tpl ||
+        tpl.deletedAt ||
+        !tpl.isActive ||
+        tpl.tenantId !== admin.tenantId
+      ) {
         return {
           ok: false,
           error: "Dienstvorlage nicht gefunden oder inaktiv.",
@@ -428,9 +433,9 @@ export async function quickSetPlanEntryAction(
         where: {
           tenantId_code: { tenantId: admin.tenantId, code: pick },
         },
-        select: { id: true, isActive: true },
+        select: { id: true, isActive: true, deletedAt: true },
       });
-      if (!tpl || !tpl.isActive) {
+      if (!tpl || !tpl.isActive || tpl.deletedAt) {
         return {
           ok: false,
           error: `Dienstvorlage ${pick} nicht gefunden.`,

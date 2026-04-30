@@ -12,6 +12,7 @@ import {
   type ActionResult,
 } from "./_shared";
 import { DEFAULT_SERVICE_BLOCK_HEX } from "@/lib/planning/block-appearance";
+import { archiveUntil } from "@/lib/archive";
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const BLOCK_HEX_RE = /^#[0-9A-Fa-f]{6}$/;
@@ -188,6 +189,10 @@ export async function updateServiceAction(
     return { ok: false, error: "Kein Zugriff auf diese Dienstvorlage." };
   }
 
+  if (before.deletedAt) {
+    return { ok: false, error: "Dienstvorlage ist archiviert." };
+  }
+
   if (before.code !== data.code) {
     const dup = await prisma.serviceTemplate.findUnique({
       where: { tenantId_code: { tenantId: admin.tenantId, code: data.code } },
@@ -268,6 +273,9 @@ export async function setServiceActiveAction(
   if (before.tenantId !== admin.tenantId) {
     return { ok: false, error: "Kein Zugriff auf diese Dienstvorlage." };
   }
+  if (before.deletedAt) {
+    return { ok: false, error: "Dienstvorlage ist archiviert." };
+  }
 
   const updated = await prisma.serviceTemplate.update({
     where: { id: serviceId },
@@ -285,5 +293,77 @@ export async function setServiceActiveAction(
 
   safeRevalidatePath("setServiceActiveAction", "/services");
   safeRevalidatePath("setServiceActiveAction", "/", "layout");
+  return { ok: true };
+}
+
+export async function softDeleteServiceTemplateAction(
+  serviceId: string,
+): Promise<ActionResult> {
+  const admin = await requireAdmin();
+
+  const before = await prisma.serviceTemplate.findUnique({
+    where: { id: serviceId },
+  });
+  if (!before) {
+    return { ok: false, error: "Dienstvorlage nicht gefunden." };
+  }
+  if (before.tenantId !== admin.tenantId) {
+    return { ok: false, error: "Kein Zugriff auf diese Dienstvorlage." };
+  }
+  if (before.deletedAt) {
+    return { ok: false, error: "Dienstvorlage ist bereits archiviert." };
+  }
+
+  const inActiveWeek = await prisma.planEntry.findFirst({
+    where: {
+      serviceTemplateId: serviceId,
+      deletedAt: null,
+      week: {
+        tenantId: admin.tenantId,
+        deletedAt: null,
+        status: { not: "CLOSED" },
+      },
+    },
+    select: { id: true },
+  });
+  if (inActiveWeek) {
+    return {
+      ok: false,
+      error:
+        "Template wird in aktiven Wochen verwendet — bitte zuerst dort entfernen oder Woche schließen.",
+    };
+  }
+
+  const archivedAt = new Date();
+  const updated = await prisma.serviceTemplate.update({
+    where: { id: serviceId },
+    data: {
+      isActive: false,
+      deletedAt: archivedAt,
+      archivedUntil: archiveUntil(archivedAt),
+    },
+  });
+
+  await writeAudit({
+    userId: admin.id,
+    action: "DELETE",
+    entity: "ServiceTemplate",
+    entityId: updated.id,
+    oldValue: {
+      name: before.name,
+      code: before.code,
+      isActive: before.isActive,
+      deletedAt: before.deletedAt,
+      archivedUntil: before.archivedUntil,
+    },
+    newValue: {
+      isActive: updated.isActive,
+      deletedAt: updated.deletedAt,
+      archivedUntil: updated.archivedUntil,
+    },
+  });
+
+  safeRevalidatePath("softDeleteServiceTemplateAction", "/services");
+  safeRevalidatePath("softDeleteServiceTemplateAction", "/", "layout");
   return { ok: true };
 }
