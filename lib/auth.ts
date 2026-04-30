@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { isCredentialsLoginAllowed } from "@/lib/auth-credentials-login";
 import type { Role } from "@/lib/generated/prisma/enums";
 
 declare module "next-auth" {
@@ -53,9 +54,13 @@ export const {
           where: {
             email: emailLower,
           },
-          include: { employee: { select: { id: true } } },
+          include: {
+            employee: {
+              select: { id: true, isActive: true, deletedAt: true },
+            },
+          },
         });
-        if (!user || !user.isActive) return null;
+        if (!user || !isCredentialsLoginAllowed(user)) return null;
 
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return null;
