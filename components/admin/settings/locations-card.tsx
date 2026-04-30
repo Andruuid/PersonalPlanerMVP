@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -91,14 +92,19 @@ export function LocationsCard({ locations }: Props) {
                   Mitarbeitende · {l.holidayCount} Feiertage
                 </p>
               </div>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setDialog({ mode: "edit", location: l })}
-              >
-                <Pencil className="mr-1 h-3.5 w-3.5" />
-                Bearbeiten
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button size="sm" variant="ghost" asChild>
+                  <Link href={`/locations/${l.id}/holidays`}>Feiertage</Link>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setDialog({ mode: "edit", location: l })}
+                >
+                  <Pencil className="mr-1 h-3.5 w-3.5" />
+                  Bearbeiten
+                </Button>
+              </div>
             </li>
           ))}
         </ul>
