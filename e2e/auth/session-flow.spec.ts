@@ -29,7 +29,7 @@ test.describe("Session & Routing nach Auth-Zustand", () => {
     const cookies = await page.context().cookies();
     const liveSessionCookie = cookies.find(
       (c) =>
-        /^(__Secure-)?(next-auth|authjs)\.session-token$/.test(c.name) &&
+        /^(__Secure-)?(next-auth|authjs)\.session-token(?:\.\d+)?$/.test(c.name) &&
         c.value !== "",
     );
     expect(

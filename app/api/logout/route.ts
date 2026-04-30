@@ -25,14 +25,32 @@ const CALLBACK_COOKIE_NAMES = [
   "__Secure-authjs.callback-url",
 ] as const;
 
+const AUTH_COOKIE_NAME_PATTERN =
+  /^(?:__Secure-|__Host-)?(?:next-auth|authjs)\.(?:session-token|csrf-token|callback-url)(?:\.\d+)?$/;
+
+function isCallbackCookie(name: string): boolean {
+  return name.includes(".callback-url");
+}
+
+function isSecureCookie(name: string): boolean {
+  return name.startsWith("__Secure-") || name.startsWith("__Host-");
+}
+
 export async function POST() {
   // Channel 1: write via next/headers cookies() — Next.js request-mutation API.
   const cookieStore = await cookies();
-  for (const name of [
+  const cookieNamesToClear = new Set<string>([
     ...SESSION_COOKIE_NAMES,
     ...CSRF_COOKIE_NAMES,
     ...CALLBACK_COOKIE_NAMES,
-  ]) {
+  ]);
+  for (const cookie of cookieStore.getAll()) {
+    if (AUTH_COOKIE_NAME_PATTERN.test(cookie.name)) {
+      cookieNamesToClear.add(cookie.name);
+    }
+  }
+
+  for (const name of cookieNamesToClear) {
     cookieStore.delete(name);
   }
 
@@ -41,30 +59,12 @@ export async function POST() {
   // Channel 2: write directly on the outgoing response. Belt-and-braces in
   // case the adapter on the host (notably Netlify) doesn't reflect channel 1
   // mutations onto a manually-constructed NextResponse.
-  for (const name of SESSION_COOKIE_NAMES) {
+  for (const name of cookieNamesToClear) {
     response.cookies.set(name, "", {
       path: "/",
       maxAge: 0,
-      httpOnly: true,
-      secure: name.startsWith("__Secure-"),
-      sameSite: "lax",
-    });
-  }
-  for (const name of CSRF_COOKIE_NAMES) {
-    response.cookies.set(name, "", {
-      path: "/",
-      maxAge: 0,
-      httpOnly: true,
-      secure: name.startsWith("__Host-"),
-      sameSite: "lax",
-    });
-  }
-  for (const name of CALLBACK_COOKIE_NAMES) {
-    response.cookies.set(name, "", {
-      path: "/",
-      maxAge: 0,
-      httpOnly: false,
-      secure: name.startsWith("__Secure-"),
+      httpOnly: !isCallbackCookie(name),
+      secure: isSecureCookie(name),
       sameSite: "lax",
     });
   }
