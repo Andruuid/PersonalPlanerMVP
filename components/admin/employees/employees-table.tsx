@@ -229,6 +229,7 @@ export function EmployeesTable({
                       <Button
                         size="sm"
                         variant="outline"
+                        className="min-w-[7.5rem] justify-start"
                         onClick={() => setDialog({ mode: "edit", employee: e })}
                       >
                         <Pencil className="mr-1 h-3.5 w-3.5" />
@@ -237,6 +238,7 @@ export function EmployeesTable({
                       <Button
                         size="sm"
                         variant="ghost"
+                        className="min-w-[7.5rem] justify-start"
                         disabled={pendingId === e.id}
                         onClick={() => toggleActive(e)}
                       >
@@ -255,6 +257,7 @@ export function EmployeesTable({
                       <Button
                         size="sm"
                         variant="ghost"
+                        className="min-w-[7.5rem] justify-start"
                         disabled={pendingId === e.id}
                         onClick={() => toggleUserLock(e)}
                       >
