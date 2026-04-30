@@ -5,7 +5,7 @@ export interface WeekIdentity {
   id: string;
   year: number;
   weekNumber: number;
-  status: "DRAFT" | "PUBLISHED" | "CLOSED";
+  status: "DRAFT" | "REOPENED" | "PUBLISHED" | "CLOSED";
   publishedAt: Date | null;
   closedAt: Date | null;
 }

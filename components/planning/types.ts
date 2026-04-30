@@ -86,7 +86,7 @@ export interface WeekView {
   id: string;
   year: number;
   weekNumber: number;
-  status: "DRAFT" | "PUBLISHED" | "CLOSED";
+  status: "DRAFT" | "REOPENED" | "PUBLISHED" | "CLOSED";
   publishedAt: string | null;
   closedAt: string | null;
 }

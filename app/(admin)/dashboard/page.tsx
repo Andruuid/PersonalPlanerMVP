@@ -23,6 +23,7 @@ export const metadata = { title: "Dashboard · PersonalPlaner" };
 
 const WEEK_STATUS_LABEL: Record<WeekStatus, string> = {
   DRAFT: "Entwurf",
+  REOPENED: "Wieder geöffnet",
   PUBLISHED: "Veröffentlicht",
   CLOSED: "Abgeschlossen",
 };

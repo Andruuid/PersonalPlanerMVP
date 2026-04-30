@@ -28,12 +28,14 @@ interface StatusControlsProps {
 
 const STATUS_LABEL: Record<WeekView["status"], string> = {
   DRAFT: "Entwurf",
+  REOPENED: "Wieder geöffnet",
   PUBLISHED: "Veröffentlicht",
   CLOSED: "Abgeschlossen",
 };
 
 const STATUS_PILL: Record<WeekView["status"], string> = {
   DRAFT: "bg-neutral-900 text-white",
+  REOPENED: "bg-amber-100 text-amber-900",
   PUBLISHED: "bg-emerald-100 text-emerald-900",
   CLOSED: "bg-neutral-200 text-neutral-700",
 };
@@ -132,9 +134,14 @@ export function StatusControls({ week }: StatusControlsProps) {
         {STATUS_LABEL[week.status]}
       </Badge>
 
-      {week.status === "DRAFT" ? (
+      {week.status === "DRAFT" || week.status === "REOPENED" ? (
         <Button onClick={openPublishConfirm} disabled={pending}>
           Woche veröffentlichen
+        </Button>
+      ) : null}
+      {week.status === "REOPENED" ? (
+        <Button onClick={closeWeek} disabled={pending}>
+          Woche erneut abschliessen
         </Button>
       ) : null}
       {week.status === "PUBLISHED" ? (
@@ -252,7 +259,7 @@ export function StatusControls({ week }: StatusControlsProps) {
             <DialogTitle>Woche wieder öffnen?</DialogTitle>
             <DialogDescription>
               Die Abschluss-Buchungen dieser Woche werden entfernt. Die Woche
-              ist danach wieder ein Entwurf und kann bearbeitet werden.
+              ist danach wieder geöffnet und kann bearbeitet werden.
             </DialogDescription>
           </DialogHeader>
           <div className="flex items-start gap-2 rounded-lg border p-3">

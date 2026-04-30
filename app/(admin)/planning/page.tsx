@@ -44,6 +44,7 @@ interface PageProps {
 
 const STATUS_LABEL: Record<WeekView["status"], string> = {
   DRAFT: "Entwurf",
+  REOPENED: "Wieder geöffnet",
   PUBLISHED: "Veröffentlicht",
   CLOSED: "Abgeschlossen",
 };

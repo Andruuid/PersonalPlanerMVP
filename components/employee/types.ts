@@ -53,7 +53,7 @@ export interface MyDayView {
 export interface MyWeekHeader {
   year: number;
   weekNumber: number;
-  status: "DRAFT" | "PUBLISHED" | "CLOSED";
+  status: "DRAFT" | "REOPENED" | "PUBLISHED" | "CLOSED";
   publishedAt: string | null;
   hasSnapshot: boolean;
 }

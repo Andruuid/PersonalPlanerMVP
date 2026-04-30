@@ -1,0 +1,3 @@
+-- WeekStatus adds REOPENED in Prisma schema.
+-- SQLite stores enums as TEXT without enum/check constraints in this schema,
+-- so no physical SQL change is required for the database.

@@ -238,7 +238,7 @@ function PublishedBadge({
   status,
 }: {
   hasSnapshot: boolean;
-  status: "DRAFT" | "PUBLISHED" | "CLOSED";
+  status: "DRAFT" | "REOPENED" | "PUBLISHED" | "CLOSED";
 }) {
   if (!hasSnapshot) {
     return (

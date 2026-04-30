@@ -12,7 +12,7 @@ export async function countOpenWeeksWithPastSunday(
     where: {
       tenantId,
       deletedAt: null,
-      status: { in: ["DRAFT", "PUBLISHED"] },
+      status: { in: ["DRAFT", "REOPENED", "PUBLISHED"] },
     },
     select: { year: true, weekNumber: true },
   });

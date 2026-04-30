@@ -61,7 +61,7 @@ interface IsoWeekKey {
 interface WeeksTouchedSummary {
   year: number;
   weekNumber: number;
-  status: "DRAFT" | "PUBLISHED" | "CLOSED";
+  status: "DRAFT" | "REOPENED" | "PUBLISHED" | "CLOSED";
 }
 
 async function resolveWeekStatus(

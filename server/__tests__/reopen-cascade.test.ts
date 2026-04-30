@@ -42,7 +42,7 @@ vi.mock("@/server/_shared", () => ({
     err instanceof Error ? err.message : String(err),
 }));
 
-import { reopenWeekAction } from "@/server/weeks";
+import { closeWeekAction, reopenWeekAction } from "@/server/weeks";
 
 const YEAR = 2026;
 const KWS = [10, 11, 12] as const;
@@ -145,7 +145,7 @@ describe("reopenWeekAction cascade", () => {
     const w1 = await db.prisma.week.findUniqueOrThrow({
       where: { id: weekIds[0] },
     });
-    expect(w1.status).toBe("DRAFT");
+    expect(w1.status).toBe("REOPENED");
     const w2 = await db.prisma.week.findUniqueOrThrow({
       where: { id: weekIds[1] },
     });
@@ -186,9 +186,16 @@ describe("reopenWeekAction cascade", () => {
     );
     expect(reopenAudit).toBeDefined();
     expect(reopenAudit![0].newValue).toMatchObject({
-      status: "DRAFT",
+      status: "REOPENED",
       cascadeFollowWeeksRecalculated: 2,
     });
+
+    const reclose = await closeWeekAction(weekIds[0]);
+    expect(reclose).toEqual({ ok: true });
+    const recoseAudit = writeAuditMock.mock.calls.find(
+      (c) => c[0].action === "RECLOSE",
+    );
+    expect(recoseAudit).toBeDefined();
   });
 
   it("with cascade=false leaves follow weeks' bookings unchanged", async () => {

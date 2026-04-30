@@ -78,7 +78,7 @@ function isoWeeksInRange(start: Date, end: Date): IsoWeekKey[] {
 interface WeeksTouchedSummary {
   year: number;
   weekNumber: number;
-  status: "DRAFT" | "PUBLISHED" | "CLOSED";
+  status: "DRAFT" | "REOPENED" | "PUBLISHED" | "CLOSED";
 }
 
 /**

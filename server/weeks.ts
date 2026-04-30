@@ -513,10 +513,10 @@ export async function closeWeekAction(weekId: string): Promise<ActionResult> {
   if (week.tenantId !== admin.tenantId) {
     return { ok: false, error: "Kein Zugriff auf diese Woche." };
   }
-  if (week.status !== "PUBLISHED") {
+  if (week.status !== "PUBLISHED" && week.status !== "REOPENED") {
     return {
       ok: false,
-      error: "Nur veröffentlichte Wochen können abgeschlossen werden.",
+      error: "Nur veröffentlichte oder wieder geöffnete Wochen können abgeschlossen werden.",
     };
   }
 
@@ -538,7 +538,7 @@ export async function closeWeekAction(weekId: string): Promise<ActionResult> {
 
   await writeAudit({
     userId: admin.id,
-    action: "CLOSE",
+    action: week.status === "REOPENED" ? "RECLOSE" : "CLOSE",
     entity: "Week",
     entityId: weekId,
     oldValue: { status: week.status },
@@ -579,7 +579,7 @@ export async function reopenWeekAction(
   try {
     await prisma.week.update({
       where: { id: weekId },
-      data: { status: "DRAFT", closedAt: null },
+      data: { status: "REOPENED", closedAt: null },
     });
   } catch (err) {
     return { ok: false, error: actionErrorFromDatabase(err) };
@@ -618,7 +618,7 @@ export async function reopenWeekAction(
     entityId: weekId,
     oldValue: { status: week.status },
     newValue: {
-      status: "DRAFT",
+      status: "REOPENED",
       cascadeFollowWeeksRecalculated,
     },
   });

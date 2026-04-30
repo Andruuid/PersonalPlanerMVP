@@ -168,4 +168,30 @@ describe("autoFinalizePastDraftWeeksForAllTenants", () => {
     const week = await db.prisma.week.findUniqueOrThrow({ where: { id: weekId } });
     expect(week.status).toBe("DRAFT");
   });
+
+  it("does not auto-finalize past REOPENED weeks", async () => {
+    await seedAdmin(db.prisma);
+    const locationId = await seedLocation(db.prisma);
+    const weekId = await seedDraftWeek(db.prisma, PAST_YEAR, PAST_WEEK);
+    await db.prisma.week.update({
+      where: { id: weekId },
+      data: { status: "REOPENED" },
+    });
+    const days = isoWeekDays(PAST_YEAR, PAST_WEEK).map((d) => d.iso);
+    const employee = await seedEmployee(db.prisma, { locationId });
+    await seedShiftEntry(db.prisma, {
+      weekId,
+      employeeId: employee.id,
+      isoDate: days[0]!,
+      plannedMinutes: 480,
+    });
+
+    const result = await autoFinalizePastDraftWeeksForAllTenants(db.prisma, AS_OF);
+
+    expect(result.weeksClosedFromDraft).toBe(0);
+    expect(result.weeksSkippedEmpty).toBe(0);
+
+    const week = await db.prisma.week.findUniqueOrThrow({ where: { id: weekId } });
+    expect(week.status).toBe("REOPENED");
+  });
 });

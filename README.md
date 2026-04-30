@@ -86,6 +86,34 @@ npx playwright install chromium
 | `npm run db:copy:turso`  | Optional: Daten zwischen zwei Turso-DBs kopieren (sonst neu + Seed) |
 | `npm run db:purge:archived` | Löscht archivierte Datensätze nach Ablauf der 10-Jahres-Frist (`-- --dry-run` für Vorschau) |
 
+### Runbook: Prisma-Migration ohne `db reset`
+
+Wenn `npm run db:migrate -- --name <name>` lokal mit dem Hinweis auf
+"modified after it was applied" abbricht und ein Reset verlangt, gehe so vor:
+
+1. **Schema zuerst ändern** (`prisma/schema.prisma`).
+2. **Migration manuell anlegen** unter
+   `prisma/migrations/<timestamp>_<name>/migration.sql`.
+   - Bei SQLite-Änderungen an Prisma-Enums (hier als `TEXT`) kann diese Datei
+     bewusst nur einen Kommentar enthalten, wenn kein DDL nötig ist.
+3. **Client regenerieren**: `npm run db:generate`
+4. **Qualität prüfen**: `npx tsc --noEmit` und `npm run test`
+5. **Auf Zielumgebungen anwenden** mit `npx prisma migrate deploy`
+   (bzw. bei Turso `npm run db:push:libsql`).
+
+Wichtig: Kein `db reset`, solange lokale Daten erhalten bleiben sollen.
+
+Kurze Vorlage für `migration.sql` (manuell):
+
+```sql
+-- Migration: <timestamp>_<name>
+-- Context: Warum diese Migration nötig ist.
+-- Safety: Warum kein db reset nötig ist / welche Annahmen gelten.
+-- Notes: Besonderheiten für SQLite/libSQL (z. B. Enum als TEXT).
+
+-- SQL change(s) below (leer lassen, wenn bewusst kein DDL nötig ist).
+```
+
 ## Datenmodell-Highlights
 
 - `User` + `Employee` (1:1) — Admin oder Mitarbeitende mit Rolle, Pensum, Standort.

@@ -19,6 +19,7 @@ enum Role {
 
 enum WeekStatus {
   DRAFT
+  REOPENED
   PUBLISHED
   CLOSED
 }
