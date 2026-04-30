@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 import { authConfig } from "@/lib/auth.config";
+import { logDebug } from "@/lib/logging";
 
 const { auth } = NextAuth(authConfig);
 
@@ -29,16 +30,25 @@ function pathMatches(pathname: string, prefixes: readonly string[]): boolean {
 export default auth((req) => {
   const { nextUrl } = req;
   const pathname = nextUrl.pathname;
+  const role = req.auth?.user?.role ?? "ANON";
 
   if (pathMatches(pathname, PUBLIC_PATHS)) {
     if (pathname === "/login" && req.auth) {
-      const role = req.auth.user?.role;
       const target = role === "ADMIN" ? "/dashboard" : "/my-week";
+      logDebug("proxy", "Redirect authenticated user from /login", {
+        pathname,
+        role,
+        target,
+      });
       return NextResponse.redirect(new URL(target, nextUrl));
     }
     if (pathname === "/signup" && req.auth) {
-      const role = req.auth.user?.role;
       const target = role === "ADMIN" ? "/dashboard" : "/my-week";
+      logDebug("proxy", "Redirect authenticated user from /signup", {
+        pathname,
+        role,
+        target,
+      });
       return NextResponse.redirect(new URL(target, nextUrl));
     }
     return NextResponse.next();
@@ -47,12 +57,19 @@ export default auth((req) => {
   if (!req.auth) {
     const url = new URL("/login", nextUrl);
     url.searchParams.set("callbackUrl", pathname);
+    logDebug("proxy", "Redirect anonymous user to /login", {
+      pathname,
+      target: "/login",
+    });
     return NextResponse.redirect(url);
   }
 
-  const role = req.auth.user?.role;
-
   if (pathMatches(pathname, ADMIN_PATHS) && role !== "ADMIN") {
+    logDebug("proxy", "Redirect non-admin from admin path", {
+      pathname,
+      role,
+      target: "/my-week",
+    });
     return NextResponse.redirect(new URL("/my-week", nextUrl));
   }
 
@@ -63,11 +80,17 @@ export default auth((req) => {
     role !== "EMPLOYEE" &&
     role !== "ADMIN"
   ) {
+    logDebug("proxy", "Redirect non-employee role from employee path", {
+      pathname,
+      role,
+      target: "/login",
+    });
     return NextResponse.redirect(new URL("/login", nextUrl));
   }
 
   if (pathname === "/") {
     const target = role === "ADMIN" ? "/dashboard" : "/my-week";
+    logDebug("proxy", "Redirect root path by role", { role, target });
     return NextResponse.redirect(new URL(target, nextUrl));
   }
 

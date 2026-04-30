@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import type { Role } from "@/lib/generated/prisma/enums";
+import { logError } from "@/lib/logging";
 import type { ZodError } from "zod";
 
 export interface SessionUser {
@@ -94,10 +95,10 @@ export function actionErrorFromDatabase(err: unknown): string {
  */
 export function logServerError(scope: string, err: unknown): void {
   if (err instanceof Error) {
-    console.error(`[server:${scope}]`, err.message, err.stack);
-  } else {
-    console.error(`[server:${scope}]`, err);
+    logError(`server:${scope}`, err.message, { error: err });
+    return;
   }
+  logError(`server:${scope}`, "Unknown server error", { error: err });
 }
 
 /**

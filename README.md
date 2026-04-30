@@ -154,6 +154,25 @@ Provider-Wechsel.
 4. Auf Netlify deployen — `netlify.toml` ruft automatisch
    `npx prisma generate && next build` auf.
 
+### Logging & Observability
+
+Server-Logs sind fuer Netlify Observability auf ein einheitliches JSON-Format
+standardisiert. Das Log-Level wird ueber **`LOG_LEVEL`** gesteuert:
+
+- `debug`: detailreiche fachliche Start/Ende-Events + Fehler
+- `error`: nur Fehler (empfohlen fuer stabile Production)
+
+Empfohlene Defaults:
+
+- Development/Test: `LOG_LEVEL=debug`
+- Production (Netlify/Vercel): `LOG_LEVEL=error`
+
+Wichtig:
+
+- Es wird nur serverseitig geloggt (Server Components, Route Handler, Server Actions).
+- Sensitive Felder (z. B. `password`, `token`, `secret`, `authorization`, `cookie`) werden im Logger redigiert.
+- In Netlify findest du diese Logs in den Function-/Runtime-Logs der jeweiligen Requests.
+
 ### Variante B — Neon (Postgres)
 
 1. In `prisma/schema.prisma` den Datasource-Block ändern auf:

@@ -28,6 +28,7 @@ import { maybeSweepErtAfterPlanWrite } from "@/lib/ert/sweep";
 import { isoDateString, parseIsoDate } from "@/lib/time/week";
 import { shiftMinutes } from "@/lib/planning/shift-minutes";
 import { buildWeekSnapshot } from "./weeks";
+import { logDebug } from "@/lib/logging";
 
 /** Abwesenheiten, die in PUBLISHED-KW bei geänderter Tagespriorität einen neuen Snapshot auslösen. */
 const AUTO_REPUBLISH_TRIGGER_ABSENCES = new Set<AbsenceType>([
@@ -121,6 +122,13 @@ export async function upsertPlanEntryAction(
   input: UpsertPlanEntryInput,
 ): Promise<ActionResult<{ autoRepublished?: boolean }>> {
   const admin = await requireAdmin();
+  logDebug("planning:upsert", "Start upsertPlanEntryAction", {
+    tenantId: admin.tenantId,
+    weekId: input.weekId,
+    employeeId: input.employeeId,
+    date: input.date,
+    kind: input.kind,
+  });
 
   try {
     const parsed = upsertSchema.safeParse(input);
@@ -345,6 +353,12 @@ export async function upsertPlanEntryAction(
     );
 
     safeRevalidatePath("upsertPlanEntryAction", "/planning");
+    logDebug("planning:upsert", "upsertPlanEntryAction succeeded", {
+      tenantId: admin.tenantId,
+      weekId: data.weekId,
+      employeeId: data.employeeId,
+      autoRepublished,
+    });
     return {
       ok: true,
       data: autoRepublished ? { autoRepublished: true } : undefined,
@@ -361,6 +375,12 @@ export async function deletePlanEntryAction(
   isoDate: string,
 ): Promise<ActionResult> {
   const admin = await requireAdmin();
+  logDebug("planning:delete", "Start deletePlanEntryAction", {
+    tenantId: admin.tenantId,
+    weekId,
+    employeeId,
+    isoDate,
+  });
 
   try {
     const editable = await ensureWeekEditable(weekId, admin.tenantId);
@@ -398,6 +418,12 @@ export async function deletePlanEntryAction(
     );
 
     safeRevalidatePath("deletePlanEntryAction", "/planning");
+    logDebug("planning:delete", "deletePlanEntryAction succeeded", {
+      tenantId: admin.tenantId,
+      weekId,
+      employeeId,
+      isoDate,
+    });
     return { ok: true };
   } catch (err) {
     logServerError("deletePlanEntryAction", err);
@@ -412,6 +438,13 @@ export async function quickSetPlanEntryAction(
   pick: QuickPickKey,
 ): Promise<ActionResult<{ autoRepublished?: boolean }>> {
   const admin = await requireAdmin();
+  logDebug("planning:quick-set", "Start quickSetPlanEntryAction", {
+    tenantId: admin.tenantId,
+    weekId,
+    employeeId,
+    isoDate,
+    pick,
+  });
   try {
     if (QUICK_SHIFT_CODES.includes(pick as (typeof QUICK_SHIFT_CODES)[number])) {
       const tpl = await prisma.serviceTemplate.findUnique({
@@ -459,6 +492,12 @@ export async function movePlanEntryAction(
   toIsoDate: string,
 ): Promise<ActionResult> {
   const admin = await requireAdmin();
+  logDebug("planning:move", "Start movePlanEntryAction", {
+    tenantId: admin.tenantId,
+    entryId,
+    toEmployeeId,
+    toIsoDate,
+  });
 
   try {
     const parsed = moveSchema.safeParse({
@@ -552,6 +591,12 @@ export async function movePlanEntryAction(
     await maybeSweepErtAfterPlanWrite(prisma, admin.tenantId, toEmployeeId, toIsoDate);
 
     safeRevalidatePath("movePlanEntryAction", "/planning");
+    logDebug("planning:move", "movePlanEntryAction succeeded", {
+      tenantId: admin.tenantId,
+      entryId,
+      toEmployeeId,
+      toIsoDate,
+    });
     return { ok: true };
   } catch (err) {
     logServerError("movePlanEntryAction", err);

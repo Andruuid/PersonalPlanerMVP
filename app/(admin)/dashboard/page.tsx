@@ -16,7 +16,8 @@ import { KpiCard } from "@/components/admin/dashboard/kpi-card";
 import { CompensationCasesKpi } from "@/components/admin/dashboard/compensation-cases-kpi";
 import { RecentActivity } from "@/components/admin/dashboard/recent-activity";
 import type { WeekStatus } from "@/lib/generated/prisma/enums";
-import { requireAdmin } from "@/server/_shared";
+import { logDebug } from "@/lib/logging";
+import { logServerError, requireAdmin } from "@/server/_shared";
 
 export const metadata = { title: "Dashboard · PersonalPlaner" };
 
@@ -96,6 +97,27 @@ export default async function DashboardPage() {
   const admin = await requireAdmin();
   const isoWeek = currentIsoWeek();
   const dayKey = calendarDayKey();
+  logDebug("dashboard:load", "Loading admin dashboard", {
+    tenantId: admin.tenantId,
+    weekYear: isoWeek.year,
+    weekNumber: isoWeek.weekNumber,
+    dayKey,
+  });
+
+  let dashboardData: Awaited<
+    ReturnType<typeof getCachedDashboardData>
+  >;
+  try {
+    dashboardData = await getCachedDashboardData(
+      admin.tenantId,
+      isoWeek.year,
+      isoWeek.weekNumber,
+      dayKey,
+    );
+  } catch (err) {
+    logServerError("DashboardPage.dataLoad", err);
+    throw err;
+  }
 
   const {
     openAbsenceRequests,
@@ -107,13 +129,23 @@ export default async function DashboardPage() {
     compensationCasesOpen,
     compensationCasesOverdue,
     openWeeksWithPastSunday,
-  } = await getCachedDashboardData(admin.tenantId, isoWeek.year, isoWeek.weekNumber, dayKey);
-
+  } = dashboardData;
   const weekKw = String(isoWeek.weekNumber).padStart(2, "0");
   const weekValue = `KW ${weekKw}`;
   const weekHint = currentWeek
     ? WEEK_STATUS_LABEL[currentWeek.status]
     : "Noch nicht angelegt";
+  logDebug("dashboard:load", "Dashboard data loaded", {
+    tenantId: admin.tenantId,
+    openAbsenceRequests,
+    openPrivacyRequests,
+    activeEmployees,
+    auditToday,
+    compensationCasesOpen,
+    compensationCasesOverdue,
+    openWeeksWithPastSunday,
+    hasCurrentWeek: Boolean(currentWeek),
+  });
 
   return (
     <div className="space-y-6">

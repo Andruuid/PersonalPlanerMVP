@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { isCredentialsLoginAllowed } from "@/lib/auth-credentials-login";
 import type { Role } from "@/lib/generated/prisma/enums";
+import { logDebug, logError } from "@/lib/logging";
 
 declare module "next-auth" {
   interface Session {
@@ -44,35 +45,61 @@ export const {
         password: { label: "Passwort", type: "password" },
       },
       async authorize(raw) {
-        const parsed = credentialsSchema.safeParse(raw);
-        if (!parsed.success) return null;
-        const { email, password } = parsed.data;
+        try {
+          const parsed = credentialsSchema.safeParse(raw);
+          if (!parsed.success) {
+            logDebug("auth:authorize", "Credentials schema validation failed");
+            return null;
+          }
+          const { email, password } = parsed.data;
 
-        const emailLower = email.toLowerCase();
+          const emailLower = email.toLowerCase();
+          logDebug("auth:authorize", "Authorize attempt", { email: emailLower });
 
-        const user = await prisma.user.findUnique({
-          where: {
-            email: emailLower,
-          },
-          include: {
-            employee: {
-              select: { id: true, isActive: true, deletedAt: true },
+          const user = await prisma.user.findUnique({
+            where: {
+              email: emailLower,
             },
-          },
-        });
-        if (!user || !isCredentialsLoginAllowed(user)) return null;
+            include: {
+              employee: {
+                select: { id: true, isActive: true, deletedAt: true },
+              },
+            },
+          });
+          if (!user || !isCredentialsLoginAllowed(user)) {
+            logDebug("auth:authorize", "Authorize rejected", {
+              email: emailLower,
+              reason: "user-missing-or-inactive",
+            });
+            return null;
+          }
 
-        const valid = await bcrypt.compare(password, user.passwordHash);
-        if (!valid) return null;
+          const valid = await bcrypt.compare(password, user.passwordHash);
+          if (!valid) {
+            logDebug("auth:authorize", "Authorize rejected", {
+              email: emailLower,
+              reason: "password-mismatch",
+            });
+            return null;
+          }
 
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.email,
-          role: user.role,
-          tenantId: user.tenantId,
-          employeeId: user.employee?.id ?? null,
-        };
+          logDebug("auth:authorize", "Authorize success", {
+            userId: user.id,
+            tenantId: user.tenantId,
+            role: user.role,
+          });
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.email,
+            role: user.role,
+            tenantId: user.tenantId,
+            employeeId: user.employee?.id ?? null,
+          };
+        } catch (err) {
+          logError("auth:authorize", "Authorize failed with exception", { error: err });
+          throw err;
+        }
       },
     }),
   ],
