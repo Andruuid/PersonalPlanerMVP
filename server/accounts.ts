@@ -1,14 +1,124 @@
-import "server-only";
+"use server";
 
-import { normalizeUezPayoutPolicy } from "@/lib/bookings/core";
+import { z } from "zod";
+import {
+  applyManualBooking,
+  ManualBookingError,
+  normalizeUezPayoutPolicy,
+} from "@/lib/bookings/core";
 import { prisma } from "@/lib/db";
+import { writeAudit } from "@/lib/audit";
 import type {
   AccountType,
   AccountUnit,
   BookingType,
 } from "@/lib/generated/prisma/enums";
-import { isoDateString } from "@/lib/time/week";
-import type { SessionUser } from "./_shared";
+import { isoDateString, parseIsoDate } from "@/lib/time/week";
+import {
+  fieldErrorsFromZod,
+  requireAdmin,
+  safeRevalidatePath,
+  type ActionResult,
+  type SessionUser,
+} from "./_shared";
+
+const parentalCareGrantSchema = z.object({
+  employeeId: z.string().min(1, "Mitarbeitende:r erforderlich"),
+  days: z.coerce
+    .number({ message: "Tage erforderlich" })
+    .finite("Ungültige Zahl")
+    .positive("Mindestens ein Tag")
+    .max(366, "Maximal 366 Tage"),
+  comment: z
+    .string()
+    .trim()
+    .min(10, "Begründung mindestens 10 Zeichen")
+    .max(500, "Maximal 500 Zeichen"),
+});
+
+/**
+ * Explizite Admin-Freigabe Eltern-/Betreuungsurlaub: MANUAL_CREDIT auf
+ * PARENTAL_CARE mit Audit-Aktion PARENTAL_CARE_GRANT (nicht MANUAL_BOOKING).
+ */
+export async function grantParentalCareAction(
+  employeeId: string,
+  days: number,
+  comment: string,
+): Promise<ActionResult<{ bookingId: string }>> {
+  const admin = await requireAdmin();
+
+  const parsed = parentalCareGrantSchema.safeParse({
+    employeeId,
+    days,
+    comment,
+  });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: "Bitte Eingaben prüfen.",
+      fieldErrors: fieldErrorsFromZod(parsed.error),
+    };
+  }
+
+  const data = parsed.data;
+
+  const emp = await prisma.employee.findFirst({
+    where: {
+      id: data.employeeId,
+      tenantId: admin.tenantId,
+      deletedAt: null,
+    },
+    select: { id: true },
+  });
+  if (!emp) {
+    return {
+      ok: false,
+      error: "Mitarbeitende:r nicht gefunden.",
+      fieldErrors: { employeeId: "Kein Zugriff oder unbekannt." },
+    };
+  }
+
+  const dateRaw = isoDateString(new Date());
+  const date = parseIsoDate(dateRaw);
+  if (!date) {
+    return { ok: false, error: "Internes Datumsproblem." };
+  }
+
+  try {
+    const result = await applyManualBooking(prisma, {
+      employeeId: data.employeeId,
+      tenantId: admin.tenantId,
+      accountType: "PARENTAL_CARE",
+      date,
+      value: data.days,
+      bookingType: "MANUAL_CREDIT",
+      comment: data.comment,
+      createdByUserId: admin.id,
+    });
+
+    await writeAudit({
+      userId: admin.id,
+      action: "PARENTAL_CARE_GRANT",
+      entity: "Booking",
+      entityId: result.bookingId,
+      newValue: {
+        employeeId: data.employeeId,
+        days: result.signedValue,
+        date: dateRaw,
+      },
+      comment: data.comment,
+    });
+
+    safeRevalidatePath("grantParentalCareAction", "/accounts");
+    safeRevalidatePath("grantParentalCareAction", "/my-accounts");
+    return { ok: true, data: { bookingId: result.bookingId } };
+  } catch (err) {
+    if (err instanceof ManualBookingError) {
+      return { ok: false, error: err.message };
+    }
+    throw err;
+  }
+}
 
 export interface AccountSummary {
   accountType: AccountType;

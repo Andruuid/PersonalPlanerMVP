@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +40,9 @@ export interface EmployeeFormDefaults {
   weeklyTargetMinutes: number;
   hazMinutesPerWeek: number;
   tztModel: TztModelValue;
+  /** Periodisches TZT-Kontingent (Modell 1); leer = keine Cron-Freigabe */
+  tztPeriodicQuotaDays?: number | null;
+  tztPeriodMonths?: number | null;
   /** Gesetzt = Override; `undefined`/null + leeres Feld = Tenant-Standard */
   standardWorkDays?: number | null;
   isActive: boolean;
@@ -65,6 +68,11 @@ export function EmployeeForm({
 }: EmployeeFormProps) {
   const [errors, setErrors] = useState<FormErrors | null>(null);
   const [pending, startTransition] = useTransition();
+  const [tztModel, setTztModel] = useState<TztModelValue>(defaults.tztModel);
+
+  useEffect(() => {
+    setTztModel(defaults.tztModel);
+  }, [defaults.tztModel, defaults.id]);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -256,7 +264,56 @@ export function EmployeeForm({
           ]}
           required
           error={fieldErr.tztModel}
+          onChange={(e) =>
+            setTztModel(e.target.value as TztModelValue)
+          }
         />
+        {tztModel === "DAILY_QUOTA" ? (
+          <>
+            <Field
+              label="TZT-Zuschlag je Periode (Tage)"
+              name="tztPeriodicQuotaDays"
+              type="number"
+              step={0.5}
+              min={0}
+              defaultValue={
+                defaults.tztPeriodicQuotaDays === undefined ||
+                defaults.tztPeriodicQuotaDays === null
+                  ? ""
+                  : defaults.tztPeriodicQuotaDays
+              }
+              tooltip="Wird bei aktiviertem Rhythmus automatisch per täglichem Cron auf das TZT-Konto gutgeschrieben (MANUAL_CREDIT)."
+              hint="Leer und ohne Rhythmus = keine automatische Erhöhung."
+              error={fieldErr.tztPeriodicQuotaDays}
+            />
+            <div className="space-y-1.5">
+              <LabelWithHelp
+                htmlFor="tztPeriodMonths"
+                label="Periodische Freigabe"
+                tooltip="Abstand zwischen automatischen Gutschriften. Erfordert positiven Zuschlag je Periode."
+              />
+              <select
+                id="tztPeriodMonths"
+                name="tztPeriodMonths"
+                defaultValue={
+                  defaults.tztPeriodMonths != null
+                    ? String(defaults.tztPeriodMonths)
+                    : ""
+                }
+                className="flex h-9 w-full rounded-md border border-neutral-300 bg-white px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900"
+              >
+                <option value="">Keine (nur Anfangsbestand / manuelle Buchungen)</option>
+                <option value="1">Monatlich</option>
+                <option value="3">Quartalsweise</option>
+                <option value="6">Halbjährlich</option>
+                <option value="12">Jährlich</option>
+              </select>
+              {fieldErr.tztPeriodMonths ? (
+                <p className="text-xs text-rose-700">{fieldErr.tztPeriodMonths}</p>
+              ) : null}
+            </div>
+          </>
+        ) : null}
       </div>
 
       {mode === "create" ? (
@@ -384,6 +441,7 @@ interface SelectFieldProps {
   options: Array<{ value: string; label: string }>;
   required?: boolean;
   error?: string;
+  onChange?: React.ChangeEventHandler<HTMLSelectElement>;
 }
 
 function SelectField({
@@ -394,6 +452,7 @@ function SelectField({
   options,
   required,
   error,
+  onChange,
 }: SelectFieldProps) {
   return (
     <div className="space-y-1.5">
@@ -403,6 +462,7 @@ function SelectField({
         name={name}
         defaultValue={defaultValue}
         required={required}
+        onChange={onChange}
         className="flex h-9 w-full rounded-md border border-neutral-300 bg-white px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900"
       >
         {options.map((o) => (

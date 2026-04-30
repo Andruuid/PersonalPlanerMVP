@@ -10,7 +10,7 @@
  * audit-log writes, and `revalidatePath` calls on top of this layer.
  */
 
-import { addDays } from "date-fns";
+import { addDays, addMonths } from "date-fns";
 import type { PrismaClient } from "@/lib/generated/prisma/client";
 import { Prisma } from "@/lib/generated/prisma/client";
 import {
@@ -991,6 +991,186 @@ export async function applyManualBooking(
   });
 
   return { bookingId: booking.id, signedValue };
+}
+
+// ---------------------------------------------------------------------------
+// TZT Modell 1 — periodische Kontingent-Freigabe (Cron)
+// ---------------------------------------------------------------------------
+
+const TZT_PERIODIC_MONTHS_ALLOWED = new Set([1, 3, 6, 12]);
+
+export interface TztPeriodicGrantApplied {
+  tenantId: string;
+  employeeId: string;
+  bookingId: string;
+  periodsGranted: number;
+  daysGranted: number;
+  createdByUserId: string;
+  /** Perioden-Anker nach der Buchung (`Employee.tztLastGrantedAt`). */
+  grantAnchorIso: string;
+}
+
+export interface TztPeriodicGrantRunResult {
+  grantsApplied: number;
+  grants: TztPeriodicGrantApplied[];
+  errors: string[];
+}
+
+/**
+ * Für alle Mitarbeitenden mit TZT-Modell Tageskontingent und konfigurierter
+ * Periodenquote: sobald die nächste Periodengrenze erreicht oder überschritten
+ * ist (Anker = `tztLastGrantedAt` oder Eintritt), wird eine MANUAL_CREDIT auf
+ * `TZT` gebucht — mehrere überfällige Perioden werden in einer Buchung
+ * zusammengefasst. `tztLastGrantedAt` wird auf den letzten angewendeten
+ * Perioden-Anker gesetzt (Idempotenz bei wiederholtem Aufruf am selben Tag).
+ */
+export async function applyTztPeriodicGrant(
+  prisma: PrismaClient,
+  asOf: Date,
+): Promise<TztPeriodicGrantRunResult> {
+  const bookingDay = dateAtMidnight(asOf);
+  const grants: TztPeriodicGrantApplied[] = [];
+  const errors: string[] = [];
+
+  const candidates = await prisma.employee.findMany({
+    where: {
+      tztModel: "DAILY_QUOTA",
+      deletedAt: null,
+      isActive: true,
+      tztPeriodicQuotaDays: { not: null, gt: 0 },
+      tztPeriodMonths: { not: null, gt: 0 },
+    },
+    select: { id: true, tenantId: true },
+  });
+
+  const adminByTenant = new Map<string, string | null>();
+
+  async function resolveAdminUserId(tenantId: string): Promise<string | null> {
+    if (!adminByTenant.has(tenantId)) {
+      const adminUser = await prisma.user.findFirst({
+        where: { tenantId, role: "ADMIN", isActive: true },
+        orderBy: { createdAt: "asc" },
+        select: { id: true },
+      });
+      adminByTenant.set(tenantId, adminUser?.id ?? null);
+    }
+    return adminByTenant.get(tenantId)!;
+  }
+
+  for (const cand of candidates) {
+    const createdByUserId = await resolveAdminUserId(cand.tenantId);
+    if (!createdByUserId) {
+      errors.push(
+        `tenant ${cand.tenantId}: kein aktiver Admin-User für TZT-Freigabe`,
+      );
+      continue;
+    }
+
+    try {
+      const applied = await prisma.$transaction(async (tx) => {
+        const row = await tx.employee.findUnique({
+          where: { id: cand.id },
+          select: {
+            id: true,
+            tenantId: true,
+            entryDate: true,
+            exitDate: true,
+            deletedAt: true,
+            isActive: true,
+            vacationDaysPerYear: true,
+            tztModel: true,
+            tztPeriodicQuotaDays: true,
+            tztPeriodMonths: true,
+            tztLastGrantedAt: true,
+          },
+        });
+        if (
+          !row ||
+          row.deletedAt ||
+          !row.isActive ||
+          row.tztModel !== "DAILY_QUOTA"
+        ) {
+          return null;
+        }
+
+        const quotaDays = row.tztPeriodicQuotaDays;
+        const periodMonths = row.tztPeriodMonths;
+        if (
+          quotaDays == null ||
+          quotaDays <= 0 ||
+          periodMonths == null ||
+          periodMonths <= 0 ||
+          !TZT_PERIODIC_MONTHS_ALLOWED.has(periodMonths)
+        ) {
+          return null;
+        }
+
+        if (!isEmployeeActiveOnDate(row, bookingDay)) return null;
+
+        let cursor = dateAtMidnight(row.tztLastGrantedAt ?? row.entryDate);
+        let periods = 0;
+        while (
+          bookingDay.getTime() >= addMonths(cursor, periodMonths).getTime()
+        ) {
+          cursor = addMonths(cursor, periodMonths);
+          periods += 1;
+        }
+
+        if (periods === 0) return null;
+
+        const totalDays = periods * quotaDays;
+        if (!(totalDays > 0)) return null;
+
+        const year = bookingDay.getFullYear();
+
+        await ensureBalanceRow(
+          tx,
+          row.id,
+          row.tenantId,
+          "TZT",
+          year,
+          row.vacationDaysPerYear,
+        );
+
+        const booking = await tx.booking.create({
+          data: {
+            tenantId: row.tenantId,
+            employeeId: row.id,
+            accountType: "TZT",
+            date: bookingDay,
+            value: totalDays,
+            bookingType: "MANUAL_CREDIT",
+            comment: `TZT periodische Freigabe (${periods}× ${quotaDays} T. je ${periodMonths} Mt.)`,
+            createdByUserId,
+          },
+        });
+
+        await recomputeBalance(tx, row.id, "TZT", year);
+
+        await tx.employee.update({
+          where: { id: row.id },
+          data: { tztLastGrantedAt: cursor },
+        });
+
+        return {
+          tenantId: row.tenantId,
+          employeeId: row.id,
+          bookingId: booking.id,
+          periodsGranted: periods,
+          daysGranted: totalDays,
+          createdByUserId,
+          grantAnchorIso: cursor.toISOString(),
+        };
+      });
+
+      if (applied) grants.push(applied);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push(`employee ${cand.id}: ${msg}`);
+    }
+  }
+
+  return { grantsApplied: grants.length, grants, errors };
 }
 
 // ---------------------------------------------------------------------------

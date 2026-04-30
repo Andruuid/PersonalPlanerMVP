@@ -2,6 +2,7 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { PageHeader } from "@/components/admin/page-header";
 import { AccountsTable } from "@/components/admin/accounts/accounts-table";
+import { ParentalCareGrantForm } from "@/components/admin/accounts/parental-care-grant-form";
 import { YearEndButton } from "@/components/admin/accounts/year-end-button";
 import { loadAdminAccountsTable } from "@/server/accounts";
 import { requireAdmin } from "@/server/_shared";
@@ -42,6 +43,28 @@ export default async function AccountsPage({ searchParams }: PageProps) {
           </div>
         }
       />
+
+      <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
+        <h2 className="text-base font-semibold text-neutral-900">
+          Eltern-/Betreuungsurlaub freischalten
+        </h2>
+        <p className="mt-1 text-sm text-neutral-600">
+          Kontingent wird durch eine Freigabe gutgeschrieben (Audit-Vorgang{" "}
+          <span className="font-mono text-neutral-800">PARENTAL_CARE_GRANT</span>
+          ).
+        </p>
+        <div className="mt-4">
+          <ParentalCareGrantForm
+            bookingDateIso={todayIso}
+            employees={rows.map((r) => ({
+              employeeId: r.employeeId,
+              firstName: r.firstName,
+              lastName: r.lastName,
+              isActive: r.isActive,
+            }))}
+          />
+        </div>
+      </section>
 
       <AccountsTable
         rows={rows}

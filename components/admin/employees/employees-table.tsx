@@ -39,6 +39,8 @@ export interface EmployeeRow {
   weeklyTargetMinutes: number;
   hazMinutesPerWeek: number;
   tztModel: TztModelValue;
+  tztPeriodicQuotaDays: number | null;
+  tztPeriodMonths: number | null;
   /** null = Tenant-Standard */
   standardWorkDays: number | null;
   isActive: boolean;
@@ -281,6 +283,7 @@ export function EmployeesTable({
         <DialogContent className="sm:max-w-2xl">
           {dialog.mode === "create" ? (
             <EmployeeForm
+              key="employee-create"
               mode="create"
               defaults={createDefaults(defaultLocationId, tenantTimeDefaults)}
               locations={locations}
@@ -288,6 +291,7 @@ export function EmployeesTable({
             />
           ) : dialog.mode === "edit" ? (
             <EmployeeForm
+              key={dialog.employee.id}
               mode="edit"
               defaults={editDefaultsFromRow(dialog.employee)}
               locations={locations}
@@ -445,6 +449,8 @@ function createDefaults(
     weeklyTargetMinutes: tenantTimeDefaults.defaultWeeklyTargetMinutes,
     hazMinutesPerWeek: tenantTimeDefaults.defaultHazMinutesPerWeek,
     tztModel: "DAILY_QUOTA",
+    tztPeriodicQuotaDays: null,
+    tztPeriodMonths: null,
     standardWorkDays: null,
     isActive: true,
   };
@@ -465,6 +471,8 @@ function editDefaultsFromRow(row: EmployeeRow): EmployeeFormDefaults {
     weeklyTargetMinutes: row.weeklyTargetMinutes,
     hazMinutesPerWeek: row.hazMinutesPerWeek,
     tztModel: row.tztModel,
+    tztPeriodicQuotaDays: row.tztPeriodicQuotaDays,
+    tztPeriodMonths: row.tztPeriodMonths,
     standardWorkDays: row.standardWorkDays,
     isActive: row.isActive,
   };

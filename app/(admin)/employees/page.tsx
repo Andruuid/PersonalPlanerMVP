@@ -54,6 +54,8 @@ export default async function EmployeesPage() {
     weeklyTargetMinutes: e.weeklyTargetMinutes,
     hazMinutesPerWeek: e.hazMinutesPerWeek,
     tztModel: e.tztModel,
+    tztPeriodicQuotaDays: e.tztPeriodicQuotaDays,
+    tztPeriodMonths: e.tztPeriodMonths,
     standardWorkDays: e.standardWorkDays,
     isActive: e.isActive,
     userIsActive: e.user.isActive,

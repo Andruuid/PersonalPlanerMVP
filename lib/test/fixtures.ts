@@ -58,6 +58,9 @@ export interface SeedEmployeeOpts {
   weeklyTargetMinutes?: number;
   hazMinutesPerWeek?: number;
   tztModel?: "DAILY_QUOTA" | "TARGET_REDUCTION";
+  tztPeriodicQuotaDays?: number | null;
+  tztPeriodMonths?: number | null;
+  tztLastGrantedAt?: Date | null;
   vacationDaysPerYear?: number;
   entryDate?: Date;
   exitDate?: Date | null;
@@ -100,6 +103,9 @@ export async function seedEmployee(
       weeklyTargetMinutes: opts.weeklyTargetMinutes ?? 2520,
       hazMinutesPerWeek: opts.hazMinutesPerWeek ?? 2700,
       tztModel: opts.tztModel ?? "DAILY_QUOTA",
+      tztPeriodicQuotaDays: opts.tztPeriodicQuotaDays ?? null,
+      tztPeriodMonths: opts.tztPeriodMonths ?? null,
+      tztLastGrantedAt: opts.tztLastGrantedAt ?? null,
       isActive: opts.isActive ?? true,
     },
   });

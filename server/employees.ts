@@ -61,42 +61,73 @@ function optionalMinutesForCreate() {
 const optionalWeeklyTarget = optionalMinutesForCreate();
 const optionalHazMinutes = optionalMinutesForCreate();
 
-const employeeCoreSchema = z.object({
-  firstName: z.string().min(1, "Vorname erforderlich"),
-  lastName: z.string().min(1, "Nachname erforderlich"),
-  roleLabel: z
-    .string()
-    .max(60, "Maximal 60 Zeichen")
-    .optional()
-    .nullable(),
-  pensum: z.coerce
-    .number()
-    .int("Ganzzahl erforderlich")
-    .min(0, "Pensum 0–100")
-    .max(100, "Pensum 0–100"),
-  entryDate: z.coerce.date({ message: "Eintrittsdatum erforderlich" }),
-  exitDate: z.coerce.date().nullable().optional(),
-  locationId: z.string().min(1, "Standort wählen"),
-  vacationDaysPerYear: z.coerce
-    .number()
-    .min(0, "Mindestens 0")
-    .max(60, "Maximal 60"),
-  tztModel: z.enum(["DAILY_QUOTA", "TARGET_REDUCTION"], {
-    message: "TZT-Modell wählen",
-  }),
-  standardWorkDays: z.preprocess(
-    (raw) => {
-      if (raw === "" || raw === null || raw === undefined) return null;
-      const n = typeof raw === "number" ? raw : Number(raw);
-      return Number.isFinite(n) ? n : raw;
-    },
-    z.union([
-      z.null(),
-      z.number().int().min(1).max(7),
-    ]),
-  ),
-  isActive: z.boolean().default(true),
-});
+function optionalPeriodicQuotaDays() {
+  return z.preprocess((raw) => {
+    if (raw === "" || raw === null || raw === undefined) return null;
+    const n = typeof raw === "number" ? raw : Number(raw);
+    return Number.isFinite(n) ? n : raw;
+  }, z.union([z.null(), z.number().positive().max(366)]));
+}
+
+function optionalPeriodicMonths() {
+  return z.preprocess((raw) => {
+    if (raw === "" || raw === null || raw === undefined) return null;
+    const n = typeof raw === "number" ? raw : Number(raw);
+    return Number.isFinite(n) ? n : raw;
+  }, z.union([z.null(), z.literal(1), z.literal(3), z.literal(6), z.literal(12)]));
+}
+
+const employeeCoreSchema = z
+  .object({
+    firstName: z.string().min(1, "Vorname erforderlich"),
+    lastName: z.string().min(1, "Nachname erforderlich"),
+    roleLabel: z
+      .string()
+      .max(60, "Maximal 60 Zeichen")
+      .optional()
+      .nullable(),
+    pensum: z.coerce
+      .number()
+      .int("Ganzzahl erforderlich")
+      .min(0, "Pensum 0–100")
+      .max(100, "Pensum 0–100"),
+    entryDate: z.coerce.date({ message: "Eintrittsdatum erforderlich" }),
+    exitDate: z.coerce.date().nullable().optional(),
+    locationId: z.string().min(1, "Standort wählen"),
+    vacationDaysPerYear: z.coerce
+      .number()
+      .min(0, "Mindestens 0")
+      .max(60, "Maximal 60"),
+    tztModel: z.enum(["DAILY_QUOTA", "TARGET_REDUCTION"], {
+      message: "TZT-Modell wählen",
+    }),
+    tztPeriodicQuotaDays: optionalPeriodicQuotaDays(),
+    tztPeriodMonths: optionalPeriodicMonths(),
+    standardWorkDays: z.preprocess(
+      (raw) => {
+        if (raw === "" || raw === null || raw === undefined) return null;
+        const n = typeof raw === "number" ? raw : Number(raw);
+        return Number.isFinite(n) ? n : raw;
+      },
+      z.union([z.null(), z.number().int().min(1).max(7)]),
+    ),
+    isActive: z.boolean().default(true),
+  })
+  .superRefine((data, ctx) => {
+    if (data.tztModel !== "DAILY_QUOTA") return;
+    const q = data.tztPeriodicQuotaDays;
+    const p = data.tztPeriodMonths;
+    const hasQ = q != null && q > 0;
+    const hasP = p != null;
+    if (hasQ !== hasP) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "TZT-Tage je Periode und Rhythmus sind beide erforderlich (oder beide leer).",
+        path: ["tztPeriodicQuotaDays"],
+      });
+    }
+  });
 
 const createSchema = employeeCoreSchema.extend({
   email: z.string().email("E-Mail erforderlich"),
@@ -137,6 +168,8 @@ function rawFromForm(formData: FormData): Record<string, unknown> {
     weeklyTargetMinutes: formData.get("weeklyTargetMinutes"),
     hazMinutesPerWeek: formData.get("hazMinutesPerWeek"),
     tztModel: readOptionalString(formData.get("tztModel")) ?? "DAILY_QUOTA",
+    tztPeriodicQuotaDays: formData.get("tztPeriodicQuotaDays"),
+    tztPeriodMonths: formData.get("tztPeriodMonths"),
     standardWorkDays: formData.get("standardWorkDays"),
     isActive: readBooleanFlag(formData.get("isActive")),
     openingZeitsaldoMinutes: formData.get("openingZeitsaldoMinutes"),
@@ -144,6 +177,27 @@ function rawFromForm(formData: FormData): Record<string, unknown> {
     openingVacationDays: formData.get("openingVacationDays"),
     openingTztDays: formData.get("openingTztDays"),
     openingParentalCareDays: formData.get("openingParentalCareDays"),
+  };
+}
+
+function resolvePeriodicTztFields(
+  data: z.infer<typeof employeeCoreSchema>,
+  priorLastGranted: Date | null | undefined,
+): {
+  tztPeriodicQuotaDays: number | null;
+  tztPeriodMonths: number | null;
+  tztLastGrantedAt: Date | null;
+} {
+  const activeDaily =
+    data.tztModel === "DAILY_QUOTA" &&
+    data.tztPeriodicQuotaDays != null &&
+    data.tztPeriodicQuotaDays > 0 &&
+    data.tztPeriodMonths != null;
+
+  return {
+    tztPeriodicQuotaDays: activeDaily ? data.tztPeriodicQuotaDays : null,
+    tztPeriodMonths: activeDaily ? data.tztPeriodMonths : null,
+    tztLastGrantedAt: activeDaily ? priorLastGranted ?? null : null,
   };
 }
 
@@ -218,6 +272,8 @@ export async function createEmployeeAction(
         },
       });
 
+      const periodic = resolvePeriodicTztFields(data, null);
+
       const emp = await tx.employee.create({
         data: {
           tenantId: admin.tenantId,
@@ -233,6 +289,7 @@ export async function createEmployeeAction(
           weeklyTargetMinutes: resolvedWeeklyTargetMinutes,
           hazMinutesPerWeek: resolvedHazMinutesPerWeek,
           tztModel: data.tztModel,
+          ...periodic,
           standardWorkDays: data.standardWorkDays,
           isActive: data.isActive,
           deletedAt: data.isActive ? null : archivedAt,
@@ -275,6 +332,8 @@ export async function createEmployeeAction(
       weeklyTargetMinutes: employee.weeklyTargetMinutes,
       hazMinutesPerWeek: employee.hazMinutesPerWeek,
       tztModel: employee.tztModel,
+      tztPeriodicQuotaDays: employee.tztPeriodicQuotaDays,
+      tztPeriodMonths: employee.tztPeriodMonths,
       standardWorkDays: employee.standardWorkDays,
       isActive: employee.isActive,
       openingBookingsCreated,
@@ -394,6 +453,8 @@ export async function updateEmployeeAction(
       : undefined;
   const archivedAt = new Date();
 
+  const periodicUpdate = resolvePeriodicTztFields(data, before.tztLastGrantedAt);
+
   const { updated, exitSnapshotId } = await prisma.$transaction(async (tx) => {
     await tx.user.update({
       where: { id: before.userId },
@@ -419,6 +480,7 @@ export async function updateEmployeeAction(
         weeklyTargetMinutes: data.weeklyTargetMinutes,
         hazMinutesPerWeek: data.hazMinutesPerWeek,
         tztModel: data.tztModel,
+        ...periodicUpdate,
         standardWorkDays: data.standardWorkDays,
         isActive: data.isActive,
         deletedAt: data.isActive ? null : (before.deletedAt ?? archivedAt),
@@ -471,6 +533,9 @@ export async function updateEmployeeAction(
       weeklyTargetMinutes: before.weeklyTargetMinutes,
       hazMinutesPerWeek: before.hazMinutesPerWeek,
       tztModel: before.tztModel,
+      tztPeriodicQuotaDays: before.tztPeriodicQuotaDays,
+      tztPeriodMonths: before.tztPeriodMonths,
+      tztLastGrantedAt: before.tztLastGrantedAt?.toISOString() ?? null,
       standardWorkDays: before.standardWorkDays,
       isActive: before.isActive,
       passwordChanged: false,
@@ -486,6 +551,9 @@ export async function updateEmployeeAction(
       weeklyTargetMinutes: updated.weeklyTargetMinutes,
       hazMinutesPerWeek: updated.hazMinutesPerWeek,
       tztModel: updated.tztModel,
+      tztPeriodicQuotaDays: updated.tztPeriodicQuotaDays,
+      tztPeriodMonths: updated.tztPeriodMonths,
+      tztLastGrantedAt: updated.tztLastGrantedAt?.toISOString() ?? null,
       standardWorkDays: updated.standardWorkDays,
       isActive: updated.isActive,
       passwordChanged: Boolean(passwordHash),
