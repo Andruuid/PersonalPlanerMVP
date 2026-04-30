@@ -33,6 +33,16 @@ function pathMatches(pathname: string, prefixes: readonly string[]): boolean {
 export default auth((req) => {
   const { nextUrl } = req;
   const pathname = nextUrl.pathname;
+
+  // Belt-and-braces: even if the matcher exclusion is honored by the host's
+  // adapter, short-circuit the auth wrapper for routes that mutate the
+  // session cookie. Reading req.auth here would re-touch the JWT on Netlify
+  // and re-emit a session Set-Cookie that overwrites the route handler's
+  // clearing Set-Cookie ("logout seems ignored" symptom).
+  if (pathname === "/api/logout" || pathname.startsWith("/api/auth/")) {
+    return NextResponse.next();
+  }
+
   const role = req.auth?.user?.role ?? "ANON";
   const tenantId = req.auth?.user?.tenantId;
   const pendingTenantSelection = Boolean(req.auth?.user?.pendingTenantSelection);
