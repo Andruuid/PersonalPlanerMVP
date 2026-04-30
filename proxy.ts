@@ -31,9 +31,22 @@ export default auth((req) => {
   const { nextUrl } = req;
   const pathname = nextUrl.pathname;
   const role = req.auth?.user?.role ?? "ANON";
+  const tenantId = req.auth?.user?.tenantId;
+  const hasStaleSessionClaims =
+    Boolean(req.auth) &&
+    (role === "ADMIN" || role === "EMPLOYEE") &&
+    (!tenantId || tenantId.trim().length === 0);
+
+  const loginUrl = new URL("/login", nextUrl);
+  if (pathname !== "/login") {
+    loginUrl.searchParams.set("callbackUrl", pathname);
+  }
+  if (hasStaleSessionClaims) {
+    loginUrl.searchParams.set("reason", "session_stale");
+  }
 
   if (pathMatches(pathname, PUBLIC_PATHS)) {
-    if (pathname === "/login" && req.auth) {
+    if (pathname === "/login" && req.auth && !hasStaleSessionClaims) {
       const target = role === "ADMIN" ? "/dashboard" : "/my-week";
       logDebug("proxy", "Redirect authenticated user from /login", {
         pathname,
@@ -42,7 +55,7 @@ export default auth((req) => {
       });
       return NextResponse.redirect(new URL(target, nextUrl));
     }
-    if (pathname === "/signup" && req.auth) {
+    if (pathname === "/signup" && req.auth && !hasStaleSessionClaims) {
       const target = role === "ADMIN" ? "/dashboard" : "/my-week";
       logDebug("proxy", "Redirect authenticated user from /signup", {
         pathname,
@@ -54,14 +67,22 @@ export default auth((req) => {
     return NextResponse.next();
   }
 
+  if (hasStaleSessionClaims) {
+    logDebug("proxy", "Redirect stale session to /login", {
+      pathname,
+      role,
+      reason: "session_stale",
+      target: "/login",
+    });
+    return NextResponse.redirect(loginUrl);
+  }
+
   if (!req.auth) {
-    const url = new URL("/login", nextUrl);
-    url.searchParams.set("callbackUrl", pathname);
     logDebug("proxy", "Redirect anonymous user to /login", {
       pathname,
       target: "/login",
     });
-    return NextResponse.redirect(url);
+    return NextResponse.redirect(loginUrl);
   }
 
   if (pathMatches(pathname, ADMIN_PATHS) && role !== "ADMIN") {
