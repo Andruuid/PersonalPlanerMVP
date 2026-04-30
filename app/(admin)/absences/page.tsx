@@ -78,18 +78,13 @@ export default async function AbsencesPage({ searchParams }: PageProps) {
     type = "ALL";
   }
 
-  const where: {
-    tenantId?: string;
-    deletedAt: null;
-    status?: AbsenceRequestStatus;
-    type?: AbsenceRequestType;
-    employeeId?: string;
-  } = {};
-  where.tenantId = admin.tenantId;
-  where.deletedAt = null;
-  if (status !== "ALL") where.status = status;
-  if (type !== "ALL") where.type = type;
-  if (employeeId !== "ALL") where.employeeId = employeeId;
+  const where = {
+    tenantId: admin.tenantId,
+    deletedAt: null,
+    ...(status !== "ALL" ? { status } : {}),
+    ...(type !== "ALL" ? { type } : {}),
+    ...(employeeId !== "ALL" ? { employeeId } : {}),
+  };
 
   const [requests, statusCounts] = await Promise.all([
     prisma.absenceRequest.findMany({

@@ -509,7 +509,7 @@ export default async function PlanningPage({ searchParams }: PageProps) {
   const requestViews: RequestView[] = openRequests.map((r) => ({
     id: r.id,
     type: r.type,
-    status: r.status,
+    status: r.status as RequestView["status"],
     startDate: isoDateString(r.startDate),
     endDate: isoDateString(r.endDate),
     rangeLabel: rangeLabel(r.startDate, r.endDate),

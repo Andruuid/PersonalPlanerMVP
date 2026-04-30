@@ -111,8 +111,10 @@ describe("planning — TZT absence vs TARGET_REDUCTION", () => {
     });
 
     expect(result.ok).toBe(false);
-    expect(result.error).toContain("TZT-Bezug nicht vorgesehen");
-    expect(result.error).toContain("Sollzeit-Reduktion");
+    if (!result.ok) {
+      expect(result.error).toContain("TZT-Bezug nicht vorgesehen");
+      expect(result.error).toContain("Sollzeit-Reduktion");
+    }
   });
 
   it("quickSetPlanEntryAction (TZT) lehnt bei TARGET_REDUCTION ab", async () => {
@@ -128,7 +130,9 @@ describe("planning — TZT absence vs TARGET_REDUCTION", () => {
     );
 
     expect(result.ok).toBe(false);
-    expect(result.error).toContain("TZT-Bezug nicht vorgesehen");
+    if (!result.ok) {
+      expect(result.error).toContain("TZT-Bezug nicht vorgesehen");
+    }
   });
 
   it("upsertPlanEntryAction erlaubt ABSENCE/TZT bei DAILY_QUOTA", async () => {
