@@ -5,7 +5,6 @@ import {
   CalendarHeart,
   Baby,
   CalendarX,
-  Hand,
   Hourglass,
   Timer,
   type LucideIcon,
@@ -30,12 +29,6 @@ const BUTTONS: ButtonSpec[] = [
     variant: "primary",
   },
   {
-    type: "FREE_REQUESTED",
-    label: "Frei verlangt",
-    icon: Hand,
-    variant: "outline",
-  },
-  {
     type: "UEZ_BEZUG",
     label: "UEZ beziehen",
     icon: Hourglass,
@@ -49,7 +42,7 @@ const BUTTONS: ButtonSpec[] = [
   },
   {
     type: "FREE_DAY",
-    label: "Freien Tag angeben",
+    label: "Freier Tag (Zeitsaldo)",
     icon: CalendarX,
     variant: "outline",
   },

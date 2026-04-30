@@ -26,7 +26,7 @@ const ABSENCE_LABEL: Record<string, string> = {
   VACATION: "Ferien",
   SICK: "Krank",
   ACCIDENT: "Unfall",
-  FREE_REQUESTED: "Frei verlangt",
+  FREE_REQUESTED: "Freier Tag (Zeitsaldo)",
   UEZ_BEZUG: "UEZ-Bezug",
   UNPAID: "Unbezahlt",
   TZT: "TZT",

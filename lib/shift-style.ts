@@ -52,7 +52,7 @@ export const SHIFT_STYLES: Record<ShiftKey, ShiftStyle> = {
     dot: "bg-emerald-500",
   },
   FREI_VERLANGT: {
-    label: "Frei verlangt",
+    label: "Freier Tag (Zeitsaldo)",
     block:
       "bg-amber-50 text-amber-900 ring-1 ring-amber-200 hover:bg-amber-100",
     badge: "bg-amber-100 text-amber-900",

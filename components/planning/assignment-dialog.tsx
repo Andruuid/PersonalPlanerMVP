@@ -57,7 +57,7 @@ const ABSENCE_OPTIONS: Array<{
   label: string;
 }> = [
   { value: "VACATION", label: "Ferien" },
-  { value: "FREE_REQUESTED", label: "Frei verlangt" },
+  { value: "FREE_REQUESTED", label: "Freier Tag (Zeitsaldo)" },
   { value: "UEZ_BEZUG", label: "UEZ-Bezug" },
   { value: "TZT", label: "TZT" },
   { value: "SICK", label: "Krank" },

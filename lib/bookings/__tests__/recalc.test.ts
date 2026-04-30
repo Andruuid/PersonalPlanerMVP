@@ -239,7 +239,7 @@ describe("recalcWeekClose", () => {
     expect(zeitsaldoBookings[0].bookingType).toBe("FREE_REQUESTED");
     expect(zeitsaldoBookings[0].value).toBe(-480);
     expect(zeitsaldoBookings[0].comment).toBe(
-      `Frei verlangt KW ${KW}/${YEAR}`,
+      `Freier Tag (Zeitsaldo) KW ${KW}/${YEAR}`,
     );
 
     const autoWeekly = await db.prisma.booking.findMany({
@@ -352,7 +352,7 @@ describe("recalcWeekClose", () => {
     for (const b of freeRequestedBookings) {
       expect(b.value).toBe(-480);
       expect(b.accountType).toBe("ZEITSALDO");
-      expect(b.comment).toBe(`Frei verlangt KW ${KW}/${YEAR}`);
+      expect(b.comment).toBe(`Freier Tag (Zeitsaldo) KW ${KW}/${YEAR}`);
     }
 
     const balance = await db.prisma.accountBalance.findUnique({
@@ -395,7 +395,9 @@ describe("recalcWeekClose", () => {
     expect(bookings[0].bookingType).toBe("FREE_REQUESTED");
     expect(bookings[0].accountType).toBe("ZEITSALDO");
     expect(bookings[0].value).toBe(-504);
-    expect(bookings[0].comment).toBe(`Frei verlangt KW ${KW}/${YEAR}`);
+    expect(bookings[0].comment).toBe(
+      `Freier Tag (Zeitsaldo) KW ${KW}/${YEAR}`,
+    );
 
     const balance = await db.prisma.accountBalance.findUnique({
       where: {

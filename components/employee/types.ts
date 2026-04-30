@@ -24,7 +24,7 @@ export interface MyDayView {
   subtitle: string | null;
   /** null ohne veröffentlichten Snapshot oder Pensum-Daten */
   displayContributionMinutes: number | null;
-  /** Nur «Frei verlangt»: Hinweis auf Zeitsaldo-Buchung am KW-Sonntag */
+  /** Nur «Freier Tag (Zeitsaldo)» / FREE_REQUESTED: Hinweis auf Zeitsaldo-Buchung am KW-Sonntag */
   freeRequestedZeitsaldoTooltip: string | null;
 }
 
@@ -65,10 +65,10 @@ export interface MyRequestView {
 
 export const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
   VACATION: "Ferienantrag",
-  FREE_REQUESTED: "Frei verlangt",
+  FREE_REQUESTED: "Freier Tag (Zeitsaldo)",
   UEZ_BEZUG: "UEZ-Bezug",
   TZT: "TZT-Antrag",
-  FREE_DAY: "Freier Tag",
+  FREE_DAY: "Freier Tag (Zeitsaldo)",
   PARENTAL_CARE: "Eltern-/Betreuungsurlaub",
 };
 

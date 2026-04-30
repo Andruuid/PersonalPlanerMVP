@@ -29,10 +29,10 @@ const REASON_MAX = 300;
 
 const TYPE_TITLES: Record<RequestView["type"], string> = {
   VACATION: "Ferienantrag",
-  FREE_REQUESTED: "Freiwunsch",
+  FREE_REQUESTED: "Freier Tag (Zeitsaldo)",
   UEZ_BEZUG: "UEZ-Bezug",
   TZT: "TZT-Antrag",
-  FREE_DAY: "Freier Tag",
+  FREE_DAY: "Freier Tag (Zeitsaldo)",
   PARENTAL_CARE: "Eltern-/Betreuungsurlaub",
 };
 

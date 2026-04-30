@@ -50,10 +50,10 @@ interface AbsencesTableProps {
 
 const TYPE_LABEL: Record<AbsenceRequestType, string> = {
   VACATION: "Ferienantrag",
-  FREE_REQUESTED: "Frei verlangt",
+  FREE_REQUESTED: "Freier Tag (Zeitsaldo)",
   UEZ_BEZUG: "UEZ-Bezug",
   TZT: "TZT-Antrag",
-  FREE_DAY: "Freier Tag",
+  FREE_DAY: "Freier Tag (Zeitsaldo)",
 };
 
 const STATUS_LABEL: Record<AbsenceRequestStatus, string> = {

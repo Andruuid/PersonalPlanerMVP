@@ -33,10 +33,10 @@ const STATUS_TABS: Array<{ key: StatusFilter; label: string }> = [
 const TYPE_OPTIONS: Array<{ value: TypeFilter; label: string }> = [
   { value: "ALL", label: "Alle Typen" },
   { value: "VACATION", label: "Ferien" },
-  { value: "FREE_REQUESTED", label: "Frei verlangt" },
+  { value: "FREE_REQUESTED", label: "Freier Tag (Zeitsaldo)" },
   { value: "UEZ_BEZUG", label: "UEZ-Bezug" },
   { value: "TZT", label: "TZT" },
-  { value: "FREE_DAY", label: "Freier Tag" },
+  { value: "FREE_DAY", label: "Freier Tag (Zeitsaldo)" },
 ];
 
 export function AbsencesFilter({

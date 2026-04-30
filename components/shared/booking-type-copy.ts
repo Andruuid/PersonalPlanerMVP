@@ -4,7 +4,7 @@ import type { BookingType } from "@/lib/generated/prisma/enums";
 export const BOOKING_TYPE_LABEL: Record<BookingType, string> = {
   OPENING: "Eröffnung",
   AUTO_WEEKLY: "Wochenabschluss",
-  FREE_REQUESTED: "Freiwunsch",
+  FREE_REQUESTED: "Freier Tag (Zeitsaldo)",
   MANUAL_CREDIT: "Gutschrift",
   MANUAL_DEBIT: "Belastung",
   CORRECTION: "Korrektur",

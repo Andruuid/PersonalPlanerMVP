@@ -693,7 +693,7 @@ export async function recalcWeekClose(
       const freeRequestedDays = result.days.filter(
         (day) => day.kind === "FREE_REQUESTED" && day.sollMinutes > 0,
       );
-      const freeRequestedComment = `Frei verlangt KW ${week.weekNumber}/${week.year}`;
+      const freeRequestedComment = `Freier Tag (Zeitsaldo) KW ${week.weekNumber}/${week.year}`;
       let autoWeeklyZeitsaldoDelta = result.weeklyZeitsaldoDeltaMinutes;
       for (const day of freeRequestedDays) {
         bookingsToCreate.push({

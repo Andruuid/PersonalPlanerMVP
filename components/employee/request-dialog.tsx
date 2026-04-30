@@ -30,12 +30,12 @@ const DESCRIPTIONS: Record<RequestType, string> = {
   VACATION:
     "Ferienantrag — wird an die Geschäftsleitung übermittelt und nach Genehmigung im Ferienkonto verbucht.",
   FREE_REQUESTED:
-    "Frei verlangt — Antrag nur möglich bei genügend Zeitsaldo. Bei Genehmigung wird der Tag vom Zeitsaldo abgezogen.",
+    "Freier Tag zu Lasten des Zeitsaldos — Antrag nur möglich bei genügend Zeitsaldo. Bei Genehmigung wird der Tagessoll vom Zeitsaldo abgezogen.",
   UEZ_BEZUG:
     "Antrag, einen geplanten Arbeitstag durch UEZ zu kompensieren — verfügbar nur bei genügend UEZ-Saldo.",
   TZT: "TZT erfassen — geplante TZT-Tage zur Genehmigung beantragen.",
   FREE_DAY:
-    "Freier Tag — unbezahlt freier Tag, sofern keine Sollzeit besteht.",
+    "Freier Tag zu Lasten des Zeitsaldos — nur bei genügend Zeitsaldo möglich; bei Genehmigung wird der Tagessoll vom Zeitsaldo abgezogen.",
   PARENTAL_CARE:
     "Eltern-/Betreuungsurlaub — wird bei Genehmigung aus dem gleichnamigen Kontingentkonto bezogen.",
 };
@@ -48,7 +48,8 @@ const ENTITLEMENT_HINTS: Record<RequestType, string | null> = {
   UEZ_BEZUG:
     "Antrag nur möglich mit genügend UEZ-Minuten im betroffenen Jahr. Bei Genehmigung wird der Bezug mit der Wochenschliessung vom UEZ-Konto abgezogen (Zeitsaldo bleibt neutral).",
   TZT: "Antrag nur möglich mit genügend TZT-Guthaben.",
-  FREE_DAY: null,
+  FREE_DAY:
+    "Antrag nur möglich mit genügend Zeitsaldo im betroffenen Jahr. Bei Genehmigung wird der Wert vom Zeitsaldo abgezogen.",
   PARENTAL_CARE:
     "Antrag nur möglich mit genügend Guthaben im Eltern-/Betreuungsurlaub-Konto.",
 };

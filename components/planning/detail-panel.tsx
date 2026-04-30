@@ -28,7 +28,11 @@ const SHIFT_PICKS: Array<{ key: QuickPickKey; shiftKey: ShiftKey; label: string 
   { key: "FRUEH", shiftKey: "FRUEH", label: "Frühdienst" },
   { key: "SPAET", shiftKey: "SPAET", label: "Spätdienst" },
   { key: "VACATION", shiftKey: "FERIEN", label: "Ferien" },
-  { key: "FREE_REQUESTED", shiftKey: "FREI_VERLANGT", label: "Frei verlangt" },
+  {
+    key: "FREE_REQUESTED",
+    shiftKey: "FREI_VERLANGT",
+    label: "Freier Tag (Zeitsaldo)",
+  },
   { key: "TZT", shiftKey: "TZT", label: "TZT" },
   { key: "SAMSTAG", shiftKey: "SAMSTAG", label: "Samstagsdienst" },
 ];
