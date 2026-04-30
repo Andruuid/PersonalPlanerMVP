@@ -67,9 +67,13 @@ describe("holiday proposal + accept flow", () => {
     );
 
     expect(result.ok).toBe(true);
-    expect(result.data?.holidays.length).toBeGreaterThan(0);
-    expect(result.data?.holidays.some((h) => h.name === "Bundesfeier")).toBe(true);
-    expect(result.data?.holidays.some((h) => h.name === "Fronleichnam")).toBe(false);
+    if (!result.ok) {
+      throw new Error(`Expected ok result, got: ${result.error}`);
+    }
+    const holidays = result.data?.holidays ?? [];
+    expect(holidays.length).toBeGreaterThan(0);
+    expect(holidays.some((h) => h.name === "Bundesfeier")).toBe(true);
+    expect(holidays.some((h) => h.name === "Fronleichnam")).toBe(false);
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
     expect(writeAuditMock).not.toHaveBeenCalled();
   });
@@ -111,6 +115,9 @@ describe("holiday proposal + accept flow", () => {
     ]);
 
     expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error(`Expected ok result, got: ${result.error}`);
+    }
     expect(result.data).toEqual({ added: 1, removed: 1, updated: 1 });
     expect(deleteMock).toHaveBeenCalledTimes(1);
     expect(upsertMock).toHaveBeenCalledTimes(3);
