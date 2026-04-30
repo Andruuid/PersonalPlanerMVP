@@ -40,12 +40,16 @@ const STATUS_BADGE: Record<RequestView["status"], string> = {
   OPEN: "bg-amber-100 text-amber-800",
   APPROVED: "bg-emerald-100 text-emerald-800",
   REJECTED: "bg-rose-100 text-rose-800",
+  WITHDRAWN: "bg-neutral-100 text-neutral-700",
+  CANCELLED: "bg-neutral-100 text-neutral-700",
 };
 
 const STATUS_LABEL: Record<RequestView["status"], string> = {
   OPEN: "Offen",
   APPROVED: "Genehmigt",
   REJECTED: "Abgelehnt",
+  WITHDRAWN: "Zurückgezogen",
+  CANCELLED: "Storniert",
 };
 
 export function RequestsPanel({

@@ -480,7 +480,7 @@ export async function updateEmployeeAction(
   const nextDeletedAt = data.isActive ? null : (before.deletedAt ?? new Date());
   const nextArchivedUntil = data.isActive
     ? null
-    : (before.archivedUntil ?? archiveUntil(nextDeletedAt));
+    : (before.archivedUntil ?? archiveUntil(nextDeletedAt ?? undefined));
   const nextDeletedById = data.isActive ? null : (before.deletedById ?? admin.id);
   const nextStatus = resolveEmployeeStatus({
     isActive: data.isActive,
