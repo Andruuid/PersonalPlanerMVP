@@ -152,8 +152,7 @@ export async function upsertPlanEntryAction(
       select: {
         id: true,
         tenantId: true,
-        isActive: true,
-        deletedAt: true,
+        status: true,
         locationId: true,
         tztModel: true,
       },
@@ -161,7 +160,7 @@ export async function upsertPlanEntryAction(
     if (!employee || employee.tenantId !== admin.tenantId) {
       return { ok: false, error: "Mitarbeitende:r nicht gefunden." };
     }
-    if (employee.deletedAt) {
+    if (employee.status === "ARCHIVIERT") {
       return { ok: false, error: "Mitarbeitende:r ist archiviert." };
     }
 
@@ -526,12 +525,12 @@ export async function movePlanEntryAction(
 
     const targetEmployee = await prisma.employee.findUnique({
       where: { id: toEmployeeId },
-      select: { tenantId: true, deletedAt: true },
+      select: { tenantId: true, status: true },
     });
     if (
       !targetEmployee ||
       targetEmployee.tenantId !== admin.tenantId ||
-      targetEmployee.deletedAt
+      targetEmployee.status === "ARCHIVIERT"
     ) {
       return { ok: false, error: "Mitarbeitende:r nicht gefunden." };
     }

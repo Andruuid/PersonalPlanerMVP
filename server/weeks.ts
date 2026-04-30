@@ -153,7 +153,7 @@ async function loadPublishMandatoryViolations(
   detailText: string;
 }> {
   const employees = await prisma.employee.findMany({
-    where: { tenantId, isActive: true, deletedAt: null },
+    where: { tenantId, status: "AKTIV" },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     include: {
       tenant: { select: { defaultStandardWorkDays: true } },
@@ -293,7 +293,7 @@ export async function buildWeekSnapshot(
 
   const [employees, entries] = await Promise.all([
     prisma.employee.findMany({
-      where: { tenantId, isActive: true, deletedAt: null },
+      where: { tenantId, status: "AKTIV" },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
       select: {
         id: true,

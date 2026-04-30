@@ -13,7 +13,7 @@ export async function loadEmployeesForPreviewPicker(
   tenantId: string,
 ): Promise<AdminPreviewPickerEmployee[]> {
   return prisma.employee.findMany({
-    where: { tenantId, isActive: true, deletedAt: null },
+    where: { tenantId, status: "AKTIV" },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     select: { id: true, firstName: true, lastName: true, roleLabel: true },
   });

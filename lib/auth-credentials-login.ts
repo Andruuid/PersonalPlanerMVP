@@ -6,8 +6,7 @@ export type CredentialsLoginUserForActiveCheck = {
   role: Role;
   employee: {
     id: string;
-    isActive: boolean;
-    deletedAt: Date | null;
+    status: "AKTIV" | "INAKTIV" | "AUSGETRETEN" | "ARCHIVIERT";
   } | null;
 };
 
@@ -21,5 +20,5 @@ export function isCredentialsLoginAllowed(
   if (!user.isActive) return false;
   if (user.role !== "EMPLOYEE") return true;
   const e = user.employee;
-  return !!(e && e.isActive && e.deletedAt == null);
+  return !!(e && e.status === "AKTIV");
 }

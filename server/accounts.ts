@@ -203,6 +203,7 @@ export interface AdminAccountsRow {
   tztModel: "DAILY_QUOTA" | "TARGET_REDUCTION";
   locationId: string;
   isActive: boolean;
+  status: "AKTIV" | "INAKTIV" | "AUSGETRETEN" | "ARCHIVIERT";
   accounts: Record<AccountType, AccountSummary>;
 }
 
@@ -223,8 +224,11 @@ export async function loadAdminAccountsTable(
   year: number,
 ): Promise<AdminAccountsTableLoad> {
   const employees = await prisma.employee.findMany({
-    where: { tenantId: user.tenantId, deletedAt: null },
-    orderBy: [{ isActive: "desc" }, { lastName: "asc" }, { firstName: "asc" }],
+    where: {
+      tenantId: user.tenantId,
+      status: { not: "ARCHIVIERT" },
+    },
+    orderBy: [{ status: "asc" }, { lastName: "asc" }, { firstName: "asc" }],
     include: {
       tenant: { select: { defaultStandardWorkDays: true, uezPayoutPolicy: true } },
     },
@@ -287,6 +291,7 @@ export async function loadAdminAccountsTable(
         tztModel: e.tztModel as "DAILY_QUOTA" | "TARGET_REDUCTION",
         locationId: e.locationId,
         isActive: e.isActive,
+        status: e.status as "AKTIV" | "INAKTIV" | "AUSGETRETEN" | "ARCHIVIERT",
         accounts,
       };
     }),

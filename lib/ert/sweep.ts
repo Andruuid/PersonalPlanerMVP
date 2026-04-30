@@ -154,7 +154,7 @@ export async function sweepErtCases(
   asOf: Date = new Date(),
 ): Promise<void> {
   const employees = await prisma.employee.findMany({
-    where: { tenantId, isActive: true, deletedAt: null },
+    where: { tenantId, status: "AKTIV" },
     select: { id: true, entryDate: true, exitDate: true },
   });
   for (const emp of employees) {

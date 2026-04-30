@@ -20,6 +20,25 @@ import {
   isExitDateInPast,
 } from "@/lib/employee/exit-snapshot";
 
+type EmployeeStatus = "AKTIV" | "INAKTIV" | "AUSGETRETEN" | "ARCHIVIERT";
+
+function startOfToday(): Date {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+}
+
+function resolveEmployeeStatus(input: {
+  isActive: boolean;
+  exitDate: Date | null;
+  deletedAt: Date | null;
+}): EmployeeStatus {
+  if (input.deletedAt) return "ARCHIVIERT";
+  if (input.exitDate && input.exitDate <= startOfToday()) return "AUSGETRETEN";
+  if (!input.isActive) return "INAKTIV";
+  return "AKTIV";
+}
+
 function openingAmountSchema(maxAbs: number) {
   return z.preprocess((v) => {
     if (v === "" || v === null || v === undefined) return 0;
@@ -258,7 +277,12 @@ export async function createEmployeeAction(
     2700;
 
   const passwordHash = await bcrypt.hash(data.password, 10);
-  const archivedAt = new Date();
+  const exitDate = data.exitDate ?? null;
+  const employeeStatus = resolveEmployeeStatus({
+    isActive: data.isActive,
+    exitDate,
+    deletedAt: null,
+  });
 
   const { openingBookingsCreated, employee } = await prisma.$transaction(
     async (tx) => {
@@ -292,8 +316,9 @@ export async function createEmployeeAction(
           ...periodic,
           standardWorkDays: data.standardWorkDays,
           isActive: data.isActive,
-          deletedAt: data.isActive ? null : archivedAt,
-          archivedUntil: data.isActive ? null : archiveUntil(archivedAt),
+          status: employeeStatus,
+          deletedAt: null,
+          archivedUntil: null,
         },
       });
 
@@ -451,7 +476,16 @@ export async function updateEmployeeAction(
     data.password && data.password.length > 0
       ? await bcrypt.hash(data.password, 10)
       : undefined;
-  const archivedAt = new Date();
+  const nextExitDate = data.exitDate ?? null;
+  const nextDeletedAt = data.isActive ? null : before.deletedAt;
+  const nextArchivedUntil = data.isActive
+    ? null
+    : (before.archivedUntil ?? (before.deletedAt ? archiveUntil(before.deletedAt) : null));
+  const nextStatus = resolveEmployeeStatus({
+    isActive: data.isActive,
+    exitDate: nextExitDate,
+    deletedAt: nextDeletedAt,
+  });
 
   const periodicUpdate = resolvePeriodicTztFields(data, before.tztLastGrantedAt);
 
@@ -474,7 +508,7 @@ export async function updateEmployeeAction(
         roleLabel: data.roleLabel ?? null,
         pensum: data.pensum,
         entryDate: data.entryDate,
-        exitDate: data.exitDate ?? null,
+        exitDate: nextExitDate,
         locationId: data.locationId,
         vacationDaysPerYear: data.vacationDaysPerYear,
         weeklyTargetMinutes: data.weeklyTargetMinutes,
@@ -483,14 +517,13 @@ export async function updateEmployeeAction(
         ...periodicUpdate,
         standardWorkDays: data.standardWorkDays,
         isActive: data.isActive,
-        deletedAt: data.isActive ? null : (before.deletedAt ?? archivedAt),
-        archivedUntil: data.isActive
-          ? null
-          : (before.archivedUntil ?? archiveUntil(archivedAt)),
+        status: nextStatus,
+        deletedAt: nextDeletedAt,
+        archivedUntil: nextArchivedUntil,
       },
     });
 
-    const nextExit = data.exitDate ?? null;
+    const nextExit = nextExitDate;
     const existingSnap = await tx.employeeExitSnapshot.findUnique({
       where: { employeeId: data.id },
       select: { id: true },
@@ -623,8 +656,11 @@ export async function setEmployeeActiveAction(
       where: { id: employeeId },
       data: {
         isActive,
-        deletedAt: isActive ? null : new Date(),
-        archivedUntil: isActive ? null : archiveUntil(),
+        status: resolveEmployeeStatus({
+          isActive,
+          exitDate: before.exitDate,
+          deletedAt: before.deletedAt,
+        }),
       },
     });
   });
@@ -637,8 +673,11 @@ export async function setEmployeeActiveAction(
     oldValue: { isActive: before.isActive },
     newValue: {
       isActive,
-      deletedAt: isActive ? null : "set",
-      archivedUntil: isActive ? null : "set",
+      status: resolveEmployeeStatus({
+        isActive,
+        exitDate: before.exitDate,
+        deletedAt: before.deletedAt,
+      }),
     },
   });
 

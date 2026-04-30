@@ -62,7 +62,7 @@ export const {
             },
             include: {
               employee: {
-                select: { id: true, isActive: true, deletedAt: true },
+                select: { id: true, status: true },
               },
             },
           });

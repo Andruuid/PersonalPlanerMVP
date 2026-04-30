@@ -140,8 +140,7 @@ export async function createShiftWishAction(
       where: {
         id: employeeId,
         tenantId: employee.tenantId,
-        isActive: true,
-        deletedAt: null,
+        status: "AKTIV",
       },
       select: { id: true },
     }))
@@ -261,8 +260,7 @@ export async function approveShiftWishAction(
     where: {
       id: wish.employeeId,
       tenantId: admin.tenantId,
-      isActive: true,
-      deletedAt: null,
+      status: "AKTIV",
     },
     select: { id: true },
   });

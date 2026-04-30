@@ -10,8 +10,7 @@ function baseEmployee(): NonNullable<
 > {
   return {
     id: "emp_1",
-    isActive: true,
-    deletedAt: null,
+    status: "AKTIV",
   };
 }
 
@@ -48,7 +47,7 @@ describe("isCredentialsLoginAllowed", () => {
       isCredentialsLoginAllowed({
         isActive: true,
         role: Role.ADMIN,
-        employee: { ...baseEmployee(), isActive: false },
+        employee: { ...baseEmployee(), status: "INAKTIV" },
       }),
     ).toBe(true);
   });
@@ -68,17 +67,17 @@ describe("isCredentialsLoginAllowed", () => {
       isCredentialsLoginAllowed({
         isActive: true,
         role: Role.EMPLOYEE,
-        employee: { ...baseEmployee(), isActive: false },
+        employee: { ...baseEmployee(), status: "INAKTIV" },
       }),
     ).toBe(false);
   });
 
-  it("denies EMPLOYEE when employee is soft-deleted", () => {
+  it("denies EMPLOYEE when employee is archived", () => {
     expect(
       isCredentialsLoginAllowed({
         isActive: true,
         role: Role.EMPLOYEE,
-        employee: { ...baseEmployee(), deletedAt: new Date("2026-01-01") },
+        employee: { ...baseEmployee(), status: "ARCHIVIERT" },
       }),
     ).toBe(false);
   });

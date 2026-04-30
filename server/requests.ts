@@ -136,8 +136,7 @@ export async function approveRequestAction(
     where: {
       id: request.employeeId,
       tenantId: admin.tenantId,
-      isActive: true,
-      deletedAt: null,
+      status: "AKTIV",
     },
     select: { id: true },
   });
@@ -415,8 +414,7 @@ export async function createAbsenceRequestAction(
     where: {
       id: employeeId,
       tenantId: employee.tenantId,
-      isActive: true,
-      deletedAt: null,
+      status: "AKTIV",
     },
     select: {
       weeklyTargetMinutes: true,

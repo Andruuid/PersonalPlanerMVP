@@ -514,7 +514,7 @@ export async function recalcWeekClose(
 
   const employees = (
     await prisma.employee.findMany({
-      where: { tenantId, isActive: true, deletedAt: null },
+      where: { tenantId, status: "AKTIV", isActive: true },
       include: {
         tenant: { select: { defaultStandardWorkDays: true } },
       },
@@ -1185,7 +1185,7 @@ export async function applyTztPeriodicGrant(
   const candidates = await prisma.employee.findMany({
     where: {
       tztModel: "DAILY_QUOTA",
-      deletedAt: null,
+      status: "AKTIV",
       isActive: true,
       tztPeriodicQuotaDays: { not: null, gt: 0 },
       tztPeriodMonths: { not: null, gt: 0 },
@@ -1225,8 +1225,7 @@ export async function applyTztPeriodicGrant(
             tenantId: true,
             entryDate: true,
             exitDate: true,
-            deletedAt: true,
-            isActive: true,
+            status: true,
             vacationDaysPerYear: true,
             tztModel: true,
             tztPeriodicQuotaDays: true,
@@ -1236,8 +1235,7 @@ export async function applyTztPeriodicGrant(
         });
         if (
           !row ||
-          row.deletedAt ||
-          !row.isActive ||
+          row.status !== "AKTIV" ||
           row.tztModel !== "DAILY_QUOTA"
         ) {
           return null;
@@ -1730,9 +1728,9 @@ export async function applyYearEndCarryover(
   const carryDate = new Date(toYear, 0, 1);
   const carryDateNext = addDays(carryDate, 1);
 
-  const employeeWhere: { isActive: boolean; deletedAt: null; tenantId?: string } = {
+  const employeeWhere: { status: "AKTIV"; isActive: true; tenantId?: string } = {
+    status: "AKTIV",
     isActive: true,
-    deletedAt: null,
   };
   if (tenantId) employeeWhere.tenantId = tenantId;
 
