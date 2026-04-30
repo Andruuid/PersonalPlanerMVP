@@ -1,5 +1,11 @@
 import { cn } from "@/lib/utils";
 import { employeeDayBlockAppearance } from "@/lib/planning/block-appearance";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { formatSignedContributionHours } from "@/lib/time/contribution-display";
 import type { MyDayView } from "./types";
 
 interface DayCardProps {
@@ -12,6 +18,33 @@ export function DayCard({ day }: DayCardProps) {
     serviceBlockColorHex: day.serviceBlockColorHex ?? null,
   });
   const isEmpty = day.shiftKey === "EMPTY" || day.shiftKey === "FREI";
+
+  const contributionRow =
+    day.displayContributionMinutes !== null ? (
+      day.freeRequestedZeitsaldoTooltip ? (
+        <Tooltip delayDuration={200}>
+          <TooltipTrigger asChild>
+            <p
+              className={cn(
+                "mt-0.5 cursor-help text-xs font-medium tabular-nums text-neutral-700 underline decoration-dotted decoration-neutral-400 underline-offset-2",
+              )}
+            >
+              {formatSignedContributionHours(day.displayContributionMinutes)}
+            </p>
+          </TooltipTrigger>
+          <TooltipContent
+            side="top"
+            className="max-w-xs text-left text-sm leading-snug"
+          >
+            {day.freeRequestedZeitsaldoTooltip}
+          </TooltipContent>
+        </Tooltip>
+      ) : (
+        <p className="mt-0.5 text-xs font-medium tabular-nums text-neutral-700">
+          {formatSignedContributionHours(day.displayContributionMinutes)}
+        </p>
+      )
+    ) : null;
 
   return (
     <article
@@ -59,6 +92,7 @@ export function DayCard({ day }: DayCardProps) {
         >
           {day.timeRange ?? "—"}
         </p>
+        {contributionRow}
         {day.subtitle ? (
           <p className="text-xs text-neutral-500">{day.subtitle}</p>
         ) : null}

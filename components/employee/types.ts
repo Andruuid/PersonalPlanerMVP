@@ -22,6 +22,10 @@ export interface MyDayView {
   title: string;
   timeRange: string | null;
   subtitle: string | null;
+  /** null ohne veröffentlichten Snapshot oder Pensum-Daten */
+  displayContributionMinutes: number | null;
+  /** Nur «Frei verlangt»: Hinweis auf Zeitsaldo-Buchung am KW-Sonntag */
+  freeRequestedZeitsaldoTooltip: string | null;
 }
 
 export interface MyWeekHeader {

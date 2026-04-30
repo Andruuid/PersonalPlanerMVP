@@ -18,6 +18,11 @@ import {
 } from "./types";
 import { UNDERSTAFFED_DAY_DOT_TOOLTIP } from "./copy";
 
+import {
+  formatSignedContributionHours,
+  freeRequestedZeitsaldoTooltip,
+} from "@/lib/time/contribution-display";
+
 interface WeekMobileViewProps {
   employees: EmployeeView[];
   days: DayView[];
@@ -25,6 +30,9 @@ interface WeekMobileViewProps {
   selectedKey: string | null;
   locked: boolean;
   onOpenAssign: (employeeId: string, isoDate: string) => void;
+  dailyZeitBalanceByEmployee: Record<string, Record<string, number>>;
+  weekYear: number;
+  weekNumber: number;
 }
 
 export function WeekMobileView({
@@ -34,6 +42,9 @@ export function WeekMobileView({
   selectedKey,
   locked,
   onOpenAssign,
+  dailyZeitBalanceByEmployee,
+  weekYear,
+  weekNumber,
 }: WeekMobileViewProps) {
   if (employees.length === 0) {
     return (
@@ -105,6 +116,11 @@ export function WeekMobileView({
                 selectedKey={selectedKey}
                 locked={locked}
                 onOpenAssign={onOpenAssign}
+                displayContributionMinutes={
+                  dailyZeitBalanceByEmployee[emp.id]?.[day.iso] ?? 0
+                }
+                weekYear={weekYear}
+                weekNumber={weekNumber}
               />
             ))}
           </TabsContent>
@@ -121,6 +137,9 @@ interface MobileEmployeeDayCardProps {
   selectedKey: string | null;
   locked: boolean;
   onOpenAssign: (employeeId: string, isoDate: string) => void;
+  displayContributionMinutes: number;
+  weekYear: number;
+  weekNumber: number;
 }
 
 function MobileEmployeeDayCard({
@@ -130,11 +149,48 @@ function MobileEmployeeDayCard({
   selectedKey,
   locked,
   onOpenAssign,
+  displayContributionMinutes,
+  weekYear,
+  weekNumber,
 }: MobileEmployeeDayCardProps) {
   const key = entryKey(employee.id, dayIso);
   const entry: PlanEntryView | null = entries[key] ?? null;
   const selected = selectedKey === key;
   const block = entry ? planEntryBlockAppearance(entry) : null;
+  const isFreeRequested =
+    entry?.kind === "ABSENCE" && entry.absenceType === "FREE_REQUESTED";
+  const contribLabel =
+    formatSignedContributionHours(displayContributionMinutes);
+  const freeTooltip = freeRequestedZeitsaldoTooltip(weekYear, weekNumber);
+
+  const contributionFooter = entry && block ? (
+    isFreeRequested ? (
+      <Tooltip delayDuration={200}>
+        <TooltipTrigger asChild>
+          <p
+            className="mt-1 text-xs font-medium tabular-nums text-neutral-700 underline decoration-dotted decoration-neutral-400 underline-offset-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {contribLabel}
+          </p>
+        </TooltipTrigger>
+        <TooltipContent
+          side="top"
+          className="max-w-xs text-left text-sm leading-snug"
+        >
+          {freeTooltip}
+        </TooltipContent>
+      </Tooltip>
+    ) : (
+      <p className="mt-1 text-xs font-medium tabular-nums text-neutral-700">
+        {contribLabel}
+      </p>
+    )
+  ) : (
+    <p className="mt-1 text-xs font-medium tabular-nums text-neutral-600">
+      {contribLabel}
+    </p>
+  );
 
   return (
     <article className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-3">
@@ -197,13 +253,14 @@ function MobileEmployeeDayCard({
               {entry.subtitle}
             </p>
           ) : null}
+          {contributionFooter}
         </button>
       ) : (
         <button
           type="button"
           onClick={() => onOpenAssign(employee.id, dayIso)}
           className={cn(
-            "flex min-h-[64px] w-full items-center justify-center rounded-xl border border-dashed bg-white px-2 text-center text-xs font-medium leading-snug transition-colors",
+            "flex min-h-[64px] w-full flex-col items-center justify-center gap-1 rounded-xl border border-dashed bg-white px-2 py-2 text-center text-xs font-medium leading-snug transition-colors",
             selected
               ? "border-2 border-neutral-800 text-neutral-800 shadow-sm"
               : "border-neutral-300 text-neutral-500",
@@ -211,7 +268,10 @@ function MobileEmployeeDayCard({
             locked ? "opacity-60" : null,
           )}
         >
-          Eintrag hinzufügen
+          <span>Eintrag hinzufügen</span>
+          <span className="font-normal tabular-nums text-[10px] text-neutral-600">
+            {formatSignedContributionHours(displayContributionMinutes)}
+          </span>
         </button>
       )}
     </article>

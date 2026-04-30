@@ -4,6 +4,15 @@ import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import { planEntryBlockAppearance } from "@/lib/planning/block-appearance";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  formatSignedContributionHours,
+  freeRequestedZeitsaldoTooltip,
+} from "@/lib/time/contribution-display";
 import type { PlanEntryView } from "./types";
 
 interface GridCellProps {
@@ -12,6 +21,9 @@ interface GridCellProps {
   entry: PlanEntryView | null;
   selected: boolean;
   locked: boolean;
+  displayContributionMinutes: number;
+  weekYear: number;
+  weekNumber: number;
   onSelect: () => void;
   onOpenAssign: () => void;
 }
@@ -22,6 +34,9 @@ export function GridCell({
   entry,
   selected,
   locked,
+  displayContributionMinutes,
+  weekYear,
+  weekNumber,
   onSelect,
   onOpenAssign,
 }: GridCellProps) {
@@ -50,6 +65,9 @@ export function GridCell({
         <DraggableBlock
           entry={entry}
           locked={locked}
+          displayContributionMinutes={displayContributionMinutes}
+          weekYear={weekYear}
+          weekNumber={weekNumber}
           onSelect={onSelect}
           onOpenAssign={onOpenAssign}
         />
@@ -61,7 +79,7 @@ export function GridCell({
             if (!locked) onOpenAssign();
           }}
           className={cn(
-            "flex h-full w-full items-center justify-center rounded-lg border border-dashed px-1.5 text-center text-xs font-medium leading-snug",
+            "flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-lg border border-dashed px-1.5 text-center text-xs font-medium leading-snug",
             selected
               ? "border-neutral-400 text-neutral-700"
               : "border-neutral-300 text-neutral-500",
@@ -70,7 +88,10 @@ export function GridCell({
           disabled={locked}
           aria-label="Eintrag hinzufügen"
         >
-          Auswählen
+          <span>Auswählen</span>
+          <span className="font-normal tabular-nums text-[10px] text-neutral-500">
+            {formatSignedContributionHours(displayContributionMinutes)}
+          </span>
         </button>
       )}
     </div>
@@ -80,6 +101,9 @@ export function GridCell({
 interface DraggableBlockProps {
   entry: PlanEntryView;
   locked: boolean;
+  displayContributionMinutes: number;
+  weekYear: number;
+  weekNumber: number;
   onSelect: () => void;
   onOpenAssign: () => void;
 }
@@ -87,6 +111,9 @@ interface DraggableBlockProps {
 function DraggableBlock({
   entry,
   locked,
+  displayContributionMinutes,
+  weekYear,
+  weekNumber,
   onSelect,
   onOpenAssign,
 }: DraggableBlockProps) {
@@ -103,6 +130,35 @@ function DraggableBlock({
     ? { transform: CSS.Translate.toString(transform) }
     : undefined;
 
+  const isFreeRequested =
+    entry.kind === "ABSENCE" && entry.absenceType === "FREE_REQUESTED";
+  const contribLabel =
+    formatSignedContributionHours(displayContributionMinutes);
+  const freeTooltip = freeRequestedZeitsaldoTooltip(weekYear, weekNumber);
+
+  const contributionLine = isFreeRequested ? (
+    <Tooltip delayDuration={200}>
+      <TooltipTrigger asChild>
+        <span
+          className="max-w-full truncate font-normal tabular-nums text-[10px] text-neutral-700 underline decoration-dotted decoration-neutral-400 underline-offset-2"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {contribLabel}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent
+        side="top"
+        className="max-w-xs text-left text-sm leading-snug"
+      >
+        {freeTooltip}
+      </TooltipContent>
+    </Tooltip>
+  ) : (
+    <span className="max-w-full truncate font-normal tabular-nums text-[10px] text-neutral-700">
+      {contribLabel}
+    </span>
+  );
+
   return (
     <button
       ref={setNodeRef}
@@ -118,7 +174,7 @@ function DraggableBlock({
       onDoubleClick={() => onOpenAssign()}
       title={entry.subtitle ?? entry.title}
       className={cn(
-        "inline-flex w-full max-w-[140px] flex-col items-center rounded-full px-3 py-1.5 text-xs font-medium",
+        "inline-flex w-full max-w-[140px] flex-col items-center gap-0.5 rounded-full px-3 py-1.5 text-xs font-medium",
         block.className,
         locked ? "cursor-default" : "cursor-grab active:cursor-grabbing",
         isDragging ? "opacity-60" : null,
@@ -127,6 +183,7 @@ function DraggableBlock({
       {...attributes}
     >
       <span className="truncate">{entry.title}</span>
+      {contributionLine}
     </button>
   );
 }

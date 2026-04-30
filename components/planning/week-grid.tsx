@@ -18,6 +18,9 @@ interface WeekGridProps {
   locked: boolean;
   onSelect: (employeeId: string, isoDate: string) => void;
   onOpenAssign: (employeeId: string, isoDate: string) => void;
+  dailyZeitBalanceByEmployee: Record<string, Record<string, number>>;
+  weekYear: number;
+  weekNumber: number;
 }
 
 export function WeekGrid({
@@ -28,6 +31,9 @@ export function WeekGrid({
   locked,
   onSelect,
   onOpenAssign,
+  dailyZeitBalanceByEmployee,
+  weekYear,
+  weekNumber,
 }: WeekGridProps) {
   if (employees.length === 0) {
     return (
@@ -87,6 +93,9 @@ export function WeekGrid({
             locked={locked}
             onSelect={onSelect}
             onOpenAssign={onOpenAssign}
+            dailyZeitBalanceByEmployee={dailyZeitBalanceByEmployee}
+            weekYear={weekYear}
+            weekNumber={weekNumber}
           />
         ))}
       </div>
@@ -102,6 +111,9 @@ interface RowFragmentProps {
   locked: boolean;
   onSelect: (employeeId: string, isoDate: string) => void;
   onOpenAssign: (employeeId: string, isoDate: string) => void;
+  dailyZeitBalanceByEmployee: Record<string, Record<string, number>>;
+  weekYear: number;
+  weekNumber: number;
 }
 
 function RowFragment({
@@ -112,6 +124,9 @@ function RowFragment({
   locked,
   onSelect,
   onOpenAssign,
+  dailyZeitBalanceByEmployee,
+  weekYear,
+  weekNumber,
 }: RowFragmentProps) {
   return (
     <>
@@ -151,6 +166,8 @@ function RowFragment({
         const key = entryKey(employee.id, day.iso);
         const entry = entries[key] ?? null;
         const selected = selectedKey === key;
+        const displayContributionMinutes =
+          dailyZeitBalanceByEmployee[employee.id]?.[day.iso] ?? 0;
         return (
           <GridCell
             key={key}
@@ -159,6 +176,9 @@ function RowFragment({
             entry={entry}
             selected={selected}
             locked={locked}
+            displayContributionMinutes={displayContributionMinutes}
+            weekYear={weekYear}
+            weekNumber={weekNumber}
             onSelect={() => onSelect(employee.id, day.iso)}
             onOpenAssign={() => onOpenAssign(employee.id, day.iso)}
           />

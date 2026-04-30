@@ -52,6 +52,8 @@ interface PlanningBoardProps {
   weekNumber: number;
   streakContextsByEmployee: Record<string, PlanEntryByDate[]>;
   holidayIsosForEmployee: Record<string, string[]>;
+  /** Pro Mitarbeitendem und ISO-Datum: Anzeige-Ist−Soll (Minuten). */
+  dailyZeitBalanceByEmployee: Record<string, Record<string, number>>;
 }
 
 interface DialogState {
@@ -73,6 +75,7 @@ export function PlanningBoard({
   weekNumber,
   streakContextsByEmployee,
   holidayIsosForEmployee,
+  dailyZeitBalanceByEmployee,
 }: PlanningBoardProps) {
   const locked = week.status === "CLOSED";
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
@@ -211,6 +214,9 @@ export function PlanningBoard({
             selectedKey={selectedKey}
             locked={locked}
             onOpenAssign={openAssign}
+            dailyZeitBalanceByEmployee={dailyZeitBalanceByEmployee}
+            weekYear={weekYear}
+            weekNumber={weekNumber}
           />
 
           <WeekGrid
@@ -221,6 +227,9 @@ export function PlanningBoard({
             locked={locked}
             onSelect={handleSelect}
             onOpenAssign={openAssign}
+            dailyZeitBalanceByEmployee={dailyZeitBalanceByEmployee}
+            weekYear={weekYear}
+            weekNumber={weekNumber}
           />
         </div>
 

@@ -430,6 +430,8 @@ export default async function PlanningPage({ searchParams }: PageProps) {
     string,
     { tooltip: string | null; hasPlanningViolations: boolean }
   >();
+  const dailyZeitBalanceByEmployee: Record<string, Record<string, number>> =
+    {};
   let restViolationCount = 0;
   let consecutiveWorkStreakKwViolationCount = 0;
   let halfDayOffMissingEmployees = 0;
@@ -468,6 +470,12 @@ export default async function PlanningPage({ searchParams }: PageProps) {
         kwIsoDates.has(iso),
       ).length;
     if (result.halfDayOffMissing) halfDayOffMissingEmployees += 1;
+
+    const byIso: Record<string, number> = {};
+    for (const d of result.days) {
+      byIso[d.iso] = d.displayContributionMinutes;
+    }
+    dailyZeitBalanceByEmployee[employee.id] = byIso;
   }
 
   // Coverage analysis: compare ServiceTemplate.requiredCount per weekday flagged
@@ -575,6 +583,7 @@ export default async function PlanningPage({ searchParams }: PageProps) {
       weekNumber={week.weekNumber}
       streakContextsByEmployee={streakFullContextByEmp}
       holidayIsosForEmployee={holidayIsosForEmployee}
+      dailyZeitBalanceByEmployee={dailyZeitBalanceByEmployee}
     />
   );
 }

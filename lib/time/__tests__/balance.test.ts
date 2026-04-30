@@ -143,6 +143,13 @@ describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
     expect(result.weeklyZeitsaldoDeltaMinutes).toBe(-504);
     expect(result.totalHolidayCreditMinutes).toBe(0);
     expect(result.vacationDaysDebit).toBe(0);
+    expect(result.days[0].contributionMinutes).toBe(-504);
+    expect(result.days[0].displayContributionMinutes).toBe(0);
+    expect({
+      kind: result.days[0].kind,
+      contributionMinutes: result.days[0].contributionMinutes,
+      displayContributionMinutes: result.days[0].displayContributionMinutes,
+    }).toMatchSnapshot();
   });
 
   it("simple TZT day is anrechenbar — zero Zeitsaldo impact, no auto TZT debit", () => {

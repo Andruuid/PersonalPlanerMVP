@@ -10,6 +10,17 @@ import {
 import type { WeekSnapshot } from "@/server/weeks";
 import type { MyDayView, MyWeekHeader } from "@/components/employee/types";
 import type { SessionUser } from "@/server/_shared";
+import {
+  computeWeeklyBalance,
+  type PlanEntryByDate,
+} from "@/lib/time/balance";
+import { buildHolidayLookup } from "@/lib/time/holidays";
+import type { AbsenceType } from "@/lib/time/priority";
+import { effectiveStandardWorkDays } from "@/lib/time/soll";
+import {
+  freeRequestedZeitsaldoTooltip,
+  holidayMapToLookupInput,
+} from "@/lib/time/contribution-display";
 
 const ABSENCE_LABEL: Record<string, string> = {
   VACATION: "Ferien",
@@ -42,6 +53,7 @@ interface SnapshotEntry {
   oneTimeEnd: string | null;
   oneTimeLabel: string | null;
   absenceType: string | null;
+  plannedMinutes?: number;
   comment: string | null;
 }
 
@@ -53,6 +65,27 @@ export interface MyWeekResult {
 interface ResolveOptions {
   year?: number;
   weekNumber?: number;
+}
+
+function snapshotEntryToPlanEntry(entry: SnapshotEntry): PlanEntryByDate {
+  const kind = entry.kind as PlanEntryByDate["kind"];
+  let shiftStartTime: string | null | undefined;
+  let shiftEndTime: string | null | undefined;
+  if (kind === "SHIFT") {
+    shiftStartTime = entry.startTime;
+    shiftEndTime = entry.endTime;
+  } else if (kind === "ONE_TIME_SHIFT") {
+    shiftStartTime = entry.oneTimeStart;
+    shiftEndTime = entry.oneTimeEnd;
+  }
+  return {
+    date: entry.date,
+    kind,
+    absenceType: (entry.absenceType as AbsenceType | null) ?? null,
+    plannedMinutes: entry.plannedMinutes ?? 0,
+    shiftStartTime,
+    shiftEndTime,
+  };
 }
 
 /**
@@ -74,15 +107,31 @@ export async function loadMyWeek(
   const year = options.year ?? current.year;
   const weekNumber = options.weekNumber ?? current.weekNumber;
 
-  const week = await prisma.week.findFirst({
-    where: { tenantId: user.tenantId, year, weekNumber, deletedAt: null },
-    include: {
-      snapshots: {
-        orderBy: { publishedAt: "desc" },
-        take: 1,
+  const [week, employeeRow] = await Promise.all([
+    prisma.week.findFirst({
+      where: { tenantId: user.tenantId, year, weekNumber, deletedAt: null },
+      include: {
+        snapshots: {
+          orderBy: { publishedAt: "desc" },
+          take: 1,
+        },
       },
-    },
-  });
+    }),
+    prisma.employee.findUnique({
+      where: {
+        id: employeeId,
+        tenantId: user.tenantId,
+        deletedAt: null,
+      },
+      select: {
+        weeklyTargetMinutes: true,
+        hazMinutesPerWeek: true,
+        tztModel: true,
+        standardWorkDays: true,
+        tenant: { select: { defaultStandardWorkDays: true } },
+      },
+    }),
+  ]);
 
   const snapshot: WeekSnapshot | null = week?.snapshots[0]
     ? (JSON.parse(week.snapshots[0].snapshotJson) as WeekSnapshot)
@@ -119,11 +168,52 @@ export async function loadMyWeek(
     }
   }
 
+  const displayByIso = new Map<string, number>();
+  if (snapshot && employeeRow) {
+    const balanceEntries = snapshot.entries
+      .filter((e) => e.employeeId === employeeId)
+      .map((e) => snapshotEntryToPlanEntry(e as SnapshotEntry));
+    const holidayLookup = buildHolidayLookup(holidayMapToLookupInput(holidayByIso));
+    const balance = computeWeeklyBalance(
+      year,
+      weekNumber,
+      balanceEntries,
+      holidayLookup,
+      {
+        weeklyTargetMinutes: employeeRow.weeklyTargetMinutes,
+        hazMinutesPerWeek: employeeRow.hazMinutesPerWeek,
+        tztModel: employeeRow.tztModel,
+        standardWorkDays: effectiveStandardWorkDays(
+          employeeRow.standardWorkDays,
+          employeeRow.tenant.defaultStandardWorkDays,
+        ),
+      },
+    );
+    for (const d of balance.days) {
+      displayByIso.set(d.iso, d.displayContributionMinutes);
+    }
+  }
+
+  const freeRequestedTooltipText = freeRequestedZeitsaldoTooltip(
+    year,
+    weekNumber,
+  );
+
   const myDays: MyDayView[] = days.map((day, index) => {
     const isWeekend = index >= 5;
     const holidayName = holidayByIso.get(day.iso) ?? null;
     const entry = entriesByDate.get(day.iso) ?? null;
-    return buildDayView({ day, isWeekend, holidayName, entry });
+    const displayContributionMinutes = snapshot && employeeRow
+      ? (displayByIso.get(day.iso) ?? 0)
+      : null;
+    return buildDayView({
+      day,
+      isWeekend,
+      holidayName,
+      entry,
+      displayContributionMinutes,
+      freeRequestedTooltipText,
+    });
   });
 
   const header: MyWeekHeader = {
@@ -145,6 +235,8 @@ interface BuildDayInput {
   isWeekend: boolean;
   holidayName: string | null;
   entry: SnapshotEntry | null;
+  displayContributionMinutes: number | null;
+  freeRequestedTooltipText: string;
 }
 
 function buildDayView({
@@ -152,6 +244,8 @@ function buildDayView({
   isWeekend,
   holidayName,
   entry,
+  displayContributionMinutes,
+  freeRequestedTooltipText,
 }: BuildDayInput): MyDayView {
   let shiftKey: ShiftKey = "EMPTY";
   let title = "Frei";
@@ -194,6 +288,9 @@ function buildDayView({
     title = "Frei";
   }
 
+  const freeRequestedZeitsaldoTooltip =
+    shiftKey === "FREI_VERLANGT" ? freeRequestedTooltipText : null;
+
   return {
     iso: day.iso,
     longDate: day.longDate,
@@ -206,5 +303,7 @@ function buildDayView({
     title,
     timeRange,
     subtitle,
+    displayContributionMinutes,
+    freeRequestedZeitsaldoTooltip,
   };
 }

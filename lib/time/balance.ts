@@ -38,7 +38,10 @@ export interface DayComputation {
   plannedMinutes: number;
   /** Spec visibility: holiday on a workday yields a day-credit equal to base Soll. */
   holidayCreditMinutes: number;
+  /** Ist − Soll (inkl. FREE_REQUESTED −Tagessoll); unverändert für interne / Wochenlogik. */
   contributionMinutes: number;
+  /** Tagesanzeige Ist − Soll; bei FREE_REQUESTED 0 (Tag erfüllt, Abzug nur über Buchung). */
+  displayContributionMinutes: number;
 }
 
 export interface WeeklyComputation {
@@ -130,6 +133,7 @@ export function computeWeeklyBalance(
       tztModel,
       standardWorkDays,
     );
+    const rawContribution = istMinutes - sollMinutes;
     const dayCalc: DayComputation = {
       iso,
       isWeekend,
@@ -143,7 +147,9 @@ export function computeWeeklyBalance(
         resolved.kind === "HOLIDAY" && !isWeekend
           ? baseDailySollMinutes(config.weeklyTargetMinutes, standardWorkDays)
           : 0,
-      contributionMinutes: istMinutes - sollMinutes,
+      contributionMinutes: rawContribution,
+      displayContributionMinutes:
+        resolved.kind === "FREE_REQUESTED" ? 0 : rawContribution,
     };
     return dayCalc;
   });

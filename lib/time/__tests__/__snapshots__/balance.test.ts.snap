@@ -1,0 +1,9 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`computeWeeklyBalance — full pensum, plain Mon-Fri shifts > free-requested deducts from Zeitsaldo (Soll - Ist = -Tagessoll) 1`] = `
+{
+  "contributionMinutes": -504,
+  "displayContributionMinutes": 0,
+  "kind": "FREE_REQUESTED",
+}
+`;
