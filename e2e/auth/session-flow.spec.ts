@@ -11,6 +11,13 @@ import {
  */
 
 test.describe("Session & Routing nach Auth-Zustand", () => {
+  async function expectSessionUnauthenticated(page: import("@playwright/test").Page) {
+    const response = await page.request.get("/api/auth/session");
+    expect(response.ok()).toBeTruthy();
+    const payload = (await response.json()) as { user?: unknown } | null;
+    expect(payload?.user).toBeFalsy();
+  }
+
   async function openUserMenuAndSignOut(page: import("@playwright/test").Page) {
     const menuTrigger = page.getByRole("button", { name: "Benutzermenü" });
     const signOutItem = page.getByRole("menuitem", { name: /^Abmelden/ });
@@ -37,9 +44,14 @@ test.describe("Session & Routing nach Auth-Zustand", () => {
 
     await openUserMenuAndSignOut(page);
     await expect(page).toHaveURL(/\/login/);
+    await expectSessionUnauthenticated(page);
 
     await page.goto("/my-week");
     await expect(page).toHaveURL(/\/login/);
+
+    // Re-check after protected-route attempt; catches regressions where a stale
+    // cookie accidentally rehydrates a session on some hosts/runtimes.
+    await expectSessionUnauthenticated(page);
   });
 
   test("Ohne gültige Session: `/dashboard` führt zurück zur Anmeldung", async ({

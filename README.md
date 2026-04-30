@@ -289,3 +289,15 @@ Der GitHub-Actions-Workflow (`.github/workflows/ci.yml`) führt bei jedem
 Push/PR auf `main` Lint, TypeScript, Vitest und Next-Build aus. Die
 SQLite-Test-DB wird via `vitest.global-setup.ts` einmalig pro Run
 vorbereitet.
+
+Optional gibt es den Workflow `.github/workflows/e2e.yml`:
+
+- Standardlauf (Push auf `main`): lokale SQLite-Migration + Seed + komplette Playwright-E2E.
+- Manueller Lauf (`workflow_dispatch`) mit `preview_base_url`: führt nur den Auth-Session-Smoke (`e2e/auth/session-flow.spec.ts`) gegen eine gehostete URL aus (z. B. Netlify/Vercel), um Logout/Login-Runtime-Regressions früh zu erkennen.
+
+Empfohlene PR-Checkliste (Auth/Session-Änderungen):
+
+- Preview deployen (Netlify oder Vercel).
+- `E2E (Playwright)` per `workflow_dispatch` mit `preview_base_url` auf diese Preview-URL starten.
+- Prüfen, dass `Session & Routing nach Auth-Zustand` grün ist (insb. Logout-Test mit `/api/auth/session`-Check).
+- Erst danach mergen.

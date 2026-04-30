@@ -59,6 +59,23 @@ async function forceServerSignOut(): Promise<string> {
     : "/login";
 }
 
+async function signOutViaAppRoute(): Promise<string> {
+  const response = await fetch("/api/logout", {
+    method: "POST",
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    throw new Error("app-logout-failed");
+  }
+
+  const payload = (await response.json().catch(() => null)) as
+    | { url?: string }
+    | null;
+  return payload?.url && payload.url.startsWith("/")
+    ? payload.url
+    : "/login";
+}
+
 export function UserMenu({ email, canSwitchTenant }: UserMenuProps) {
   const [isSigningOut, setIsSigningOut] = useState(false);
 
@@ -68,9 +85,13 @@ export function UserMenu({ email, canSwitchTenant }: UserMenuProps) {
 
     let targetUrl = "/login";
     try {
-      const result = await signOut({ redirect: false, callbackUrl: "/login" });
-      if (result?.url && result.url.startsWith("/")) {
-        targetUrl = result.url;
+      try {
+        targetUrl = await signOutViaAppRoute();
+      } catch {
+        const result = await signOut({ redirect: false, callbackUrl: "/login" });
+        if (result?.url && result.url.startsWith("/")) {
+          targetUrl = result.url;
+        }
       }
 
       // Verify that the session is really gone. In production, a failed sign-out
