@@ -16,3 +16,8 @@ export const testMultiTenantAdminCredentials = {
   email: "multi.admin@demo.ch",
   password: "admin123",
 };
+
+export const testSystemAdminCredentials = {
+  email: "system@platform.local",
+  password: "system123",
+};

@@ -3,6 +3,7 @@ import { loginOnPage } from "./login-helper";
 import {
   testAdminCredentials,
   testEmployeeCredentials,
+  testSystemAdminCredentials,
 } from "./credentials";
 
 /**
@@ -27,4 +28,14 @@ export async function loginAsSeedEmployee(page: Page): Promise<void> {
     await page.waitForTimeout(300);
   }
   await expect(page).toHaveURL(/\/my-week/);
+}
+
+export async function loginAsSystemAdmin(page: Page): Promise<void> {
+  await loginOnPage(page, testSystemAdminCredentials);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await page.goto("/system-admin/tenants");
+    if (page.url().includes("/system-admin/tenants")) break;
+    await page.waitForTimeout(300);
+  }
+  await expect(page).toHaveURL(/\/system-admin\/tenants/);
 }

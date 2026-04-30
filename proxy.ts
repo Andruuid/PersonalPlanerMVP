@@ -22,6 +22,7 @@ const ADMIN_PATHS = [
   "/audit",
 ];
 const EMPLOYEE_PATHS = ["/my-week", "/my-requests", "/my-accounts"];
+const SYSTEM_ADMIN_PATHS = ["/system-admin"];
 
 function pathMatches(pathname: string, prefixes: readonly string[]): boolean {
   return prefixes.some(
@@ -120,6 +121,15 @@ export default auth((req) => {
       target,
     });
     return NextResponse.redirect(new URL(target, nextUrl));
+  }
+
+  if (pathMatches(pathname, SYSTEM_ADMIN_PATHS) && role !== "SYSTEM_ADMIN") {
+    logDebug("proxy", "Redirect non-system-admin from system-admin path", {
+      pathname,
+      role,
+      target: "/forbidden",
+    });
+    return NextResponse.redirect(new URL("/forbidden", nextUrl));
   }
 
   // Admins are allowed to preview the employee view (Mitarbeiter-Ansicht
