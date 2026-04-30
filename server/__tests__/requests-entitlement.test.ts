@@ -189,6 +189,7 @@ describe("evaluateRequestEntitlement", () => {
   });
 
   it("allows requests that fit balances across year boundaries", () => {
+    const dailyMinutes = 2520 / 5;
     const result = evaluateRequestEntitlement({
       type: "VACATION",
       startDate: parseIsoDate("2026-12-31")!,
@@ -197,8 +198,8 @@ describe("evaluateRequestEntitlement", () => {
       standardWorkDays: 5,
       vacationDaysPerYear: 25,
       balancesByYear: {
-        2026: { FERIEN: 1 },
-        2027: { FERIEN: 1 },
+        2026: { FERIEN: dailyMinutes },
+        2027: { FERIEN: dailyMinutes },
       },
     });
 
@@ -206,6 +207,7 @@ describe("evaluateRequestEntitlement", () => {
   });
 
   it("Ferien gegen Feiertags-Montag: nur Arbeitstage zählen; 4 Tage reichen bei einem Feiertag in der gleichen KW", () => {
+    const dailyMinutes = 2520 / 5;
     const withHolidayExcluded = evaluateRequestEntitlement({
       type: "VACATION",
       startDate: parseIsoDate("2026-01-05")!,
@@ -215,7 +217,7 @@ describe("evaluateRequestEntitlement", () => {
       vacationDaysPerYear: 25,
       holidayIsosByYear: new Map([[2026, new Set(["2026-01-05"])]]),
       balancesByYear: {
-        2026: { FERIEN: 4 },
+        2026: { FERIEN: 4 * dailyMinutes },
       },
     });
     expect(withHolidayExcluded.ok).toBe(true);
@@ -228,7 +230,7 @@ describe("evaluateRequestEntitlement", () => {
       standardWorkDays: 5,
       vacationDaysPerYear: 25,
       balancesByYear: {
-        2026: { FERIEN: 4 },
+        2026: { FERIEN: 4 * dailyMinutes },
       },
     });
     expect(withoutHolidayMap.ok).toBe(false);
