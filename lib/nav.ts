@@ -8,6 +8,7 @@ import {
   ScrollText,
   Settings,
   ShieldCheck,
+  ShieldUser,
   UserPlus,
   Users,
   Wallet,
@@ -23,6 +24,7 @@ export interface NavItem {
 export const ADMIN_NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/planning", label: "Wochenplanung", icon: CalendarDays },
+  { href: "/users", label: "Rechte und Benutzer", icon: ShieldUser },
   { href: "/employees", label: "Mitarbeitende", icon: Users },
   { href: "/services", label: "Dienste", icon: ClipboardList },
   { href: "/absences", label: "Abwesenheiten", icon: FileClock },

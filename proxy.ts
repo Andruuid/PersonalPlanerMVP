@@ -8,6 +8,7 @@ const PUBLIC_PATHS = ["/login", "/signup", "/api/auth"];
 const ADMIN_PATHS = [
   "/dashboard",
   "/planning",
+  "/users",
   "/employees",
   "/services",
   "/absences",
