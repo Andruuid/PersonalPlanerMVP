@@ -25,8 +25,8 @@ test.describe("Mitarbeitende: Antragssicht", () => {
     await expect(
       page.getByRole("heading", { level: 2, name: "Datenschutz (DSGVO/DSG)", exact: false }),
     ).toBeVisible();
-    await expect(page.getByRole("heading", { level: 2, name: "Offen" })).toBeVisible();
-    await expect(page.getByRole("heading", { level: 2, name: "Genehmigt" })).toBeVisible();
-    await expect(page.getByRole("heading", { level: 2, name: "Abgelehnt" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 3, name: "Offen" })).toHaveCount(2);
+    await expect(page.getByRole("heading", { level: 3, name: "Genehmigt" })).toHaveCount(2);
+    await expect(page.getByRole("heading", { level: 3, name: "Abgelehnt" })).toHaveCount(2);
   });
 });
