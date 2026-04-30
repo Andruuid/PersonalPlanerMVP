@@ -73,6 +73,12 @@ export function RequestStack({
   serviceTemplates,
 }: RequestStackProps) {
   const [dialog, setDialog] = useState<DialogState>(null);
+  const [dialogGeneration, setDialogGeneration] = useState(0);
+
+  function openDialog(next: Exclude<DialogState, null>) {
+    setDialogGeneration((g) => g + 1);
+    setDialog(next);
+  }
   const buttons =
     tztModel === "TARGET_REDUCTION"
       ? BUTTONS.filter((b) => b.type !== "TZT")
@@ -103,7 +109,9 @@ export function RequestStack({
             <Button
               key={btn.type}
               type="button"
-              onClick={() => setDialog({ mode: "absence", type: btn.type })}
+              onClick={() =>
+                openDialog({ mode: "absence", type: btn.type })
+              }
               variant={btn.variant === "primary" ? "default" : "outline"}
               className={cn(
                 "justify-start",
@@ -119,7 +127,7 @@ export function RequestStack({
           type="button"
           variant="outline"
           className="justify-start bg-white"
-          onClick={() => setDialog({ mode: "wish" })}
+          onClick={() => openDialog({ mode: "wish" })}
         >
           <CalendarClock className="mr-2 h-4 w-4" />
           Schicht-Wunsch
@@ -130,6 +138,7 @@ export function RequestStack({
         open={dialog !== null}
         absenceType={dialog?.mode === "absence" ? dialog.type : null}
         defaultTab={dialog?.mode === "wish" ? "wish" : "absence"}
+        tabsResetKey={dialogGeneration}
         serviceTemplates={serviceTemplates}
         onOpenChange={(open) => {
           if (!open) setDialog(null);

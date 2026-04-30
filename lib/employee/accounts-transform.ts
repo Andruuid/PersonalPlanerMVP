@@ -13,16 +13,13 @@ export type EmployeeStammdatenForAccounts = {
   vacationDaysPerYear: number;
 } | null;
 
-const ACCOUNT_TYPES = [
-  "ZEITSALDO",
-  "FERIEN",
-  "UEZ",
-  "TZT",
-  "SONNTAG_FEIERTAG_KOMPENSATION",
-  "PARENTAL_CARE",
-] as const;
-
-type AccountTypeKey = (typeof ACCOUNT_TYPES)[number];
+type AccountTypeKey =
+  | "ZEITSALDO"
+  | "FERIEN"
+  | "UEZ"
+  | "TZT"
+  | "SONNTAG_FEIERTAG_KOMPENSATION"
+  | "PARENTAL_CARE";
 
 function pick(
   balances: AccountBalanceRow[],

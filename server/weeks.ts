@@ -351,9 +351,10 @@ export async function buildWeekSnapshot(
     }
   }
 
-  const snapshotEmployees = employees.map(
-    ({ locationId: _loc, ...rest }) => rest,
-  );
+  const snapshotEmployees = employees.map(({ locationId, ...rest }) => {
+    void locationId;
+    return rest;
+  });
 
   const snapshotEntries: SnapshotEntry[] = entries.map((e) => ({
     id: e.id,

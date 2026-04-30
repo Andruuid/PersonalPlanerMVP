@@ -18,7 +18,7 @@ const prismaRef = vi.hoisted(() => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: new Proxy({} as PrismaClient, {
-    get(_target, prop, _receiver) {
+    get(_target, prop) {
       const c = prismaRef.client;
       if (!c) throw new Error("Test Prisma client not wired");
       const v = Reflect.get(c, prop, c);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,10 +69,6 @@ export function EmployeeForm({
   const [errors, setErrors] = useState<FormErrors | null>(null);
   const [pending, startTransition] = useTransition();
   const [tztModel, setTztModel] = useState<TztModelValue>(defaults.tztModel);
-
-  useEffect(() => {
-    setTztModel(defaults.tztModel);
-  }, [defaults.tztModel, defaults.id]);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

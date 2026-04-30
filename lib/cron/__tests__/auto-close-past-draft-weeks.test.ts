@@ -62,7 +62,7 @@ describe("autoFinalizePastDraftWeeksForAllTenants", () => {
   });
 
   it("closes past DRAFT with plan entries via recalc, writes AUTO_CLOSE_FROM_DRAFT", async () => {
-    const admin = await seedAdmin(db.prisma);
+    await seedAdmin(db.prisma);
     const locationId = await seedLocation(db.prisma);
     const weekId = await seedDraftWeek(db.prisma, PAST_YEAR, PAST_WEEK);
     const days = isoWeekDays(PAST_YEAR, PAST_WEEK).map((d) => d.iso);
@@ -146,7 +146,7 @@ describe("autoFinalizePastDraftWeeksForAllTenants", () => {
   });
 
   it("does not close current ISO week DRAFT (Sunday not before asOf)", async () => {
-    const admin = await seedAdmin(db.prisma);
+    await seedAdmin(db.prisma);
     const locationId = await seedLocation(db.prisma);
     const y = getISOWeekYear(AS_OF);
     const w = getISOWeek(AS_OF);

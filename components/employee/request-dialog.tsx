@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useState, useTransition } from "react";
+import { useLayoutEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,8 @@ export interface RequestDialogProps {
   absenceType: RequestType | null;
   /** Tab beim Öffnen — z. B. «wish» über den Schicht-Wunsch-Button. */
   defaultTab: "absence" | "wish";
+  /** Inkrementiert beim Öffnen des Dialogs; ermöglicht frische Tabs ohne Effekt-Sync. */
+  tabsResetKey: number;
   serviceTemplates: ServiceTemplateWishOption[];
   onOpenChange: (open: boolean) => void;
 }
@@ -67,15 +69,10 @@ export function RequestDialog({
   open,
   absenceType,
   defaultTab,
+  tabsResetKey,
   serviceTemplates,
   onOpenChange,
 }: RequestDialogProps) {
-  const [tab, setTab] = useState<"absence" | "wish">(defaultTab);
-
-  useEffect(() => {
-    if (open) setTab(defaultTab);
-  }, [open, defaultTab]);
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -87,8 +84,8 @@ export function RequestDialog({
         {open ? (
           <>
             <Tabs
-              value={tab}
-              onValueChange={(v) => setTab(v as "absence" | "wish")}
+              key={`request-dialog-${tabsResetKey}-${defaultTab}`}
+              defaultValue={defaultTab}
             >
               <TabsList className="grid w-full grid-cols-2" variant="default">
                 <TabsTrigger value="absence">Abwesenheit</TabsTrigger>
@@ -293,14 +290,13 @@ function ShiftWishForm({ serviceTemplates, onClose }: ShiftWishFormProps) {
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  useLayoutEffect(() => {
-    if (
-      wishKind === "template" &&
-      serviceTemplates.length > 0 &&
-      !serviceTemplates.some((s) => s.id === templateId)
-    ) {
-      setTemplateId(serviceTemplates[0]!.id);
+  const effectiveTemplateId = useMemo(() => {
+    if (wishKind !== "template" || serviceTemplates.length === 0) {
+      return templateId;
     }
+    return serviceTemplates.some((s) => s.id === templateId)
+      ? templateId
+      : serviceTemplates[0]!.id;
   }, [wishKind, serviceTemplates, templateId]);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -312,7 +308,7 @@ function ShiftWishForm({ serviceTemplates, onClose }: ShiftWishFormProps) {
     fd.set("wishKind", wishKind);
     fd.set("date", date);
     if (wishKind === "template") {
-      fd.set("preferredServiceTemplateId", templateId);
+      fd.set("preferredServiceTemplateId", effectiveTemplateId);
     } else {
       fd.set("preferredOneTimeLabel", label.trim());
       fd.set(
@@ -395,7 +391,7 @@ function ShiftWishForm({ serviceTemplates, onClose }: ShiftWishFormProps) {
           <select
             id="preferredServiceTemplateId"
             name="preferredServiceTemplateId"
-            value={templateId}
+            value={effectiveTemplateId}
             onChange={(e) => setTemplateId(e.target.value)}
             className="flex h-9 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900"
             required={wishKind === "template"}

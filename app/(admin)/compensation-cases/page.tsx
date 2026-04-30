@@ -53,19 +53,19 @@ export default async function CompensationCasesPage({ searchParams }: PageProps)
 
       <div className="flex flex-wrap gap-3 text-sm">
         <Link
-          href="/compensation-cases"
+          href={baseHref}
           className="rounded-full border border-neutral-200 bg-white px-3 py-1 font-medium text-neutral-800 hover:bg-neutral-50"
         >
           Alle Status
         </Link>
         <Link
-          href="/compensation-cases?status=OPEN"
+          href={`${baseHref}?status=OPEN`}
           className="rounded-full border border-neutral-200 bg-white px-3 py-1 font-medium text-neutral-800 hover:bg-neutral-50"
         >
           Nur offen
         </Link>
         <Link
-          href="/compensation-cases?status=EXPIRED"
+          href={`${baseHref}?status=EXPIRED`}
           className="rounded-full border border-neutral-200 bg-white px-3 py-1 font-medium text-neutral-800 hover:bg-neutral-50"
         >
           Abgelaufen
