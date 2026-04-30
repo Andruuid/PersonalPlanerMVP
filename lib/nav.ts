@@ -24,18 +24,18 @@ export interface NavItem {
 export const ADMIN_NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/planning", label: "Wochenplanung", icon: CalendarDays },
-  { href: "/users", label: "Rechte und Benutzer", icon: ShieldUser },
-  { href: "/employees", label: "Mitarbeitende", icon: Users },
-  { href: "/services", label: "Dienste", icon: ClipboardList },
   { href: "/absences", label: "Abwesenheiten", icon: FileClock },
+  { href: "/employees", label: "Mitarbeitende", icon: Users },
   { href: "/accounts", label: "Zeitkonten", icon: Wallet },
-  { href: "/settings", label: "Einstellungen", icon: Settings },
+  { href: "/services", label: "Dienste", icon: ClipboardList },
   {
     href: "/compensation-cases",
     label: "Sonn-/Feiertagskomp.",
     icon: CalendarHeart,
   },
+  { href: "/users", label: "Rechte und Benutzer", icon: ShieldUser },
   { href: "/privacy", label: "Datenschutz", icon: ShieldCheck },
+  { href: "/settings", label: "Einstellungen", icon: Settings },
   { href: "/audit", label: "Audit-Log", icon: ScrollText },
 ];
 
