@@ -27,11 +27,13 @@ CREATE TABLE "new_Employee" (
     "status" TEXT NOT NULL DEFAULT 'AKTIV',
     "deletedAt" DATETIME,
     "archivedUntil" DATETIME,
+    "deletedById" TEXT,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL,
     CONSTRAINT "Employee_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT "Employee_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
-    CONSTRAINT "Employee_locationId_fkey" FOREIGN KEY ("locationId") REFERENCES "Location" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+    CONSTRAINT "Employee_locationId_fkey" FOREIGN KEY ("locationId") REFERENCES "Location" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "Employee_deletedById_fkey" FOREIGN KEY ("deletedById") REFERENCES "User" ("id") ON DELETE NO ACTION ON UPDATE CASCADE
 );
 
 INSERT INTO "new_Employee" (
@@ -57,6 +59,7 @@ INSERT INTO "new_Employee" (
     "status",
     "deletedAt",
     "archivedUntil",
+    "deletedById",
     "createdAt",
     "updatedAt"
 )
@@ -88,6 +91,7 @@ SELECT
     END AS "status",
     "deletedAt",
     "archivedUntil",
+    "deletedById",
     "createdAt",
     "updatedAt"
 FROM "Employee";
