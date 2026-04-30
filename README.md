@@ -173,6 +173,26 @@ Wichtig:
 - Sensitive Felder (z. B. `password`, `token`, `secret`, `authorization`, `cookie`) werden im Logger redigiert.
 - In Netlify findest du diese Logs in den Function-/Runtime-Logs der jeweiligen Requests.
 
+### Debug-Route fuer Runtime-Diagnose
+
+Fuer Faelle, in denen Netlify-Request-Details keine Logs zeigen, gibt es die
+temporäre Diagnose-Route:
+
+- `GET /api/debug/runtime`
+
+Die Route ist nur aktiv, wenn `LOG_LEVEL=debug` gesetzt ist (sonst `404`), und
+liefert einen kompakten Runtime-Check als JSON:
+
+- Env-Praesenz (`DATABASE_URL`, `DATABASE_AUTH_TOKEN`, `AUTH_SECRET`)
+- Session-Check (z. B. Rolle/Tenant-Claim vorhanden)
+- DB-Connectivity-Check (`SELECT 1`) und `user.count()`
+
+Empfehlung:
+
+- Nur fuer gezielte Fehlersuche in Development/Incident-Phasen nutzen
+- In stabiler Production wieder `LOG_LEVEL=error` setzen
+- Keine sensiblen Inhalte aus Responses oder Logs extern teilen
+
 ### Variante B — Neon (Postgres)
 
 1. In `prisma/schema.prisma` den Datasource-Block ändern auf:
