@@ -12,6 +12,16 @@ on:
         type: string
   push:
     branches: [main]
+  # Trigger the hosted auth smoke automatically when a Netlify deploy succeeds.
+  # Configure a Netlify outgoing webhook (Site settings → Build & deploy → Deploy
+  # notifications → Outgoing webhooks → Deploy succeeded) pointing at:
+  #   POST https://api.github.com/repos/<owner>/<repo>/dispatches
+  #   body: { "event_type": "netlify_deploy_succeeded",
+  #           "client_payload": { "deploy_url": "<DEPLOY_URL>" } }
+  # This stops auth regressions like the logout-on-Netlify bug from shipping
+  # silently because the smoke job only ran on manual dispatch.
+  repository_dispatch:
+    types: [netlify_deploy_succeeded]
 
 concurrency:
   group: e2e-${{ github.workflow }}-${{ github.ref }}
@@ -65,12 +75,14 @@ jobs:
 
   hosted-auth-smoke:
     name: Hosted auth smoke (preview URL)
-    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.preview_base_url != '' }}
+    if: >-
+      ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.preview_base_url != '')
+          || github.event_name == 'repository_dispatch' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
       CI: true
-      PLAYWRIGHT_TEST_BASE_URL: ${{ github.event.inputs.preview_base_url }}
+      PLAYWRIGHT_TEST_BASE_URL: ${{ github.event.inputs.preview_base_url || github.event.client_payload.deploy_url }}
 
     steps:
       - name: Checkout

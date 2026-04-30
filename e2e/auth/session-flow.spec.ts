@@ -18,6 +18,20 @@ test.describe("Session & Routing nach Auth-Zustand", () => {
     expect(payload?.user).toBeFalsy();
   }
 
+  async function expectNoSessionCookie(page: import("@playwright/test").Page) {
+    // Browser-level check: catches the Netlify regression class where the
+    // session cookie survives logout even though /api/auth/session returns
+    // an unauthenticated payload at that moment.
+    const cookies = await page.context().cookies();
+    const sessionCookie = cookies.find((c) =>
+      /^(__Secure-)?(next-auth|authjs)\.session-token$/.test(c.name),
+    );
+    expect(
+      sessionCookie,
+      `session cookie must be cleared after logout (found: ${sessionCookie?.name ?? "none"})`,
+    ).toBeUndefined();
+  }
+
   async function openUserMenuAndSignOut(page: import("@playwright/test").Page) {
     const menuTrigger = page.getByRole("button", { name: "Benutzermenü" });
     const signOutItem = page.getByRole("menuitem", { name: /^Abmelden/ });
@@ -45,6 +59,7 @@ test.describe("Session & Routing nach Auth-Zustand", () => {
     await openUserMenuAndSignOut(page);
     await expect(page).toHaveURL(/\/login/);
     await expectSessionUnauthenticated(page);
+    await expectNoSessionCookie(page);
 
     await page.goto("/my-week");
     await expect(page).toHaveURL(/\/login/);
@@ -52,6 +67,7 @@ test.describe("Session & Routing nach Auth-Zustand", () => {
     // Re-check after protected-route attempt; catches regressions where a stale
     // cookie accidentally rehydrates a session on some hosts/runtimes.
     await expectSessionUnauthenticated(page);
+    await expectNoSessionCookie(page);
   });
 
   test("Ohne gültige Session: `/dashboard` führt zurück zur Anmeldung", async ({

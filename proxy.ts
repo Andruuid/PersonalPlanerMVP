@@ -157,9 +157,14 @@ export default auth((req) => {
 });
 
 export const config = {
-  // Keep Auth.js routes out of proxy execution.
-  // On some runtimes (e.g. Netlify), running auth middleware on
-  // `/api/auth/signout` can lead to conflicting Set-Cookie headers and a
-  // "logout seems ignored" effect.
-  matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico|.*\\..*).*)"],
+  // Keep Auth.js routes AND the wrapping `/api/logout` route out of proxy
+  // execution. On some runtimes (notably Netlify, where the proxy runs as an
+  // Edge Function and the route handler runs as a separate Lambda), letting
+  // the auth-aware proxy touch a logout request causes its session-related
+  // Set-Cookie to clobber the handler's clearing Set-Cookie — the session
+  // cookie survives the round-trip and "logout seems ignored." Any new auth
+  // route that mutates the session cookie must be added to this exclusion.
+  matcher: [
+    "/((?!api/auth|api/logout|_next/static|_next/image|favicon.ico|.*\\..*).*)",
+  ],
 };
