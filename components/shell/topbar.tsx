@@ -1,6 +1,7 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -17,16 +18,59 @@ interface TopbarProps {
   employeeHeadingName?: string | null;
 }
 
+/** Admin-Vorschau: Layout hat kein searchParams — Namen per API nachziehen. */
+function PreviewEmployeeHeadingGate({ showRoleToggle }: { showRoleToggle: boolean }) {
+  const searchParams = useSearchParams();
+  const previewId = searchParams.get("employee")?.trim();
+  if (!showRoleToggle || !previewId) {
+    return <>Personalplanung – Mitarbeiter</>;
+  }
+  return (
+    <PreviewEmployeeHeadingLoaded key={previewId} employeeId={previewId} />
+  );
+}
+
+function PreviewEmployeeHeadingLoaded({ employeeId }: { employeeId: string }) {
+  const [previewName, setPreviewName] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(
+      `/api/admin/preview-employee-heading?employeeId=${encodeURIComponent(employeeId)}`,
+    )
+      .then((r) => (r.ok ? (r.json() as Promise<{ heading?: string | null }>) : null))
+      .then((data) => {
+        if (!cancelled && data?.heading?.trim()) {
+          setPreviewName(data.heading.trim());
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [employeeId]);
+
+  const suffix = previewName?.trim() ?? "Mitarbeiter";
+  return <>Personalplanung – {suffix}</>;
+}
+
 export function Topbar({
   variant,
   email,
   showRoleToggle,
   employeeHeadingName,
 }: TopbarProps) {
-  const heading =
-    variant === "employee" && employeeHeadingName?.trim()
-      ? `Personalplanung – ${employeeHeadingName.trim()}`
-      : "Personalplanung – Admin und Mitarbeiter";
+  const employeeTitle =
+    variant === "employee" ? (
+      employeeHeadingName?.trim() ? (
+        `Personalplanung – ${employeeHeadingName.trim()}`
+      ) : (
+        <Suspense fallback={<>Personalplanung – Mitarbeiter</>}>
+          <PreviewEmployeeHeadingGate showRoleToggle={showRoleToggle} />
+        </Suspense>
+      )
+    ) : null;
+
   return (
     <header className="sticky top-0 z-30 border-b border-neutral-200 bg-white">
       <div className="mx-auto flex w-full items-center gap-3 px-4 py-3 md:px-6">
@@ -52,7 +96,9 @@ export function Topbar({
             Prototyp
           </span>
           <h1 className="truncate text-base font-semibold text-neutral-900 md:text-lg">
-            {heading}
+            {variant === "admin"
+              ? "Personalplanung – Admin"
+              : employeeTitle}
           </h1>
         </div>
 
