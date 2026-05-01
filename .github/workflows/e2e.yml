@@ -60,8 +60,8 @@ jobs:
           npx prisma migrate deploy
           npm run db:seed
 
-      - name: Install Playwright Chromium (with system deps)
-        run: npx playwright install chromium --with-deps
+      - name: Install Playwright browsers (with system deps)
+        run: npx playwright install chromium firefox webkit --with-deps
 
       - name: Run Playwright
         run: npm run test:e2e
@@ -97,8 +97,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright Chromium (with system deps)
-        run: npx playwright install chromium --with-deps
+      - name: Install Playwright browsers (with system deps)
+        run: npx playwright install chromium firefox webkit --with-deps
 
       - name: Run auth/session smoke on hosted preview
         run: npx playwright test e2e/auth/session-flow.spec.ts --config=playwright.no-webserver.config.ts

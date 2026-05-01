@@ -3,6 +3,44 @@ import { defineConfig, devices } from "@playwright/test";
 const baseURL =
   process.env.PLAYWRIGHT_TEST_BASE_URL ?? "http://localhost:3001";
 
+const isWindows = process.platform === "win32";
+const shouldRunWebKit =
+  process.env.PLAYWRIGHT_INCLUDE_WEBKIT === "1" ||
+  process.env.PLAYWRIGHT_INCLUDE_WEBKIT === "true" ||
+  (!isWindows && process.env.PLAYWRIGHT_SKIP_WEBKIT !== "1");
+
+const projects = [
+  {
+    name: "chromium",
+    use: { ...devices["Desktop Chrome"] },
+  },
+  {
+    name: "firefox",
+    use: { ...devices["Desktop Firefox"] },
+  },
+  ...(shouldRunWebKit
+    ? [
+        {
+          name: "webkit",
+          use: { ...devices["Desktop Safari"] },
+        },
+      ]
+    : []),
+  ...(shouldRunWebKit
+    ? [
+        {
+          name: "mobile-safari",
+          use: { ...devices["iPhone 13"] },
+        },
+      ]
+    : [
+        {
+          name: "mobile-chrome",
+          use: { ...devices["Pixel 7"] },
+        },
+      ]),
+];
+
 /**
  * Siehe README: Datenbank migrieren und seed vor dem ersten E2E-Lauf.
  *
@@ -24,12 +62,7 @@ export default defineConfig({
     screenshot: "only-on-failure",
     video: "retain-on-failure",
   },
-  projects: [
-    {
-      name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
-    },
-  ],
+  projects,
   webServer: {
     // Spawn node directly on next's bin script — no `npm` and no `.cmd` shim
     // in between. On Windows both wrappers leave cmd.exe as the parent, and

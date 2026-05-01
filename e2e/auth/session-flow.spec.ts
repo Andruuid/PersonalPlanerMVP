@@ -16,10 +16,28 @@ import {
 
 test.describe("Session & Routing nach Auth-Zustand", () => {
   async function expectSessionUnauthenticated(page: import("@playwright/test").Page) {
-    const response = await page.request.get("/api/auth/session");
-    expect(response.ok()).toBeTruthy();
-    const payload = (await response.json()) as { user?: unknown } | null;
-    expect(payload?.user).toBeFalsy();
+    await expect
+      .poll(
+        async () => {
+          const payload = (await page.evaluate(async () => {
+            const response = await fetch("/api/auth/session", {
+              credentials: "include",
+              cache: "no-store",
+              headers: { "cache-control": "no-cache" },
+            });
+            if (!response.ok) return { __error: response.status };
+            return (await response.json()) as { user?: unknown } | null;
+          })) as { user?: unknown; __error?: number } | null;
+
+          expect(payload?.__error).toBeUndefined();
+          return payload?.user ?? null;
+        },
+        {
+          timeout: 5_000,
+          message: "Session should be cleared after logout",
+        },
+      )
+      .toBeFalsy();
   }
 
   async function expectNoSessionCookie(page: import("@playwright/test").Page) {

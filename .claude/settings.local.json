@@ -7,7 +7,12 @@
       "PowerShell($conn = Get-NetTCPConnection -LocalPort 3001 -ErrorAction SilentlyContinue | Select-Object -First 1; if \\($conn\\) { $proc = Get-Process -Id $conn.OwningProcess -ErrorAction SilentlyContinue; $proc | Select-Object Id, ProcessName, StartTime, Path | Format-List; \\(Get-WmiObject Win32_Process -Filter \"ProcessId=$\\($proc.Id\\)\"\\).CommandLine })",
       "Bash(curl -s -o /tmp/login.html -w \"HTTP=%{http_code}\\\\nTOTAL=%{time_total}s\\\\n\" http://localhost:3001/login)",
       "Bash(npx playwright *)",
-      "Bash(echo \"EXIT=$?\")"
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(git ls-tree *)",
+      "Bash(npx prisma *)",
+      "Bash(DATABASE_URL=\"file:/tmp/ci-sim.db\" npx prisma migrate deploy)",
+      "Bash(DATABASE_URL=\"file:/tmp/ci-sim.db\" npx prisma db execute --stdin)",
+      "Bash(node -e ' *)"
     ]
   }
 }

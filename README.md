@@ -60,15 +60,21 @@ So vermeiden wir veralteten Runtime-/Prisma-Status aus bereits laufenden lokalen
 
 | Skript                 | Zweck                                        |
 | ---------------------- | -------------------------------------------- |
-| `npm run test:e2e`     | Alle E2E-Tests headless (`playwright.config`: startet immer frischen `npm run dev -- --port 3001`) |
+| `npm run test:e2e`     | Alle E2E-Tests headless in Chromium, Firefox + (je nach Umgebung) WebKit sowie einem Mobile-Projekt (`playwright.config`: startet immer frischen `npm run dev -- --port 3001`) |
 | `npm run test:e2e:headed` | Gleiche Tests mit sichtbarem Browser     |
 | `npm run test:e2e:ui`  | [Playwright UI Mode](https://playwright.dev/docs/test-ui-mode) zum Debuggen |
 
-Optional: Chromium-Browser installieren oder aktualisieren:
+Optional: Playwright-Browser installieren oder aktualisieren:
 
 ```powershell
-npx playwright install chromium
+npx playwright install chromium firefox webkit
 ```
+
+Hinweis zu WebKit:
+- Standardmäßig läuft WebKit auf Linux/macOS und in CI mit.
+- Auf Windows wird WebKit standardmäßig deaktiviert, um lokale Flakes zu vermeiden.
+- Erzwingen: `PLAYWRIGHT_INCLUDE_WEBKIT=1 npm run test:e2e`
+- Explizit deaktivieren (auch in CI): `PLAYWRIGHT_SKIP_WEBKIT=1 npm run test:e2e`
 
 ## Skripte
 
