@@ -163,6 +163,8 @@ model User {
   deletedPlanEntries PlanEntry[] @relation("PlanEntryDeletedBy")
   deletedAbsenceRequests AbsenceRequest[] @relation("AbsenceRequestDeletedBy")
   deletedShiftWishes ShiftWish[] @relation("ShiftWishDeletedBy")
+  deletedAccountBalances AccountBalance[] @relation("AccountBalanceDeletedBy")
+  deletedBookings Booking[] @relation("BookingDeletedBy")
   auditLogs    AuditLog[]
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
@@ -459,6 +461,10 @@ model AccountBalance {
   openingValue  Float       @default(0)
   currentValue  Float       @default(0)
   unit          AccountUnit
+  deletedAt     DateTime?
+  archivedUntil DateTime?
+  deletedById   String?
+  deletedBy     User?       @relation("AccountBalanceDeletedBy", fields: [deletedById], references: [id], onDelete: NoAction)
   updatedAt     DateTime    @updatedAt
 
   @@unique([employeeId, accountType, year])
@@ -477,6 +483,10 @@ model Booking {
   comment         String?
   createdByUserId String
   createdByUser   User         @relation("BookingCreatedBy", fields: [createdByUserId], references: [id])
+  deletedAt       DateTime?
+  archivedUntil   DateTime?
+  deletedById     String?
+  deletedBy       User?        @relation("BookingDeletedBy", fields: [deletedById], references: [id], onDelete: NoAction)
   createdAt       DateTime     @default(now())
 
   @@index([employeeId, accountType, date])

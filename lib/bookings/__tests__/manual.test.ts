@@ -322,7 +322,7 @@ describe("applyManualBooking", () => {
 });
 
 describe("deleteBooking", () => {
-  it("deletes a manual booking and recomputes the balance", async () => {
+  it("soft-deletes a manual booking and recomputes the balance", async () => {
     const employee = await seedEmployee(db.prisma, { locationId });
     const date = parseIsoDate("2026-03-15")!;
 
@@ -354,7 +354,107 @@ describe("deleteBooking", () => {
     const remaining = await db.prisma.booking.findUnique({
       where: { id: created.bookingId },
     });
-    expect(remaining).toBeNull();
+    expect(remaining).not.toBeNull();
+    expect(remaining?.deletedAt).toBeTruthy();
+    expect(remaining?.archivedUntil).toBeTruthy();
+    expect(remaining?.deletedById).toBeNull();
+  });
+
+  it("recompute excludes soft-deleted manual bookings", async () => {
+    const employee = await seedEmployee(db.prisma, { locationId });
+    const date = parseIsoDate("2026-03-15")!;
+
+    const first = await applyManualBooking(db.prisma, {
+      employeeId: employee.id,
+      accountType: "ZEITSALDO",
+      date,
+      value: 120,
+      bookingType: "MANUAL_CREDIT",
+      comment: "erste buchung",
+      createdByUserId: adminId,
+    });
+    await applyManualBooking(db.prisma, {
+      employeeId: employee.id,
+      accountType: "ZEITSALDO",
+      date,
+      value: 30,
+      bookingType: "MANUAL_CREDIT",
+      comment: "zweite buchung",
+      createdByUserId: adminId,
+    });
+
+    await deleteBooking(db.prisma, first.bookingId);
+
+    const balance = await db.prisma.accountBalance.findUnique({
+      where: {
+        employeeId_accountType_year: {
+          employeeId: employee.id,
+          accountType: "ZEITSALDO",
+          year: YEAR,
+        },
+      },
+    });
+    expect(balance?.currentValue).toBe(30);
+  });
+
+  it("does not remove account balance rows when deleting manual bookings", async () => {
+    const employee = await seedEmployee(db.prisma, { locationId });
+    const date = parseIsoDate("2026-03-15")!;
+
+    const created = await applyManualBooking(db.prisma, {
+      employeeId: employee.id,
+      accountType: "ZEITSALDO",
+      date,
+      value: 120,
+      bookingType: "MANUAL_CREDIT",
+      comment: "vorher",
+      createdByUserId: adminId,
+    });
+
+    await deleteBooking(db.prisma, created.bookingId);
+
+    const balanceRows = await db.prisma.accountBalance.findMany({
+      where: {
+        employeeId: employee.id,
+        accountType: "ZEITSALDO",
+        year: YEAR,
+      },
+    });
+    expect(balanceRows).toHaveLength(1);
+  });
+
+  it("soft-deletes OPENING bookings and reverses openingValue contribution", async () => {
+    const employee = await seedEmployee(db.prisma, { locationId });
+    const date = parseIsoDate("2026-01-10")!;
+
+    const created = await applyManualBooking(db.prisma, {
+      employeeId: employee.id,
+      accountType: "ZEITSALDO",
+      date,
+      value: 200,
+      bookingType: "OPENING",
+      comment: "anfangsbestand",
+      createdByUserId: adminId,
+    });
+
+    await deleteBooking(db.prisma, created.bookingId);
+
+    const deletedOpening = await db.prisma.booking.findUnique({
+      where: { id: created.bookingId },
+    });
+    expect(deletedOpening?.deletedAt).toBeTruthy();
+
+    const balance = await db.prisma.accountBalance.findUnique({
+      where: {
+        employeeId_accountType_year: {
+          employeeId: employee.id,
+          accountType: "ZEITSALDO",
+          year: YEAR,
+        },
+      },
+    });
+    expect(balance?.openingValue).toBe(0);
+    expect(balance?.currentValue).toBe(0);
   });
 
   it("refuses to delete an AUTO_WEEKLY booking", async () => {
@@ -387,6 +487,84 @@ describe("deleteBooking", () => {
       where: { id: auto!.id },
     });
     expect(stillThere).not.toBeNull();
+  });
+
+  it("refuses to delete a FREE_REQUESTED week-close booking", async () => {
+    const weekId = await seedDraftWeek(db.prisma, YEAR, KW);
+    const weekDays = isoWeekDays(YEAR, KW).map((d) => d.iso);
+    const employee = await seedEmployee(db.prisma, {
+      locationId,
+      weeklyTargetMinutes: 2400,
+      hazMinutesPerWeek: 2700,
+    });
+    for (let i = 0; i < 4; i++) {
+      await seedShiftEntry(db.prisma, {
+        weekId,
+        employeeId: employee.id,
+        isoDate: weekDays[i],
+        plannedMinutes: 480,
+      });
+    }
+    await db.prisma.planEntry.create({
+      data: {
+        weekId,
+        employeeId: employee.id,
+        date: parseIsoDate(weekDays[4])!,
+        kind: "ABSENCE",
+        absenceType: "FREE_REQUESTED",
+        plannedMinutes: 0,
+      },
+    });
+    await recalcWeekClose(db.prisma, weekId, adminId);
+
+    const freeRequested = await db.prisma.booking.findFirst({
+      where: { employeeId: employee.id, bookingType: "FREE_REQUESTED" },
+    });
+    expect(freeRequested).not.toBeNull();
+
+    await expect(deleteBooking(db.prisma, freeRequested!.id)).rejects.toMatchObject({
+      name: "DeleteBookingError",
+      code: "WEEK_CLOSE_PROTECTED",
+    });
+  });
+
+  it("refuses to delete a UEZ_REDEMPTION week-close booking", async () => {
+    const weekId = await seedDraftWeek(db.prisma, YEAR, KW);
+    const weekDays = isoWeekDays(YEAR, KW).map((d) => d.iso);
+    const employee = await seedEmployee(db.prisma, {
+      locationId,
+      weeklyTargetMinutes: 2400,
+      hazMinutesPerWeek: 2700,
+    });
+    for (let i = 0; i < 4; i++) {
+      await seedShiftEntry(db.prisma, {
+        weekId,
+        employeeId: employee.id,
+        isoDate: weekDays[i],
+        plannedMinutes: 480,
+      });
+    }
+    await db.prisma.planEntry.create({
+      data: {
+        weekId,
+        employeeId: employee.id,
+        date: parseIsoDate(weekDays[4])!,
+        kind: "ABSENCE",
+        absenceType: "UEZ_BEZUG",
+        plannedMinutes: 0,
+      },
+    });
+    await recalcWeekClose(db.prisma, weekId, adminId);
+
+    const uezRedemption = await db.prisma.booking.findFirst({
+      where: { employeeId: employee.id, bookingType: "UEZ_REDEMPTION" },
+    });
+    expect(uezRedemption).not.toBeNull();
+
+    await expect(deleteBooking(db.prisma, uezRedemption!.id)).rejects.toMatchObject({
+      name: "DeleteBookingError",
+      code: "WEEK_CLOSE_PROTECTED",
+    });
   });
 
   it("rejects an unknown booking id", async () => {

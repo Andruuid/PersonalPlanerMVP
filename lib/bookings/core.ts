@@ -70,6 +70,11 @@ function dateAtMidnight(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
+function archiveUntilFrom(deletedAt: Date): Date {
+  // Keep soft-deleted business rows available for operational traceability.
+  return addMonths(deletedAt, 120);
+}
+
 function parseHourMinute(raw: string | null | undefined): { h: number; m: number } | null {
   if (!raw) return null;
   const m = /^(\d{2}):(\d{2})$/.exec(raw.trim());
@@ -224,6 +229,7 @@ async function sumCompensationRedemptionMinutesSince(
       bookingType: "COMPENSATION_REDEMPTION",
       accountType: "SONNTAG_FEIERTAG_KOMPENSATION",
       date: { gte: dateAtMidnight(triggerDate) },
+      deletedAt: null,
     },
     _sum: { value: true },
   });
@@ -291,6 +297,7 @@ async function upsertAndAdvanceCompensationCases(
           bookingType: "COMPENSATION_EXPIRED",
           accountType: "SONNTAG_FEIERTAG_KOMPENSATION",
           comment: { contains: expiredMarker },
+          deletedAt: null,
         },
       });
       const remainingMinutes = c.holidayWorkMinutes - redeemed;
@@ -390,8 +397,8 @@ async function recomputeBalance(
   accountType: AccountType,
   year: number,
 ): Promise<void> {
-  const row = await tx.accountBalance.findUnique({
-    where: { employeeId_accountType_year: { employeeId, accountType, year } },
+  const row = await tx.accountBalance.findFirst({
+    where: { employeeId, accountType, year, deletedAt: null },
   });
   if (!row) return;
 
@@ -403,6 +410,7 @@ async function recomputeBalance(
       accountType,
       date: { gte: start, lt: end },
       bookingType: { not: "OPENING" },
+      deletedAt: null,
     },
     select: { value: true },
   });
@@ -1153,6 +1161,7 @@ export async function applyCompensationCorrection(
         accountType: "SONNTAG_FEIERTAG_KOMPENSATION",
         date: { gte: start, lt: end },
         bookingType: { not: "OPENING" },
+        deletedAt: null,
       },
       select: { value: true },
     });
@@ -1692,8 +1701,11 @@ export async function deleteBooking(
   prisma: PrismaClient,
   bookingId: string,
   tenantId?: string,
+  deletedByUserId?: string,
 ): Promise<DeleteBookingResult> {
-  const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
+  const booking = await prisma.booking.findFirst({
+    where: { id: bookingId, deletedAt: null },
+  });
   if (!booking) {
     throw new DeleteBookingError("Buchung nicht gefunden", "NOT_FOUND");
   }
@@ -1712,8 +1724,27 @@ export async function deleteBooking(
   }
 
   const year = booking.date.getFullYear();
+  const shouldSoftDelete =
+    booking.bookingType === "MANUAL_CREDIT" ||
+    booking.bookingType === "MANUAL_DEBIT" ||
+    booking.bookingType === "CORRECTION" ||
+    booking.bookingType === "OPENING";
+
   await prisma.$transaction(async (tx) => {
-    await tx.booking.delete({ where: { id: bookingId } });
+    if (shouldSoftDelete) {
+      const deletedAt = new Date();
+      await tx.booking.update({
+        where: { id: bookingId },
+        data: {
+          deletedAt,
+          archivedUntil: archiveUntilFrom(deletedAt),
+          deletedById: deletedByUserId ?? null,
+        },
+      });
+    } else {
+      await tx.booking.delete({ where: { id: bookingId } });
+    }
+
     if (booking.bookingType === "OPENING") {
       // Mirror applyManualBooking/applyEmployeeOpeningBalances: OPENING
       // bookings are folded into AccountBalance.openingValue, so deleting

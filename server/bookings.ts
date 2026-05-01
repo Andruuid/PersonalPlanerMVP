@@ -326,7 +326,7 @@ export async function deleteBookingAction(
   const admin = await requireAdmin();
 
   try {
-    const result = await deleteBooking(prisma, bookingId, admin.tenantId);
+    const result = await deleteBooking(prisma, bookingId, admin.tenantId, admin.id);
 
     await writeAudit({
       userId: admin.id,

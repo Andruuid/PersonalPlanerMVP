@@ -163,7 +163,7 @@ export async function loadAccountsForEmployee(
   year: number,
 ): Promise<Record<AccountType, AccountSummary>> {
   const balances = await prisma.accountBalance.findMany({
-    where: { tenantId: user.tenantId, employeeId, year },
+    where: { tenantId: user.tenantId, employeeId, year, deletedAt: null },
   });
   const map: Record<AccountType, AccountSummary> = {
     ZEITSALDO: emptySummary("ZEITSALDO"),
@@ -254,7 +254,12 @@ export async function loadAdminAccountsTable(
   );
 
   const balances = await prisma.accountBalance.findMany({
-    where: { tenantId: user.tenantId, year, employeeId: { in: employees.map((e) => e.id) } },
+    where: {
+      tenantId: user.tenantId,
+      year,
+      deletedAt: null,
+      employeeId: { in: employees.map((e) => e.id) },
+    },
   });
 
   const byEmployee = new Map<string, typeof balances>();
@@ -328,9 +333,15 @@ export async function loadBookingHistory(
   employeeId: string,
   options: { year?: number; limit?: number } = {},
 ): Promise<BookingHistoryRow[]> {
-  const where: { tenantId: string; employeeId: string; date?: { gte: Date; lt: Date } } = {
+  const where: {
+    tenantId: string;
+    employeeId: string;
+    deletedAt: null;
+    date?: { gte: Date; lt: Date };
+  } = {
     tenantId: user.tenantId,
     employeeId,
+    deletedAt: null,
   };
   if (options.year !== undefined) {
     where.date = {
