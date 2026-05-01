@@ -7,6 +7,7 @@ interface AppShellProps {
   email: string;
   canSwitchTenant: boolean;
   showRoleToggle: boolean;
+  adminHeadingName?: string | null;
   employeeHeadingName?: string | null;
   rightRail?: React.ReactNode;
   children: React.ReactNode;
@@ -17,6 +18,7 @@ export function AppShell({
   email,
   canSwitchTenant,
   showRoleToggle,
+  adminHeadingName,
   employeeHeadingName,
   rightRail,
   children,
@@ -28,6 +30,7 @@ export function AppShell({
         email={email}
         canSwitchTenant={canSwitchTenant}
         showRoleToggle={showRoleToggle}
+        adminHeadingName={adminHeadingName}
         employeeHeadingName={employeeHeadingName}
       />
 

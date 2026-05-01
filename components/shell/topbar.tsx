@@ -15,6 +15,7 @@ interface TopbarProps {
   email: string;
   canSwitchTenant: boolean;
   showRoleToggle: boolean;
+  adminHeadingName?: string | null;
   /** Vor- und Nachname; nur in der Mitarbeiter-Ansicht als Kopfzeile nach «Personalplanung –». */
   employeeHeadingName?: string | null;
 }
@@ -60,6 +61,7 @@ export function Topbar({
   email,
   canSwitchTenant,
   showRoleToggle,
+  adminHeadingName,
   employeeHeadingName,
 }: TopbarProps) {
   const employeeTitle =
@@ -99,7 +101,7 @@ export function Topbar({
           </span>
           <h1 className="truncate text-base font-semibold text-neutral-900 md:text-lg">
             {variant === "admin"
-              ? "Personalplanung – Admin"
+              ? `Personalplanung – ${adminHeadingName?.trim() || "Admin"}`
               : employeeTitle}
           </h1>
         </div>

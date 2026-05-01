@@ -45,6 +45,7 @@ export default async function AdminLayout({
     prisma.tenant.findUnique({
       where: { id: tenantId },
       select: {
+        name: true,
         defaultWeeklyTargetMinutes: true,
         defaultHazMinutesPerWeek: true,
       },
@@ -73,6 +74,7 @@ export default async function AdminLayout({
         email={session.user.email ?? ""}
         canSwitchTenant={canSwitchTenant}
         showRoleToggle
+        adminHeadingName={tenantForForms?.name ?? null}
       >
         {children}
       </AppShell>
