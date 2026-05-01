@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,12 +53,7 @@ export function LoginForm({ callbackUrl }: Props) {
       </Button>
 
       <p className="pt-2 text-center text-xs text-neutral-500">
-        <Link
-          href="/signup"
-          className="font-medium text-neutral-700 underline underline-offset-2 hover:text-neutral-900"
-        >
-          Neuen Betrieb registrieren →
-        </Link>
+        Neue Betriebe werden durch den System-Admin angelegt.
       </p>
 
       <p className="text-center text-xs text-neutral-500">

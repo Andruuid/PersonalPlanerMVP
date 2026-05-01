@@ -23,23 +23,13 @@ test.describe("Öffentliche Einstiegseiten (ohne Login)", () => {
     await expect(page.getByRole("button", { name: "Anmelden" })).toBeVisible();
   });
 
-  test("Registrierung: neue Betrieb‑Registrierung (Admin-Erstaccount nach Aktivierung)", async ({
+  test("/signup ist nicht öffentlich und leitet auf /login um", async ({
     page,
   }) => {
-    /**
-     * Was wird geprüft: onboarding-seitiges Formular zur Anlage eines Mandanten („Neuen Betrieb“)
-     * ist erreichbar — deckt ersten Schritt eines Setup-Flow ab, ohne Registrierung auszuführen.
-     */
     await page.goto("/signup");
+    await expect(page).toHaveURL(/\/login(\?|$)/);
     await expect(
-      page
-        .locator('[data-slot="card-title"]')
-        .filter({ hasText: /Neuen Betrieb registrieren/ }),
-    ).toBeVisible();
-    await expect(
-      page.getByText(/Legen Sie Ihren Mandanten mit Standard-Stammdaten an/, {
-        exact: false,
-      }),
+      page.locator('[data-slot="card-title"]').filter({ hasText: /^Anmelden$/ }),
     ).toBeVisible();
   });
 });

@@ -118,6 +118,25 @@ describe("system-admin tenant actions", () => {
     );
   });
 
+  it("createTenantAction rejects unauthenticated callers", async () => {
+    requireSystemAdminMock.mockRejectedValueOnce(
+      new Error("Unauthorized: not signed in"),
+    );
+
+    const fd = new FormData();
+    fd.set("name", "Nicht erlaubt");
+    fd.set("slug", "nicht-erlaubt");
+    fd.set("defaultWeeklyTargetMinutes", "2520");
+    fd.set("defaultHazMinutesPerWeek", "2700");
+    fd.set("adminEmail", "blocked@example.com");
+
+    await expect(createTenantAction(undefined, fd)).rejects.toThrow(
+      "Unauthorized: not signed in",
+    );
+    expect(prismaMock.tenant.findUnique).not.toHaveBeenCalled();
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+
   it("deactivateTenantAction sets deletedAt and writes audit", async () => {
     prismaMock.tenant.findUnique.mockResolvedValue({
       id: "tenant-2",

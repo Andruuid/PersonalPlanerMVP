@@ -5,7 +5,7 @@ import { homePathForRole } from "@/lib/auth-home-path";
 import { logDebug } from "@/lib/logging";
 import type { Role } from "@/lib/generated/prisma/enums";
 
-const PUBLIC_PATHS = ["/login", "/signup", "/api/auth", "/forbidden"];
+const PUBLIC_PATHS = ["/login", "/api/auth", "/forbidden"];
 const SELECT_TENANT_PATH = "/select-tenant";
 const ADMIN_PATHS = [
   "/dashboard",
@@ -143,6 +143,18 @@ async function proxyImpl(req: NextRequest): Promise<NextResponse> {
       target: "/login",
     });
     return NextResponse.redirect(loginUrl);
+  }
+
+  if (pathname === "/signup") {
+    if (role !== "SYSTEM_ADMIN") {
+      logDebug("proxy", "Redirect non-system-admin from /signup", {
+        pathname,
+        role,
+        target: "/forbidden",
+      });
+      return NextResponse.redirect(new URL("/forbidden", nextUrl));
+    }
+    return NextResponse.redirect(new URL("/system-admin/tenants/new", nextUrl));
   }
 
   if (pendingTenantSelection && pathname !== SELECT_TENANT_PATH) {
