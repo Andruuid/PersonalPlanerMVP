@@ -164,7 +164,7 @@ export default async function MyWeekPage({ searchParams }: PageProps) {
         <section className="space-y-3">
           <header className="flex items-center justify-between">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-700">
-              Meine Einsätze
+              {isAdminPreview ? "Einsätze" : "Meine Einsätze"}
             </h2>
             <span className="text-xs text-neutral-500">
               {days.filter((d) => d.shiftKey !== "EMPTY" && d.shiftKey !== "FREI").length}{" "}
@@ -223,7 +223,10 @@ export default async function MyWeekPage({ searchParams }: PageProps) {
       </div>
 
       <aside className="w-full shrink-0 space-y-4 lg:w-80 xl:w-96">
-        <AccountsPanel accounts={accounts} />
+        <AccountsPanel
+          accounts={accounts}
+          title={isAdminPreview ? "Konten" : "Meine Konten"}
+        />
         {!isAdminPreview ? (
           <RequestStack
             tztModel={employee.tztModel}

@@ -11,6 +11,7 @@ import type { MyAccountValue, MyAccountsView } from "./types";
 
 interface AccountsPanelProps {
   accounts: MyAccountsView;
+  title?: string;
 }
 
 interface AccountCardConfig {
@@ -101,12 +102,15 @@ const CARDS: AccountCardConfig[] = [
   },
 ];
 
-export function AccountsPanel({ accounts }: AccountsPanelProps) {
+export function AccountsPanel({
+  accounts,
+  title = "Meine Konten",
+}: AccountsPanelProps) {
   return (
     <section className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
       <header className="mb-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-700">
-          Meine Konten
+          {title}
         </h2>
         <p className="text-xs text-neutral-500">
           Saldo und Ferien-Rest weiterschreiben mit dem Wochenabschluss (nur

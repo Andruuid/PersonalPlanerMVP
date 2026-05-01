@@ -25,7 +25,7 @@ test.describe("Admin employee preview", () => {
     ).toBeVisible();
     await expect(page.getByText("Vorschau", { exact: true })).toBeVisible();
 
-    await page.getByRole("link", { name: "Meine Anträge" }).click();
+    await page.getByRole("link", { name: "Anträge" }).click();
     await expect(page).toHaveURL(/\/my-requests\?employee=/);
     await expect(
       page.getByRole("heading", { name: /Anträge von Anna Keller/i }),

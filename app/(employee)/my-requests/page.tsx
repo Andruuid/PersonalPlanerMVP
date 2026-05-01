@@ -122,7 +122,7 @@ export default async function MyRequestsPage({ searchParams }: PageProps) {
       <div className="min-w-0 flex-1 space-y-6">
         <header className="space-y-1">
           <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
-            Meine Wünsche und Anträge
+            {isAdminPreview ? "Wünsche und Anträge" : "Meine Wünsche und Anträge"}
           </p>
           <h1 className="text-2xl font-semibold text-neutral-900 md:text-3xl">
             {isAdminPreview

@@ -115,7 +115,10 @@ export default async function MyAccountsPage({ searchParams }: PageProps) {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[20rem_1fr]">
         <aside className="space-y-4">
-          <AccountsPanel accounts={accounts} />
+          <AccountsPanel
+            accounts={accounts}
+            title={isAdminPreview ? "Konten" : "Meine Konten"}
+          />
         </aside>
 
         <section className="space-y-4">

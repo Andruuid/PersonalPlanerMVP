@@ -25,6 +25,12 @@ function employeeNavHref(href: string, employeeId: string | null): string {
   return `${href}?employee=${encodeURIComponent(employeeId)}`;
 }
 
+function employeeNavLabel(label: string, isAdminPreview: boolean): string {
+  if (!isAdminPreview) return label;
+  if (label.startsWith("Meine ")) return label.replace("Meine ", "");
+  return label;
+}
+
 function EmployeeNavLinks({
   className,
   pathname,
@@ -34,6 +40,7 @@ function EmployeeNavLinks({
 }) {
   const searchParams = useSearchParams();
   const previewEmployeeId = searchParams.get("employee");
+  const isAdminPreview = Boolean(previewEmployeeId);
   return (
     <ul className={cn("mt-2 space-y-1", className)}>
       {EMPLOYEE_NAV.map((item) => {
@@ -53,7 +60,7 @@ function EmployeeNavLinks({
               )}
             >
               <Icon className="h-4 w-4" />
-              {item.label}
+              {employeeNavLabel(item.label, isAdminPreview)}
             </Link>
           </li>
         );
