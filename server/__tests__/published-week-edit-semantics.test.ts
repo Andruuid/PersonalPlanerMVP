@@ -12,13 +12,13 @@ import type { SeededEmployee } from "@/lib/test/fixtures";
 import { makeTestDb, type TestDb } from "@/lib/test/db";
 import {
   seedAdmin,
+  seedAbsenceEntry,
   seedDraftWeek,
   seedEmployee,
   seedLocation,
 } from "@/lib/test/fixtures";
-import { seedAbsenceEntry } from "@/lib/test/fixtures";
 import { currentIsoWeek, parseIsoDate } from "@/lib/time/week";
-import { buildWeekSnapshot } from "@/server/weeks";
+import { loadMyWeek } from "@/lib/employee/my-week";
 
 const prismaHolder = vi.hoisted(() => ({
   p: null as PrismaClient | null,
@@ -27,10 +27,11 @@ const prismaHolder = vi.hoisted(() => ({
 vi.mock("@/lib/db", () => ({
   get prisma(): PrismaClient {
     const v = prismaHolder.p;
-    if (!v) throw new Error("auto-republish test prisma not wired yet");
+    if (!v) throw new Error("published-week semantics test prisma not wired yet");
     return v;
   },
 }));
+vi.mock("server-only", () => ({}));
 
 const requireAdminFn = vi.hoisted(() => vi.fn());
 const writeAuditMock = vi.fn();
@@ -49,14 +50,17 @@ vi.mock("@/server/_shared", () => ({
     safeRevalidatePathMock(...args),
 }));
 
-describe("auto-republish PUBLISHED week on priority absence", () => {
+describe("published-week edit semantics", () => {
   let db: TestDb;
   let upsertPlanEntryAction: typeof import("../planning").upsertPlanEntryAction;
+  let resetWeekToDraftAction: typeof import("../weeks").resetWeekToDraftAction;
+  let publishWeekAction: typeof import("../weeks").publishWeekAction;
   let employee: SeededEmployee;
 
   beforeAll(async () => {
     db = makeTestDb();
     ({ upsertPlanEntryAction } = await import("../planning"));
+    ({ resetWeekToDraftAction, publishWeekAction } = await import("../weeks"));
   });
 
   afterAll(async () => {
@@ -79,7 +83,7 @@ describe("auto-republish PUBLISHED week on priority absence", () => {
     });
   });
 
-  it("ABSENCE/SICK in PUBLISHED week creates new snapshot, keeps PUBLISHED, audits REPUBLISH_AUTO", async () => {
+  it("blocks edits in PUBLISHED, allows edits after reset-to-draft, and keeps employee view on last snapshot", async () => {
     const iso = "2026-04-28";
     const meta = currentIsoWeek(parseIsoDate(iso)!);
     const weekId = await seedDraftWeek(
@@ -92,64 +96,59 @@ describe("auto-republish PUBLISHED week on priority absence", () => {
       weekId,
       employeeId: employee.id,
       isoDate: iso,
-      absenceType: "TZT",
+      absenceType: "VACATION",
     });
 
-    const initialSnapshot = await buildWeekSnapshot(weekId, employee.tenantId);
-    const publishedAt0 = new Date();
-    await db.prisma.publishedSnapshot.create({
-      data: {
-        tenantId: employee.tenantId,
-        weekId,
-        snapshotJson: JSON.stringify(initialSnapshot),
-        publishedAt: publishedAt0,
-      },
-    });
-    await db.prisma.week.update({
-      where: { id: weekId },
-      data: { status: "PUBLISHED", publishedAt: publishedAt0 },
-    });
+    const publishResult = await publishWeekAction(weekId);
+    expect(publishResult.ok).toBe(true);
 
-    const result = await upsertPlanEntryAction({
+    const blocked = await upsertPlanEntryAction({
       weekId,
       employeeId: employee.id,
       date: iso,
       kind: "ABSENCE",
       absenceType: "SICK",
     });
+    expect(blocked.ok).toBe(false);
+    if (!blocked.ok) {
+      expect(blocked.error).toContain("zurücksetzen");
+    }
 
-    expect(result).toMatchObject({
-      ok: true,
-      data: { autoRepublished: true },
+    const beforeResetEmployeeWeek = await loadMyWeek(
+      { tenantId: employee.tenantId },
+      employee.id,
+      employee.locationId,
+      { year: meta.year, weekNumber: meta.weekNumber },
+      { year: meta.year, weekNumber: meta.weekNumber },
+    );
+    const dayBeforeReset = beforeResetEmployeeWeek.days.find((d) => d.iso === iso);
+    expect(dayBeforeReset?.title).toBe("Ferien");
+
+    const resetResult = await resetWeekToDraftAction(weekId);
+    expect(resetResult).toEqual({ ok: true });
+
+    const allowed = await upsertPlanEntryAction({
+      weekId,
+      employeeId: employee.id,
+      date: iso,
+      kind: "ABSENCE",
+      absenceType: "SICK",
     });
+    expect(allowed.ok).toBe(true);
 
     const week = await db.prisma.week.findUnique({ where: { id: weekId } });
-    expect(week?.status).toBe("PUBLISHED");
+    expect(week?.status).toBe("DRAFT");
 
-    const snaps = await db.prisma.publishedSnapshot.findMany({
-      where: { weekId },
-      orderBy: { publishedAt: "asc" },
-    });
-    expect(snaps.length).toBe(2);
-
-    const latest = JSON.parse(snaps[1]!.snapshotJson) as {
-      entries: Array<{ date: string; employeeId: string; absenceType: string | null }>;
-    };
-    const dayEntry = latest.entries.find(
-      (e) => e.date === iso && e.employeeId === employee.id,
+    const afterResetEmployeeWeek = await loadMyWeek(
+      { tenantId: employee.tenantId },
+      employee.id,
+      employee.locationId,
+      { year: meta.year, weekNumber: meta.weekNumber },
+      { year: meta.year, weekNumber: meta.weekNumber },
     );
-    expect(dayEntry?.absenceType).toBe("SICK");
-
-    const republishAudit = writeAuditMock.mock.calls.find(
-      (c) => c[0]?.action === "REPUBLISH_AUTO",
+    const dayAfterReset = afterResetEmployeeWeek.days.find(
+      (d) => d.iso === iso,
     );
-    expect(republishAudit).toBeDefined();
-    expect(republishAudit![0]).toMatchObject({
-      action: "REPUBLISH_AUTO",
-      entity: "Week",
-      entityId: weekId,
-      comment:
-        "Auto-Republish wegen prioritätsverändernden Eintrags (SICK/ACCIDENT)",
-    });
+    expect(dayAfterReset?.title).toBe("Ferien");
   });
 });

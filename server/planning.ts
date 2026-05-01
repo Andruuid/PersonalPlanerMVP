@@ -74,6 +74,13 @@ async function ensureWeekEditable(weekId: string, tenantId: string): Promise<Act
     where: { id: weekId, tenantId, deletedAt: null },
   });
   if (!week) return { ok: false, error: "Woche nicht gefunden." };
+  if (week.status === "PUBLISHED") {
+    return {
+      ok: false,
+      error:
+        "Veröffentlichte Wochen können nicht direkt bearbeitet werden. Bitte zuerst auf Entwurf zurücksetzen.",
+    };
+  }
   if (week.status === "CLOSED") {
     return {
       ok: false,
