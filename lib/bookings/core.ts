@@ -347,6 +347,16 @@ function isEmployeeActiveOnDate(
   return true;
 }
 
+function hasEmploymentOverlapWithRange(
+  employee: { entryDate: Date; exitDate: Date | null },
+  rangeStart: Date,
+  rangeEnd: Date,
+): boolean {
+  if (employee.entryDate > rangeEnd) return false;
+  if (employee.exitDate && employee.exitDate < rangeStart) return false;
+  return true;
+}
+
 // ---------------------------------------------------------------------------
 // Internal helpers (transaction-scoped)
 // ---------------------------------------------------------------------------
@@ -555,7 +565,7 @@ export async function recalcWeekClose(
         tenant: { select: { defaultStandardWorkDays: true } },
       },
     })
-  ).filter((employee) => isEmployeeActiveOnDate(employee, sunday));
+  ).filter((employee) => hasEmploymentOverlapWithRange(employee, monday, sunday));
 
   const planEntries = await prisma.planEntry.findMany({
     where: { weekId, deletedAt: null, employee: { tenantId } },
@@ -697,6 +707,10 @@ export async function recalcWeekClose(
             employee.standardWorkDays,
             employee.tenant.defaultStandardWorkDays,
           ),
+          employmentRange: {
+            entryIso: isoDateString(employee.entryDate),
+            exitIso: employee.exitDate ? isoDateString(employee.exitDate) : null,
+          },
         },
         streakPrefetchByEmp.get(employee.id) ?? [],
       );

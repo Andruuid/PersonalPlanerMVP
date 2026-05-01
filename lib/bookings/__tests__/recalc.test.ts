@@ -655,7 +655,7 @@ describe("recalcWeekClose", () => {
     expect(bookings).toHaveLength(0);
   });
 
-  it("skips employees whose exitDate is before the closed week end", async () => {
+  it("skips employees whose exitDate is before the closed week starts", async () => {
     const alreadyExited = await seedEmployee(db.prisma, {
       locationId,
       exitDate: new Date(2026, 0, 31),
@@ -679,7 +679,7 @@ describe("recalcWeekClose", () => {
     expect(bookings).toHaveLength(0);
   });
 
-  it("includes employees when entryDate or exitDate equals the week close date", async () => {
+  it("handles employees when entryDate or exitDate equals the week close date", async () => {
     const boundaryEntry = await seedEmployee(db.prisma, {
       locationId,
       entryDate: parseIsoDate(weekDays[6])!,
@@ -700,9 +700,125 @@ describe("recalcWeekClose", () => {
       }
     }
 
-    const result = await recalcWeekClose(db.prisma, weekId, adminId);
-    expect(result.employeesAffected).toBe(2);
-    expect(result.bookingsCreated).toBe(2);
+    await recalcWeekClose(db.prisma, weekId, adminId);
+
+    const boundaryEntryBookings = await db.prisma.booking.findMany({
+      where: { employeeId: boundaryEntry.id, bookingType: "AUTO_WEEKLY" },
+    });
+    expect(boundaryEntryBookings).toHaveLength(0);
+
+    const boundaryExitBookings = await db.prisma.booking.findMany({
+      where: { employeeId: boundaryExit.id, bookingType: "AUTO_WEEKLY" },
+    });
+    expect(boundaryExitBookings.length).toBeGreaterThan(0);
+  });
+
+  it("does not create pre-entry Soll debt for Wednesday entry", async () => {
+    const midweekEntry = await seedEmployee(db.prisma, {
+      locationId,
+      entryDate: parseIsoDate(weekDays[2])!,
+    });
+    for (let i = 2; i < 5; i++) {
+      await seedShiftEntry(db.prisma, {
+        weekId,
+        employeeId: midweekEntry.id,
+        isoDate: weekDays[i],
+        plannedMinutes: 504,
+      });
+    }
+
+    await recalcWeekClose(db.prisma, weekId, adminId);
+
+    const zeitsaldoBookings = await db.prisma.booking.findMany({
+      where: { employeeId: midweekEntry.id, accountType: "ZEITSALDO" },
+    });
+    expect(zeitsaldoBookings).toHaveLength(0);
+
+    const zeitsaldoBalance = await db.prisma.accountBalance.findUnique({
+      where: {
+        employeeId_accountType_year: {
+          employeeId: midweekEntry.id,
+          accountType: "ZEITSALDO",
+          year: YEAR,
+        },
+      },
+    });
+    expect(zeitsaldoBalance).toBeNull();
+  });
+
+  it("does not apply Soll or account impact after Wednesday exit", async () => {
+    const midweekExit = await seedEmployee(db.prisma, {
+      locationId,
+      exitDate: parseIsoDate(weekDays[2])!,
+    });
+    for (let i = 0; i <= 2; i++) {
+      await seedShiftEntry(db.prisma, {
+        weekId,
+        employeeId: midweekExit.id,
+        isoDate: weekDays[i],
+        plannedMinutes: 504,
+      });
+    }
+    for (let i = 3; i < 5; i++) {
+      await seedAbsenceEntry(db.prisma, {
+        weekId,
+        employeeId: midweekExit.id,
+        isoDate: weekDays[i],
+        absenceType: "VACATION",
+      });
+    }
+
+    await recalcWeekClose(db.prisma, weekId, adminId);
+
+    const autoWeeklyBookings = await db.prisma.booking.findMany({
+      where: { employeeId: midweekExit.id, bookingType: "AUTO_WEEKLY" },
+    });
+    expect(autoWeeklyBookings).toHaveLength(0);
+
+    const ferienBalance = await db.prisma.accountBalance.findUnique({
+      where: {
+        employeeId_accountType_year: {
+          employeeId: midweekExit.id,
+          accountType: "FERIEN",
+          year: YEAR,
+        },
+      },
+    });
+    expect(ferienBalance).toBeNull();
+  });
+
+  it("keeps full-week employee close behavior unchanged", async () => {
+    const employee = await seedEmployee(db.prisma, { locationId });
+    for (let i = 0; i < 5; i++) {
+      await seedShiftEntry(db.prisma, {
+        weekId,
+        employeeId: employee.id,
+        isoDate: weekDays[i],
+        plannedMinutes: 540,
+      });
+    }
+
+    await recalcWeekClose(db.prisma, weekId, adminId);
+
+    const zeitsaldoBooking = await db.prisma.booking.findFirst({
+      where: {
+        employeeId: employee.id,
+        bookingType: "AUTO_WEEKLY",
+        accountType: "ZEITSALDO",
+      },
+    });
+    expect(zeitsaldoBooking?.value).toBe(180);
+
+    const zeitsaldoBalance = await db.prisma.accountBalance.findUnique({
+      where: {
+        employeeId_accountType_year: {
+          employeeId: employee.id,
+          accountType: "ZEITSALDO",
+          year: YEAR,
+        },
+      },
+    });
+    expect(zeitsaldoBalance?.currentValue).toBe(180);
   });
 
   it("creates an OPEN ERT case for holiday work above 5 hours", async () => {

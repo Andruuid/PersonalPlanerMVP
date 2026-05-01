@@ -74,6 +74,10 @@ export interface EmployeeWeekConfig {
   hazMinutesPerWeek: number;
   tztModel?: TztModel;
   standardWorkDays: number;
+  employmentRange?: {
+    entryIso: string;
+    exitIso?: string | null;
+  };
 }
 
 /** Plan row for Zeitlogik; optional shift times enable Ruhezeit-Checks. */
@@ -113,12 +117,36 @@ export function computeWeeklyBalance(
 
   const wd = isoWeekDays(year, weekNumber);
   const weekStart = startOfIsoWeek(year, weekNumber);
+  const employmentRange = config.employmentRange;
+  const isEmploymentActiveOnIso = (iso: string): boolean => {
+    if (!employmentRange) return true;
+    if (iso < employmentRange.entryIso) return false;
+    if (employmentRange.exitIso && iso > employmentRange.exitIso) return false;
+    return true;
+  };
   const days = wd.map((d) => {
     const iso = d.iso;
     const isWeekend = isWeekendIso(iso);
     const isHoliday = holidays.has(iso);
     const holidayName = holidays.nameOf(iso);
     const dayEntries = byDate.get(iso) ?? [];
+    const isEmploymentActive = isEmploymentActiveOnIso(iso);
+    if (!isEmploymentActive) {
+      const dayCalc: DayComputation = {
+        iso,
+        isWeekend,
+        isHoliday,
+        holidayName,
+        kind: "EMPTY_WEEKDAY",
+        sollMinutes: 0,
+        istMinutes: 0,
+        plannedMinutes: 0,
+        holidayCreditMinutes: 0,
+        contributionMinutes: 0,
+        displayContributionMinutes: 0,
+      };
+      return dayCalc;
+    }
     const resolved = resolveDayFromEntries(dayEntries, isHoliday, isWeekend);
     const isAdditionalWeekendWork =
       resolved.kind === "WORK_ON_WEEKEND" &&
@@ -191,13 +219,17 @@ export function computeWeeklyBalance(
   const parentalCare = parentalCareDaysDebit(days);
 
   const weekEndExclusive = addDays(weekStart, 7);
-  const restIntervals = buildIntervalsFromEntries(entries);
+  const activeEntries = entries.filter((e) => isEmploymentActiveOnIso(e.date));
+  const activeStreakContextEntries = (streakContextEntries ?? []).filter((e) =>
+    isEmploymentActiveOnIso(e.date),
+  );
+  const restIntervals = buildIntervalsFromEntries(activeEntries);
   const { violations: dailyRestViolations } = validateDailyRest(restIntervals);
   const weeklyRest = validateWeeklyRest(restIntervals, weekStart, weekEndExclusive);
 
-  const mergedForStreak: PlanEntryByDate[] = streakContextEntries?.length
-    ? [...streakContextEntries, ...entries]
-    : [...entries];
+  const mergedForStreak: PlanEntryByDate[] = activeStreakContextEntries.length
+    ? [...activeStreakContextEntries, ...activeEntries]
+    : [...activeEntries];
 
   const streakFrom = isoDateString(addDays(weekStart, -14));
   const streakTo = wd[6]!.iso;
