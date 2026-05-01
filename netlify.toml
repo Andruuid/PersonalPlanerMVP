@@ -29,3 +29,14 @@
 # "Clear cache and deploy site"). Keep this in sync with package.json.
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+# Production now lives on Vercel — Netlify is kept only as a forwarder so
+# the personalplanermvp.netlify.app URL we already shared keeps working.
+# `force = true` makes Netlify redirect even on paths that match a built
+# page/function, so no Next.js output ever reaches users from this host.
+# `:splat` preserves the path; query strings are forwarded automatically.
+[[redirects]]
+  from = "/*"
+  to = "https://personal-planer-mvp.vercel.app/:splat"
+  status = 301
+  force = true
