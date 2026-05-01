@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { LogOut, UserCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { switchTenantAction } from "./actions";
@@ -18,6 +19,9 @@ interface UserMenuProps {
 }
 
 export function UserMenu({ email, canSwitchTenant }: UserMenuProps) {
+  const switchTenantFormRef = useRef<HTMLFormElement>(null);
+  const logoutFormRef = useRef<HTMLFormElement>(null);
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -34,16 +38,22 @@ export function UserMenu({ email, canSwitchTenant }: UserMenuProps) {
         <DropdownMenuLabel className="truncate">{email}</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {canSwitchTenant ? (
-          <DropdownMenuItem asChild>
-            <form action={switchTenantAction} className="w-full">
+          <DropdownMenuItem
+            asChild
+            onSelect={() => switchTenantFormRef.current?.requestSubmit()}
+          >
+            <form ref={switchTenantFormRef} action={switchTenantAction} className="w-full cursor-pointer">
               <button type="submit" className="w-full text-left">
                 Mandant wechseln
               </button>
             </form>
           </DropdownMenuItem>
         ) : null}
-        <DropdownMenuItem asChild>
-          <form action="/api/logout" method="post" className="w-full">
+        <DropdownMenuItem
+          asChild
+          onSelect={() => logoutFormRef.current?.requestSubmit()}
+        >
+          <form ref={logoutFormRef} action="/api/logout" method="post" className="w-full cursor-pointer">
             <button type="submit" className="flex w-full items-center text-left">
               <LogOut className="mr-2 h-4 w-4" />
               Abmelden
