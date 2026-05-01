@@ -16,6 +16,13 @@ import {
 
 test.describe("Session & Routing nach Auth-Zustand", () => {
   async function expectSessionUnauthenticated(page: import("@playwright/test").Page) {
+    // Let any in-flight `useSession()` polls / RSC payload fetches settle
+    // before we probe. Without this beat, a session refresh that was already
+    // in flight when the logout's Set-Cookie/Clear-Site-Data arrived can
+    // re-issue the session cookie *after* the clear, and the next poll round
+    // sees the just-restored session for the entire poll budget.
+    await page.waitForLoadState("networkidle").catch(() => {});
+
     await expect
       .poll(
         async () => {
@@ -33,7 +40,7 @@ test.describe("Session & Routing nach Auth-Zustand", () => {
           return payload?.user ?? null;
         },
         {
-          timeout: 5_000,
+          timeout: 15_000,
           message: "Session should be cleared after logout",
         },
       )

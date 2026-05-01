@@ -12,7 +12,11 @@
       "Bash(npx prisma *)",
       "Bash(DATABASE_URL=\"file:/tmp/ci-sim.db\" npx prisma migrate deploy)",
       "Bash(DATABASE_URL=\"file:/tmp/ci-sim.db\" npx prisma db execute --stdin)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(gh run *)",
+      "PowerShell(gh run list --workflow=e2e.yml --limit=5 2>&1)",
+      "Bash(npx next *)",
+      "Bash(echo \"BUILD-EXIT=$?\")"
     ]
   }
 }

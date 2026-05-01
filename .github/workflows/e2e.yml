@@ -60,6 +60,9 @@ jobs:
           npx prisma migrate deploy
           npm run db:seed
 
+      - name: Build Next.js (for `next start` in playwright webServer)
+        run: npx next build
+
       - name: Install Playwright browsers (with system deps)
         run: npx playwright install chromium firefox webkit --with-deps
 

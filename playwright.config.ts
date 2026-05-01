@@ -51,8 +51,13 @@ export default defineConfig({
   testDir: "./e2e",
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
-  workers: 4,
+  // 2-vCPU GitHub runners can't sustain 4 parallel workers × 4 browsers; the
+  // dev/start server queues requests and tests time out. 2 is the sweet spot.
+  workers: process.env.CI ? 2 : 4,
   reporter: [["html", { open: "never" }], ["list"]],
+  // Test timeout must be higher than `expect.timeout`, otherwise a single slow
+  // expect consumes the entire test budget.
+  timeout: process.env.CI ? 60_000 : 30_000,
   expect: {
     timeout: process.env.CI ? 30_000 : 15_000,
   },
@@ -64,18 +69,26 @@ export default defineConfig({
   },
   projects,
   webServer: {
-    // Spawn node directly on next's bin script — no `npm` and no `.cmd` shim
-    // in between. On Windows both wrappers leave cmd.exe as the parent, and
-    // when Playwright kills the parent the node child survives and squats on
-    // the port. The next E2E run then fails with EADDRINUSE and every test
-    // reports ERR_CONNECTION_REFUSED / timeout.
-    command: "node node_modules/next/dist/bin/next dev --port 3001",
+    // CI: serve the production build. Turbopack `next dev` compiles routes
+    // lazily on first request; on 2-vCPU GitHub runners with parallel workers
+    // and multiple browsers, the thundering herd makes those compiles miss the
+    // 30s test budget and every test times out. Building once ahead of time
+    // and serving with `next start` gives deterministic, fast responses.
+    //
+    // Local: keep `next dev` for fast iteration. Spawn node directly on next's
+    // bin script — no `npm` and no `.cmd` shim. On Windows both wrappers leave
+    // cmd.exe as the parent, and when Playwright kills the parent the node
+    // child survives and squats on the port, breaking the next run with
+    // EADDRINUSE.
+    command: process.env.CI
+      ? "node node_modules/next/dist/bin/next start --port 3001"
+      : "node node_modules/next/dist/bin/next dev --port 3001",
     url: baseURL,
-    // Always boot a fresh dev server for E2E to avoid stale in-memory Prisma
+    // Always boot a fresh server for E2E to avoid stale in-memory Prisma
     // client/schema state from long-running local sessions.
     reuseExistingServer: false,
     gracefulShutdown: { signal: "SIGTERM", timeout: 10_000 },
-    timeout: 120_000,
+    timeout: 180_000,
     stdout: "pipe",
     stderr: "pipe",
   },
