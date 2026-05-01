@@ -22,3 +22,10 @@
 [build.environment]
   NODE_VERSION = "20"
   AUTH_TRUST_HOST = "true"
+
+# Pin the Next.js runtime plugin explicitly so build-cache invalidation is
+# tied to package-lock.json (instead of Netlify's auto-installed plugin
+# version, which can keep a stale compiled middleware bundle even after
+# "Clear cache and deploy site"). Keep this in sync with package.json.
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
