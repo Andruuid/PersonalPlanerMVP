@@ -26,6 +26,12 @@ const CALLBACK_COOKIE_NAMES = [
   "__Secure-authjs.callback-url",
 ] as const;
 
+const AUTH_COOKIE_BASE_NAMES = [
+  ...SESSION_COOKIE_NAMES,
+  ...CSRF_COOKIE_NAMES,
+  ...CALLBACK_COOKIE_NAMES,
+] as const;
+const MAX_COOKIE_CHUNKS_TO_CLEAR = 10;
 const AUTH_COOKIE_NAME_PATTERN =
   /^(?:__Secure-|__Host-)?(?:next-auth|authjs)\.(?:session-token|csrf-token|callback-url)(?:\.\d+)?$/;
 const LOGOUT_DEBUG_ENABLED =
@@ -40,14 +46,29 @@ function isSecureCookie(name: string): boolean {
   return name.startsWith("__Secure-") || name.startsWith("__Host-");
 }
 
+function isHttpsRequest(request: NextRequest): boolean {
+  const forwardedProto = request.headers.get("x-forwarded-proto");
+  return (
+    request.nextUrl.protocol === "https:" ||
+    forwardedProto?.split(",")[0]?.trim().toLowerCase() === "https"
+  );
+}
+
+function authCookieNamesToClear(): Set<string> {
+  const names = new Set<string>(AUTH_COOKIE_BASE_NAMES);
+  for (const baseName of SESSION_COOKIE_NAMES) {
+    for (let index = 0; index <= MAX_COOKIE_CHUNKS_TO_CLEAR; index++) {
+      names.add(`${baseName}.${index}`);
+    }
+  }
+  return names;
+}
+
 async function clearAuthCookies(request: NextRequest) {
   // Channel 1: write via next/headers cookies() - Next.js request-mutation API.
   const cookieStore = await cookies();
-  const cookieNamesToClear = new Set<string>([
-    ...SESSION_COOKIE_NAMES,
-    ...CSRF_COOKIE_NAMES,
-    ...CALLBACK_COOKIE_NAMES,
-  ]);
+  const cookieNamesToClear = authCookieNamesToClear();
+  const secureResponseCookies = isHttpsRequest(request);
   for (const cookie of cookieStore.getAll()) {
     if (AUTH_COOKIE_NAME_PATTERN.test(cookie.name)) {
       cookieNamesToClear.add(cookie.name);
@@ -76,8 +97,9 @@ async function clearAuthCookies(request: NextRequest) {
     response.cookies.set(name, "", {
       path: "/",
       maxAge: 0,
+      expires: new Date(0),
       httpOnly: !isCallbackCookie(name),
-      secure: isSecureCookie(name),
+      secure: secureResponseCookies || isSecureCookie(name),
       sameSite: "lax",
     });
   }

@@ -1,4 +1,5 @@
 import NextAuth from "next-auth";
+import type { NextFetchEvent, NextMiddleware, NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { authConfig } from "@/lib/auth.config";
 import { homePathForRole } from "@/lib/auth-home-path";
@@ -23,6 +24,7 @@ const ADMIN_PATHS = [
 ];
 const EMPLOYEE_PATHS = ["/my-week", "/my-requests", "/my-accounts"];
 const SYSTEM_ADMIN_PATHS = ["/system-admin"];
+const AUTH_MUTATION_PATHS = ["/api/logout", "/api/auth"] as const;
 
 function pathMatches(pathname: string, prefixes: readonly string[]): boolean {
   return prefixes.some(
@@ -30,18 +32,13 @@ function pathMatches(pathname: string, prefixes: readonly string[]): boolean {
   );
 }
 
-export default auth((req) => {
+function isAuthMutationPath(pathname: string): boolean {
+  return pathMatches(pathname, AUTH_MUTATION_PATHS);
+}
+
+const authProxy = auth((req) => {
   const { nextUrl } = req;
   const pathname = nextUrl.pathname;
-
-  // Belt-and-braces: even if the matcher exclusion is honored by the host's
-  // adapter, short-circuit the auth wrapper for routes that mutate the
-  // session cookie. Reading req.auth here would re-touch the JWT on Netlify
-  // and re-emit a session Set-Cookie that overwrites the route handler's
-  // clearing Set-Cookie ("logout seems ignored" symptom).
-  if (pathname === "/api/logout" || pathname.startsWith("/api/auth/")) {
-    return NextResponse.next();
-  }
 
   const role = req.auth?.user?.role ?? "ANON";
   const tenantId = req.auth?.user?.tenantId;
@@ -164,7 +161,19 @@ export default auth((req) => {
   }
 
   return NextResponse.next();
-});
+}) as unknown as NextMiddleware;
+
+export default function proxy(req: NextRequest, event: NextFetchEvent) {
+  // Netlify runs Proxy as a separate edge function. Keep routes that mutate
+  // Auth.js cookies entirely outside the Auth.js wrapper; a skip inside
+  // auth((req) => ...) is too late because the wrapper has already read and
+  // may refresh the session cookie.
+  if (isAuthMutationPath(req.nextUrl.pathname)) {
+    return NextResponse.next();
+  }
+
+  return authProxy(req, event);
+}
 
 export const config = {
   // Keep Auth.js routes AND the wrapping `/api/logout` route out of proxy

@@ -22,9 +22,3 @@
 [build.environment]
   NODE_VERSION = "20"
   AUTH_TRUST_HOST = "true"
-
-# Pin the official Netlify Next.js adapter. Remove this `[[plugins]]` block
-# to use Netlify's auto-managed OpenNext adapter, which keeps the runtime
-# in sync with the latest Next.js releases (Netlify's recommendation).
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
