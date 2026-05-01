@@ -348,8 +348,8 @@ export function EmployeeForm({
               type="number"
               step={0.5}
               defaultValue={0}
-              tooltip="Zusätzlicher Ferien-Startbestand in Tagen; additiv zum jährlichen Ferienanspruch."
-              hint="Additiv zum Kontojahr; Ferienkonto wird zusätzlich mit Jahresanspruch initialisiert."
+              tooltip="Zusätzlicher Ferien-Startbestand in Tagen; wird intern mit dem persönlichen Tagessoll in Minuten gebucht und ist additiv zum jährlichen Ferienanspruch."
+              hint="Eingabe in Tagen; Buchung nutzt Tagessoll-Minuten. Zusätzlich wird der Jahresanspruch separat initialisiert."
               error={fieldErr.openingVacationDays}
             />
             <Field

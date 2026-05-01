@@ -140,6 +140,7 @@ describe("employees audit coverage", () => {
     prismaMock.tenant.findUnique.mockResolvedValue({
       defaultWeeklyTargetMinutes: 2520,
       defaultHazMinutesPerWeek: 2700,
+      defaultStandardWorkDays: 5,
     });
   });
 
@@ -184,6 +185,49 @@ describe("employees audit coverage", () => {
           payload.newValue?.zeitsaldoMinutes === 120,
       ),
     ).toBe(true);
+  });
+
+  it("converts openingVacationDays to minutes for FERIEN openings", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(null);
+    prismaMock.$transaction.mockImplementation(async (cb) =>
+      cb({
+        user: {
+          create: vi.fn().mockResolvedValue({ id: "user-1" }),
+        },
+        employee: {
+          create: vi.fn().mockResolvedValue({
+            id: "emp-1",
+            firstName: "Nina",
+            lastName: "Test",
+            roleLabel: "Verkauf",
+            pensum: 100,
+            locationId: "loc-1",
+            vacationDaysPerYear: 25,
+            weeklyTargetMinutes: 2520,
+            hazMinutesPerWeek: 2700,
+            tztModel: "DAILY_QUOTA",
+            tztPeriodicQuotaDays: null,
+            tztPeriodMonths: null,
+            tztLastGrantedAt: null,
+            isActive: true,
+          }),
+        },
+      }),
+    );
+
+    const fd = buildCreateFormData();
+    fd.set("openingVacationDays", "5");
+    const result = await createEmployeeAction(undefined, fd);
+
+    expect(result.ok).toBe(true);
+    expect(applyEmployeeOpeningBalancesMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        openings: expect.objectContaining({
+          FERIEN: 2520,
+        }),
+      }),
+    );
   });
 
   it("writes ROLE_CHANGE audit when user role is normalized on update", async () => {

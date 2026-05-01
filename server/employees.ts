@@ -13,6 +13,7 @@ import {
   type ActionResult,
 } from "./_shared";
 import { applyEmployeeOpeningBalances } from "@/lib/bookings/core";
+import { baseDailySollMinutes, effectiveStandardWorkDays } from "@/lib/time/soll";
 import {
   buildExitSnapshot,
   exitDateChangeTriggersSnapshot,
@@ -264,6 +265,7 @@ export async function createEmployeeAction(
     select: {
       defaultWeeklyTargetMinutes: true,
       defaultHazMinutesPerWeek: true,
+      defaultStandardWorkDays: true,
     },
   });
   const resolvedWeeklyTargetMinutes =
@@ -274,6 +276,13 @@ export async function createEmployeeAction(
     data.hazMinutesPerWeek ??
     tenantDefaults?.defaultHazMinutesPerWeek ??
     2700;
+  const resolvedStandardWorkDays = effectiveStandardWorkDays(
+    data.standardWorkDays,
+    tenantDefaults?.defaultStandardWorkDays ?? 5,
+  );
+  const openingVacationMinutes =
+    data.openingVacationDays *
+    baseDailySollMinutes(resolvedWeeklyTargetMinutes, resolvedStandardWorkDays);
 
   const passwordHash = await bcrypt.hash(data.password, 10);
   const exitDate = data.exitDate ?? null;
@@ -330,7 +339,7 @@ export async function createEmployeeAction(
         openings: {
           ZEITSALDO: data.openingZeitsaldoMinutes,
           UEZ: data.openingUezMinutes,
-          FERIEN: data.openingVacationDays,
+          FERIEN: openingVacationMinutes,
           TZT: data.openingTztDays,
           PARENTAL_CARE: data.openingParentalCareDays,
         },
