@@ -7,6 +7,8 @@ import { writeAudit } from "@/lib/audit";
 import { requireAdmin, safeRevalidatePath, type ActionResult } from "./_shared";
 import type { Role } from "@/lib/generated/prisma/enums";
 
+const TENANT_MANAGEABLE_ROLES: ReadonlySet<Role> = new Set(["ADMIN", "EMPLOYEE"]);
+
 export interface AdminUserRow {
   id: string;
   email: string;
@@ -112,6 +114,9 @@ export async function changeAdminUserRoleAction(
   role: Role,
 ): Promise<ActionResult> {
   const admin = await requireAdmin();
+  if (!TENANT_MANAGEABLE_ROLES.has(role)) {
+    return { ok: false, error: "Diese Rolle darf hier nicht vergeben werden." };
+  }
   if (userId === admin.id) {
     return { ok: false, error: "Du kannst dich hier nicht selbst bearbeiten." };
   }
@@ -122,6 +127,9 @@ export async function changeAdminUserRoleAction(
   });
   if (!before || before.tenantId !== admin.tenantId) {
     return { ok: false, error: "Benutzer:in nicht gefunden." };
+  }
+  if (!TENANT_MANAGEABLE_ROLES.has(before.role)) {
+    return { ok: false, error: "Diese Rolle darf hier nicht bearbeitet werden." };
   }
   if (before.role === role) {
     return { ok: true };

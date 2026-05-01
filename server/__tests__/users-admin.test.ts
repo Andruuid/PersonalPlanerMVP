@@ -116,6 +116,59 @@ describe("users-admin actions", () => {
     );
   });
 
+  it("allows ADMIN to demote another ADMIN to EMPLOYEE", async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: "user-5",
+      tenantId: "tenant-a",
+      role: "ADMIN",
+    });
+    prismaMock.user.update.mockResolvedValue({ id: "user-5", role: "EMPLOYEE" });
+
+    const result = await changeAdminUserRoleAction("user-5", "EMPLOYEE");
+
+    expect(result).toEqual({ ok: true });
+    expect(prismaMock.user.update).toHaveBeenCalledWith({
+      where: { id: "user-5" },
+      data: { role: "EMPLOYEE" },
+    });
+    expect(writeAuditMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "ROLE_CHANGE",
+        oldValue: { role: "ADMIN" },
+        newValue: { role: "EMPLOYEE" },
+      }),
+    );
+  });
+
+  it("rejects assigning SYSTEM_ADMIN from tenant admin action", async () => {
+    const result = await changeAdminUserRoleAction("user-6", "SYSTEM_ADMIN");
+
+    expect(result).toEqual({
+      ok: false,
+      error: "Diese Rolle darf hier nicht vergeben werden.",
+    });
+    expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+    expect(writeAuditMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects editing users with SYSTEM_ADMIN role", async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: "user-7",
+      tenantId: "tenant-a",
+      role: "SYSTEM_ADMIN",
+    });
+
+    const result = await changeAdminUserRoleAction("user-7", "ADMIN");
+
+    expect(result).toEqual({
+      ok: false,
+      error: "Diese Rolle darf hier nicht bearbeitet werden.",
+    });
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+    expect(writeAuditMock).not.toHaveBeenCalled();
+  });
+
   it("resets password and audits passwordReset flag only", async () => {
     prismaMock.user.findUnique.mockResolvedValue({
       id: "user-4",
