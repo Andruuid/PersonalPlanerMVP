@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Read(//tmp/**)",
+      "PowerShell(Get-NetTCPConnection -LocalPort 3001 -ErrorAction SilentlyContinue | Select-Object LocalAddress, LocalPort, State, OwningProcess | Format-Table; Get-NetTCPConnection -LocalPort 3001 -ErrorAction SilentlyContinue | ForEach-Object { Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue } | Select-Object Id, ProcessName, StartTime | Format-Table)",
+      "PowerShell($conn = Get-NetTCPConnection -LocalPort 3001 -ErrorAction SilentlyContinue | Select-Object -First 1; if \\($conn\\) { $proc = Get-Process -Id $conn.OwningProcess -ErrorAction SilentlyContinue; $proc | Select-Object Id, ProcessName, StartTime, Path | Format-List; \\(Get-WmiObject Win32_Process -Filter \"ProcessId=$\\($proc.Id\\)\"\\).CommandLine })",
+      "Bash(curl -s -o /tmp/login.html -w \"HTTP=%{http_code}\\\\nTOTAL=%{time_total}s\\\\n\" http://localhost:3001/login)",
+      "Bash(npx playwright *)",
+      "Bash(echo \"EXIT=$?\")"
     ]
   }
 }

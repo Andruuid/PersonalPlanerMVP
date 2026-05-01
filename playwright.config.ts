@@ -31,11 +31,17 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev -- --port 3001",
+    // Spawn node directly on next's bin script — no `npm` and no `.cmd` shim
+    // in between. On Windows both wrappers leave cmd.exe as the parent, and
+    // when Playwright kills the parent the node child survives and squats on
+    // the port. The next E2E run then fails with EADDRINUSE and every test
+    // reports ERR_CONNECTION_REFUSED / timeout.
+    command: "node node_modules/next/dist/bin/next dev --port 3001",
     url: baseURL,
     // Always boot a fresh dev server for E2E to avoid stale in-memory Prisma
     // client/schema state from long-running local sessions.
     reuseExistingServer: false,
+    gracefulShutdown: { signal: "SIGTERM", timeout: 10_000 },
     timeout: 120_000,
     stdout: "pipe",
     stderr: "pipe",
