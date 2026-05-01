@@ -21,19 +21,32 @@ export default async function SystemAdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      <header className="border-b border-slate-800 bg-slate-900/90">
+    <div className="min-h-screen bg-[#F6F7FB] text-neutral-900">
+      <header className="sticky top-0 z-30 border-b border-neutral-200 bg-white">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">
+            <p className="text-xs uppercase tracking-[0.2em] text-neutral-400">
               Internal Console
             </p>
-            <h1 className="text-lg font-semibold">PersonalPlaner System-Admin</h1>
+            <h1 className="text-lg font-semibold text-neutral-900">
+              PersonalPlaner System-Admin
+            </h1>
           </div>
-          <nav className="flex items-center gap-4 text-sm">
-            <Link className="text-cyan-200 hover:text-cyan-100" href="/system-admin/tenants">
+          <nav className="flex items-center gap-3 text-sm">
+            <Link
+              className="rounded-md px-2 py-1 text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900"
+              href="/system-admin/tenants"
+            >
               Mandanten
             </Link>
+            <form action="/api/logout" method="post">
+              <button
+                type="submit"
+                className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900"
+              >
+                Abmelden (zur Login-Seite)
+              </button>
+            </form>
           </nav>
         </div>
       </header>

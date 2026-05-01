@@ -63,6 +63,9 @@ export function LoginForm({ callbackUrl }: Props) {
         <br />
         <span className="font-medium text-neutral-700">anna.keller@demo.ch</span>{" "}
         / demo123
+        <br />
+        <span className="font-medium text-neutral-700">system@platform.local</span>{" "}
+        / system123
       </p>
     </form>
   );

@@ -55,22 +55,22 @@ export function TenantDetailActions({ tenantId, initial }: Props) {
 
   return (
     <div className="space-y-4">
-      <form action={onUpdate} className="space-y-4 rounded-xl border border-slate-800 bg-slate-900 p-5">
+      <form action={onUpdate} className="space-y-4 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
         <input type="hidden" name="tenantId" value={tenantId} />
         <div className="grid gap-4 md:grid-cols-2">
           <label className="space-y-1 text-sm">
-            <span className="text-slate-300">Name</span>
+            <span className="text-neutral-700">Name</span>
             <input
-              className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2"
+              className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-neutral-900"
               defaultValue={initial.name}
               name="name"
               required
             />
           </label>
           <label className="space-y-1 text-sm">
-            <span className="text-slate-300">Slug</span>
+            <span className="text-neutral-700">Slug</span>
             <input
-              className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2"
+              className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-neutral-900"
               defaultValue={initial.slug}
               name="slug"
               required
@@ -79,9 +79,9 @@ export function TenantDetailActions({ tenantId, initial }: Props) {
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <label className="space-y-1 text-sm">
-            <span className="text-slate-300">Default-Sollzeit (Min./Woche)</span>
+            <span className="text-neutral-700">Default-Sollzeit (Min./Woche)</span>
             <input
-              className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2"
+              className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-neutral-900"
               defaultValue={initial.defaultWeeklyTargetMinutes}
               type="number"
               min={60}
@@ -90,9 +90,9 @@ export function TenantDetailActions({ tenantId, initial }: Props) {
             />
           </label>
           <label className="space-y-1 text-sm">
-            <span className="text-slate-300">Default-HAZ (Min./Woche)</span>
+            <span className="text-neutral-700">Default-HAZ (Min./Woche)</span>
             <input
-              className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2"
+              className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-neutral-900"
               defaultValue={initial.defaultHazMinutesPerWeek}
               type="number"
               min={60}
@@ -103,7 +103,7 @@ export function TenantDetailActions({ tenantId, initial }: Props) {
         </div>
         <button
           disabled={pending}
-          className="rounded-md bg-cyan-500 px-4 py-2 text-sm font-medium text-slate-950 hover:bg-cyan-400 disabled:opacity-50"
+          className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
           type="submit"
         >
           Stammdaten speichern
@@ -115,7 +115,7 @@ export function TenantDetailActions({ tenantId, initial }: Props) {
           <button
             disabled={pending}
             onClick={runReactivate}
-            className="rounded-md border border-emerald-700 px-4 py-2 text-sm text-emerald-200 hover:bg-emerald-900/30 disabled:opacity-50"
+            className="rounded-md border border-emerald-300 px-4 py-2 text-sm text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
             type="button"
           >
             Reaktivieren
@@ -124,7 +124,7 @@ export function TenantDetailActions({ tenantId, initial }: Props) {
           <button
             disabled={pending}
             onClick={runDeactivate}
-            className="rounded-md border border-rose-700 px-4 py-2 text-sm text-rose-200 hover:bg-rose-900/30 disabled:opacity-50"
+            className="rounded-md border border-rose-300 px-4 py-2 text-sm text-rose-700 hover:bg-rose-50 disabled:opacity-50"
             type="button"
           >
             Deaktivieren
@@ -132,8 +132,8 @@ export function TenantDetailActions({ tenantId, initial }: Props) {
         )}
       </div>
 
-      {error ? <p className="text-sm text-rose-300">{error}</p> : null}
-      {message ? <p className="text-sm text-emerald-300">{message}</p> : null}
+      {error ? <p className="text-sm text-rose-700">{error}</p> : null}
+      {message ? <p className="text-sm text-emerald-700">{message}</p> : null}
     </div>
   );
 }

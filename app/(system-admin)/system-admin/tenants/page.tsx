@@ -24,20 +24,20 @@ export default async function SystemAdminTenantsPage() {
     <section className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs uppercase tracking-wider text-slate-400">Plattform</p>
-          <h2 className="text-2xl font-semibold">Mandantenverwaltung</h2>
+          <p className="text-xs uppercase tracking-wider text-neutral-500">Plattform</p>
+          <h2 className="text-2xl font-semibold text-neutral-900">Mandantenverwaltung</h2>
         </div>
         <Link
           href="/system-admin/tenants/new"
-          className="rounded-md bg-cyan-500 px-4 py-2 text-sm font-medium text-slate-950 hover:bg-cyan-400"
+          className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
         >
           Neuer Mandant
         </Link>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
-        <table className="min-w-full divide-y divide-slate-800 text-sm">
-          <thead className="bg-slate-900/70 text-left text-slate-400">
+      <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
+        <table className="min-w-full divide-y divide-neutral-200 text-sm">
+          <thead className="bg-neutral-50 text-left text-neutral-600">
             <tr>
               <th className="px-4 py-3">Betrieb</th>
               <th className="px-4 py-3">Status</th>
@@ -46,19 +46,19 @@ export default async function SystemAdminTenantsPage() {
               <th className="px-4 py-3" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800">
+          <tbody className="divide-y divide-neutral-200">
             {tenants.map((tenant) => (
               <tr key={tenant.id}>
                 <td className="px-4 py-3">
-                  <p className="font-medium text-slate-100">{tenant.name}</p>
-                  <p className="text-xs text-slate-400">{tenant.slug}</p>
+                  <p className="font-medium text-neutral-900">{tenant.name}</p>
+                  <p className="text-xs text-neutral-500">{tenant.slug}</p>
                 </td>
                 <td className="px-4 py-3">{STATUS_LABEL[tenant.status] ?? tenant.status}</td>
                 <td className="px-4 py-3">{tenant.employeeCount}</td>
                 <td className="px-4 py-3">{formatDate(tenant.lastActivityAt)}</td>
                 <td className="px-4 py-3 text-right">
                   <Link
-                    className="text-cyan-300 hover:text-cyan-200"
+                    className="font-medium text-neutral-700 hover:text-neutral-900"
                     href={`/system-admin/tenants/${tenant.id}`}
                   >
                     Details
@@ -68,7 +68,7 @@ export default async function SystemAdminTenantsPage() {
             ))}
             {tenants.length === 0 ? (
               <tr>
-                <td className="px-4 py-6 text-slate-400" colSpan={5}>
+                <td className="px-4 py-6 text-neutral-500" colSpan={5}>
                   Noch keine Mandanten vorhanden.
                 </td>
               </tr>
