@@ -138,18 +138,29 @@ describe("system-admin tenant actions", () => {
   });
 
   it("deactivateTenantAction sets deletedAt and writes audit", async () => {
+    const tenantUpdateMock = vi.fn().mockResolvedValue({ id: "tenant-2" });
     prismaMock.tenant.findUnique.mockResolvedValue({
       id: "tenant-2",
       deletedAt: null,
     });
     prismaMock.$transaction.mockImplementation(async (cb: (tx: unknown) => unknown) =>
       cb({
-        tenant: { update: vi.fn().mockResolvedValue({ id: "tenant-2" }) },
+        tenant: { update: tenantUpdateMock },
       }),
     );
 
     const result = await deactivateTenantAction("tenant-2");
     expect(result).toEqual({ ok: true });
+    expect(tenantUpdateMock).toHaveBeenCalledTimes(1);
+    const updateArgs = tenantUpdateMock.mock.calls[0]?.[0] as {
+      data: { deletedAt: Date; archivedUntil: Date; deletedById: string };
+    };
+    expect(updateArgs.data.deletedById).toBe("sys-admin-1");
+    expect(updateArgs.data.deletedAt).toBeInstanceOf(Date);
+    expect(updateArgs.data.archivedUntil).toBeInstanceOf(Date);
+    expect(updateArgs.data.archivedUntil.getFullYear()).toBe(
+      updateArgs.data.deletedAt.getFullYear() + 10,
+    );
     expect(writeAuditCoreMock).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({

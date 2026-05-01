@@ -478,6 +478,7 @@ export async function createAbsenceRequestAction(
       tenantId: employee.tenantId,
       employeeId,
       year: { in: years.length > 0 ? years : [startDate.getFullYear()] },
+      deletedAt: null,
       accountType: {
         in: ["ZEITSALDO", "FERIEN", "UEZ", "TZT", "PARENTAL_CARE"],
       },

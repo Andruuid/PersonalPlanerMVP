@@ -3,6 +3,7 @@
 import bcrypt from "bcryptjs";
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
+import { softDeleteFields } from "@/lib/archive";
 import { prisma } from "@/lib/db";
 import { writeAuditCore } from "@/lib/audit/core";
 import {
@@ -290,8 +291,7 @@ export async function deactivateTenantAction(tenantId: string): Promise<ActionRe
     await tx.tenant.update({
       where: { id: tenantId },
       data: {
-        deletedAt: new Date(),
-        deletedById: systemAdmin.id,
+        ...softDeleteFields(systemAdmin.id),
       },
     });
     await writeAuditCore(tx, {

@@ -71,6 +71,8 @@ describe("purgeArchivedData", () => {
     expect(result.candidates).toEqual({
       planEntries: 1,
       absenceRequests: 0,
+      bookings: 0,
+      accountBalances: 0,
       weeks: 1,
       employees: 1,
       locations: 1,
@@ -79,6 +81,8 @@ describe("purgeArchivedData", () => {
     expect(result.deleted).toEqual({
       planEntries: 0,
       absenceRequests: 0,
+      bookings: 0,
+      accountBalances: 0,
       weeks: 0,
       employees: 0,
       locations: 0,
@@ -199,6 +203,8 @@ describe("purgeArchivedData", () => {
     expect(result.deleted).toEqual({
       planEntries: 1,
       absenceRequests: 0,
+      bookings: 0,
+      accountBalances: 0,
       weeks: 1,
       employees: 1,
       locations: 1,
@@ -276,6 +282,8 @@ describe("purgeArchivedData", () => {
     });
 
     expect(result.deleted.weeks).toBe(0);
+    expect(result.deleted.bookings).toBe(0);
+    expect(result.deleted.accountBalances).toBe(0);
     expect(await db.prisma.week.findUnique({ where: { id: week.id } })).not.toBeNull();
     expect(await db.prisma.planEntry.findUnique({ where: { id: entry.id } })).not.toBeNull();
   });
@@ -305,6 +313,8 @@ describe("purgeArchivedData", () => {
 
     expect(result.candidates.absenceRequests).toBe(1);
     expect(result.deleted.absenceRequests).toBe(1);
+    expect(result.deleted.bookings).toBe(0);
+    expect(result.deleted.accountBalances).toBe(0);
     expect(
       await db.prisma.absenceRequest.findUnique({ where: { id: ar.id } }),
     ).toBeNull();
@@ -354,8 +364,75 @@ describe("purgeArchivedData", () => {
 
     expect(result.deleted.planEntries).toBe(1);
     expect(result.deleted.serviceTemplates).toBe(1);
+    expect(result.deleted.bookings).toBe(0);
+    expect(result.deleted.accountBalances).toBe(0);
     expect(
       await db.prisma.serviceTemplate.findUnique({ where: { id: tpl.id } }),
+    ).toBeNull();
+  });
+
+  it("purges soft-deleted bookings and account balances only after archive expiry", async () => {
+    const admin = await seedAdmin(db.prisma);
+    const locationId = await seedLocation(db.prisma, "Booking Purge Loc");
+    const { id: employeeId, tenantId } = await seedEmployee(db.prisma, {
+      locationId,
+      isActive: false,
+    });
+    const archivedUntil = new Date("2030-01-01T00:00:00.000Z");
+
+    const booking = await db.prisma.booking.create({
+      data: {
+        tenantId,
+        employeeId,
+        accountType: "UEZ",
+        date: new Date("2029-06-01T00:00:00.000Z"),
+        value: 120,
+        bookingType: "MANUAL_CREDIT",
+        createdByUserId: admin.id,
+        deletedAt: new Date("2029-01-01T00:00:00.000Z"),
+        archivedUntil,
+        deletedById: admin.id,
+      },
+    });
+    const balance = await db.prisma.accountBalance.create({
+      data: {
+        tenantId,
+        employeeId,
+        accountType: "UEZ",
+        year: 2029,
+        openingValue: 0,
+        currentValue: 120,
+        unit: "MINUTES",
+        deletedAt: new Date("2029-01-01T00:00:00.000Z"),
+        archivedUntil,
+        deletedById: admin.id,
+      },
+    });
+
+    const beforeExpiry = await purgeArchivedData(db.prisma, {
+      allTenants: true,
+      now: new Date("2029-12-31T23:59:59.000Z"),
+    });
+    expect(beforeExpiry.candidates.bookings).toBe(0);
+    expect(beforeExpiry.candidates.accountBalances).toBe(0);
+    expect(beforeExpiry.deleted.bookings).toBe(0);
+    expect(beforeExpiry.deleted.accountBalances).toBe(0);
+    expect(await db.prisma.booking.findUnique({ where: { id: booking.id } })).not.toBeNull();
+    expect(
+      await db.prisma.accountBalance.findUnique({ where: { id: balance.id } }),
+    ).not.toBeNull();
+
+    const afterExpiry = await purgeArchivedData(db.prisma, {
+      allTenants: true,
+      now: new Date("2030-01-01T00:00:00.000Z"),
+    });
+    expect(afterExpiry.candidates.bookings).toBe(1);
+    expect(afterExpiry.candidates.accountBalances).toBe(1);
+    expect(afterExpiry.deleted.bookings).toBe(1);
+    expect(afterExpiry.deleted.accountBalances).toBe(1);
+    expect(await db.prisma.booking.findUnique({ where: { id: booking.id } })).toBeNull();
+    expect(
+      await db.prisma.accountBalance.findUnique({ where: { id: balance.id } }),
     ).toBeNull();
   });
 });

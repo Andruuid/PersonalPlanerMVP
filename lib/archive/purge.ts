@@ -17,6 +17,8 @@ export interface PurgeArchivedResult {
   candidates: {
     planEntries: number;
     absenceRequests: number;
+    bookings: number;
+    accountBalances: number;
     weeks: number;
     employees: number;
     locations: number;
@@ -25,6 +27,8 @@ export interface PurgeArchivedResult {
   deleted: {
     planEntries: number;
     absenceRequests: number;
+    bookings: number;
+    accountBalances: number;
     weeks: number;
     employees: number;
     locations: number;
@@ -43,7 +47,18 @@ export async function purgeArchivedData(
   }
   const tenantId = options.tenantId;
 
-  const [planEntries, absenceRequests, weeks, employees, locations, serviceTemplates] =
+  // Audit logs are intentionally excluded from purge; retention is append-only
+  // unless a separate, explicit policy is introduced.
+  const [
+    planEntries,
+    absenceRequests,
+    bookings,
+    accountBalances,
+    weeks,
+    employees,
+    locations,
+    serviceTemplates,
+  ] =
     await Promise.all([
     prisma.planEntry.findMany({
       where: {
@@ -54,6 +69,22 @@ export async function purgeArchivedData(
       select: { id: true },
     }),
     prisma.absenceRequest.findMany({
+      where: {
+        deletedAt: { not: null },
+        archivedUntil: { lte: asOf },
+        ...(tenantId ? { tenantId } : {}),
+      },
+      select: { id: true },
+    }),
+    prisma.booking.findMany({
+      where: {
+        deletedAt: { not: null },
+        archivedUntil: { lte: asOf },
+        ...(tenantId ? { tenantId } : {}),
+      },
+      select: { id: true },
+    }),
+    prisma.accountBalance.findMany({
       where: {
         deletedAt: { not: null },
         archivedUntil: { lte: asOf },
@@ -122,6 +153,8 @@ export async function purgeArchivedData(
   const candidates = {
     planEntries: planEntries.length,
     absenceRequests: absenceRequests.length,
+    bookings: bookings.length,
+    accountBalances: accountBalances.length,
     weeks: weeks.length,
     employees: employees.length,
     locations: locations.length,
@@ -136,6 +169,8 @@ export async function purgeArchivedData(
       deleted: {
         planEntries: 0,
         absenceRequests: 0,
+        bookings: 0,
+        accountBalances: 0,
         weeks: 0,
         employees: 0,
         locations: 0,
@@ -172,6 +207,24 @@ export async function purgeArchivedData(
           ).count
         : 0;
 
+    const bookingsDeleted =
+      bookings.length > 0
+        ? (
+            await tx.booking.deleteMany({
+              where: { id: { in: bookings.map((b) => b.id) } },
+            })
+          ).count
+        : 0;
+
+    const accountBalancesDeleted =
+      accountBalances.length > 0
+        ? (
+            await tx.accountBalance.deleteMany({
+              where: { id: { in: accountBalances.map((b) => b.id) } },
+            })
+          ).count
+        : 0;
+
     const weeksDeleted =
       weeks.length > 0
         ? (
@@ -203,6 +256,8 @@ export async function purgeArchivedData(
       planEntries: planEntriesDeleted,
       serviceTemplates: serviceTemplatesDeleted,
       absenceRequests: absenceRequestsDeleted,
+      bookings: bookingsDeleted,
+      accountBalances: accountBalancesDeleted,
       weeks: weeksDeleted,
       employees: employeesDeleted,
       locations: locationsDeleted,

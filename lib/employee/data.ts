@@ -132,7 +132,7 @@ export async function loadMyAccounts(
 ): Promise<MyAccountsView> {
   const [balances, employee] = await Promise.all([
     prisma.accountBalance.findMany({
-      where: { tenantId: user.tenantId, employeeId, year },
+      where: { tenantId: user.tenantId, employeeId, year, deletedAt: null },
     }),
     prisma.employee.findFirst({
       where: { id: employeeId, tenantId: user.tenantId, deletedAt: null },
