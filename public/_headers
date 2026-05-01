@@ -1,0 +1,26 @@
+# Netlify edge cache rules.
+#
+# Default to no-store so per-user HTML never gets cached at the CDN edge.
+# This is belt-and-braces with `export const dynamic = "force-dynamic"` on
+# the protected layouts. The `Netlify-Vary: cookie` header tells Netlify to
+# vary its cache key by the cookie header, so even if a layer above us
+# decides to cache, no two users share a cache entry.
+#
+# Static assets get their own permissive rules below — longer/more specific
+# paths win over `/*` in Netlify _headers precedence.
+
+/*
+  Cache-Control: private, no-store, must-revalidate
+  Netlify-Vary: cookie
+
+# Hashed JS/CSS bundles — safe to cache forever.
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Optimised images — short cache with revalidation.
+/_next/image/*
+  Cache-Control: public, max-age=60, must-revalidate
+
+# Static public assets.
+/favicon.ico
+  Cache-Control: public, max-age=86400

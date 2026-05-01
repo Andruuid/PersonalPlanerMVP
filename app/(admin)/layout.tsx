@@ -5,6 +5,12 @@ import { AppShell } from "@/components/shell/app-shell";
 import { QuickActionsProvider } from "@/components/admin/quick-actions-provider";
 import { hasMultipleTenants } from "@/lib/permissions";
 
+// Authenticated layout — opt out of static generation and fetch caching so
+// no per-user HTML is ever cached at the CDN edge (Netlify-only logout bug,
+// see plans/the-logout-still-does-twinkly-donut.md).
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 export default async function AdminLayout({
   children,
 }: {

@@ -1,11 +1,9 @@
-import NextAuth from "next-auth";
-import type { NextFetchEvent, NextMiddleware, NextRequest } from "next/server";
+import { getToken, type JWT } from "next-auth/jwt";
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { authConfig } from "@/lib/auth.config";
 import { homePathForRole } from "@/lib/auth-home-path";
 import { logDebug } from "@/lib/logging";
-
-const { auth } = NextAuth(authConfig);
+import type { Role } from "@/lib/generated/prisma/enums";
 
 const PUBLIC_PATHS = ["/login", "/signup", "/api/auth", "/forbidden"];
 const SELECT_TENANT_PATH = "/select-tenant";
@@ -36,18 +34,54 @@ function isAuthMutationPath(pathname: string): boolean {
   return pathMatches(pathname, AUTH_MUTATION_PATHS);
 }
 
-const authProxy = auth((req) => {
+function isHttpsRequest(req: NextRequest): boolean {
+  if (req.nextUrl.protocol === "https:") return true;
+  const forwardedProto = req.headers.get("x-forwarded-proto");
+  return forwardedProto?.split(",")[0]?.trim().toLowerCase() === "https";
+}
+
+async function readSessionToken(req: NextRequest): Promise<JWT | null> {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret) return null;
+  const secureCookie = isHttpsRequest(req);
+  // Try the protocol-appropriate cookie name first, then fall back to the
+  // other variant. Robust against deployments where x-forwarded-proto is
+  // missing or wrong, and against cookies left over from a previous mode.
+  try {
+    const primary = await getToken({ req, secret, secureCookie });
+    if (primary) return primary;
+  } catch {
+    /* fall through to fallback */
+  }
+  try {
+    const fallback = await getToken({
+      req,
+      secret,
+      secureCookie: !secureCookie,
+    });
+    if (fallback) return fallback;
+  } catch {
+    /* both reads failed */
+  }
+  return null;
+}
+
+async function proxyImpl(req: NextRequest): Promise<NextResponse> {
   const { nextUrl } = req;
   const pathname = nextUrl.pathname;
 
-  const role = req.auth?.user?.role ?? "ANON";
-  const tenantId = req.auth?.user?.tenantId;
-  const pendingTenantSelection = Boolean(req.auth?.user?.pendingTenantSelection);
+  const token = await readSessionToken(req);
+  const isAuthenticated = Boolean(token);
+  const role = ((token?.role as Role | undefined) ?? "ANON") as Role | "ANON";
+  const tenantId = (token?.tenantId as string | null | undefined) ?? null;
+  const pendingTenantSelection = Boolean(token?.pendingTenantSelection);
   const hasStaleSessionClaims =
-    Boolean(req.auth) &&
+    isAuthenticated &&
     !pendingTenantSelection &&
     (role === "ADMIN" || role === "EMPLOYEE") &&
     (typeof tenantId !== "string" || tenantId.trim().length === 0);
+
+  const intentLoggedOut = nextUrl.searchParams.get("loggedOut") === "1";
 
   const loginUrl = new URL("/login", nextUrl);
   if (pathname !== "/login") {
@@ -58,10 +92,15 @@ const authProxy = auth((req) => {
   }
 
   if (pathMatches(pathname, PUBLIC_PATHS)) {
-    if (pathname === "/login" && req.auth && !hasStaleSessionClaims) {
+    if (
+      pathname === "/login" &&
+      isAuthenticated &&
+      !hasStaleSessionClaims &&
+      !intentLoggedOut
+    ) {
       const target = pendingTenantSelection
         ? SELECT_TENANT_PATH
-        : homePathForRole(role);
+        : homePathForRole(role as Role);
       logDebug("proxy", "Redirect authenticated user from /login", {
         pathname,
         role,
@@ -69,10 +108,15 @@ const authProxy = auth((req) => {
       });
       return NextResponse.redirect(new URL(target, nextUrl));
     }
-    if (pathname === "/signup" && req.auth && !hasStaleSessionClaims) {
+    if (
+      pathname === "/signup" &&
+      isAuthenticated &&
+      !hasStaleSessionClaims &&
+      !intentLoggedOut
+    ) {
       const target = pendingTenantSelection
         ? SELECT_TENANT_PATH
-        : homePathForRole(role);
+        : homePathForRole(role as Role);
       logDebug("proxy", "Redirect authenticated user from /signup", {
         pathname,
         role,
@@ -93,7 +137,7 @@ const authProxy = auth((req) => {
     return NextResponse.redirect(loginUrl);
   }
 
-  if (!req.auth) {
+  if (!isAuthenticated) {
     logDebug("proxy", "Redirect anonymous user to /login", {
       pathname,
       target: "/login",
@@ -111,7 +155,7 @@ const authProxy = auth((req) => {
   }
 
   if (!pendingTenantSelection && pathname === SELECT_TENANT_PATH) {
-    const target = homePathForRole(role);
+    const target = homePathForRole(role as Role);
     logDebug("proxy", "Redirect resolved tenant session away from picker", {
       pathname,
       role,
@@ -155,34 +199,32 @@ const authProxy = auth((req) => {
   }
 
   if (pathname === "/") {
-    const target = pendingTenantSelection ? SELECT_TENANT_PATH : homePathForRole(role);
+    const target = pendingTenantSelection
+      ? SELECT_TENANT_PATH
+      : homePathForRole(role as Role);
     logDebug("proxy", "Redirect root path by role", { role, target });
     return NextResponse.redirect(new URL(target, nextUrl));
   }
 
   return NextResponse.next();
-}) as unknown as NextMiddleware;
+}
 
-export default function proxy(req: NextRequest, event: NextFetchEvent) {
-  // Netlify runs Proxy as a separate edge function. Keep routes that mutate
-  // Auth.js cookies entirely outside the Auth.js wrapper; a skip inside
-  // auth((req) => ...) is too late because the wrapper has already read and
-  // may refresh the session cookie.
+export default async function proxy(
+  req: NextRequest,
+): Promise<NextResponse> {
+  // Auth-mutating routes (/api/logout, /api/auth/*) MUST bypass the proxy
+  // entirely — even a read-only token check could race with the route's
+  // own Set-Cookie writes on Netlify's split runtime.
   if (isAuthMutationPath(req.nextUrl.pathname)) {
     return NextResponse.next();
   }
 
-  return authProxy(req, event);
+  return proxyImpl(req);
 }
 
 export const config = {
-  // Keep Auth.js routes AND the wrapping `/api/logout` route out of proxy
-  // execution. On some runtimes (notably Netlify, where the proxy runs as an
-  // Edge Function and the route handler runs as a separate Lambda), letting
-  // the auth-aware proxy touch a logout request causes its session-related
-  // Set-Cookie to clobber the handler's clearing Set-Cookie — the session
-  // cookie survives the round-trip and "logout seems ignored." Any new auth
-  // route that mutates the session cookie must be added to this exclusion.
+  // Belt-and-braces: the matcher still excludes auth-mutating routes from
+  // proxy execution, in addition to the early-return inside `proxy()`.
   matcher: [
     "/((?!api/auth|api/logout|_next/static|_next/image|favicon.ico|.*\\..*).*)",
   ],

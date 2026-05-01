@@ -2,6 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 
+// Authenticated layout — opt out of static generation and fetch caching so
+// no per-user HTML is ever cached at the CDN edge.
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 export default async function SystemAdminLayout({
   children,
 }: {

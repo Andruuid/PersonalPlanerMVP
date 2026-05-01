@@ -3,6 +3,10 @@ import {
   loginAsSeedAdmin,
   loginAsSeedEmployee,
 } from "../fixtures/session";
+import {
+  testAdminCredentials,
+  testEmployeeCredentials,
+} from "../fixtures/credentials";
 
 /**
  * Session-Verhalten entspricht typischen Erwartungen an geschützten SPAs/Web-Apps:
@@ -114,6 +118,56 @@ test.describe("Session & Routing nach Auth-Zustand", () => {
     await expect(
       page.getByRole("heading", { level: 1, name: "Dashboard" }),
     ).toBeVisible();
+  });
+
+  test("Nach Logout zeigt eine geschützte Route niemals die zuvor angemeldete Person (User-A → Logout → User-B Regression)", async ({
+    page,
+  }) => {
+    /**
+     * Catches the Netlify-only bug class where logging out user A still
+     * surfaces a different user's identity on the next protected-page hit
+     * — e.g. a CDN-cached HTML response baked with another user's email,
+     * or a stale session-token cookie that survived the clearing.
+     *
+     * Sequence:
+     *   1. Log in as employee (anna.keller). Verify her email shown.
+     *   2. Log out. Cookie + session must be gone.
+     *   3. Log in as admin. The admin's email must show on /dashboard —
+     *      crucially NOT the employee email from step 1.
+     *   4. Log out. Cookie + session must be gone.
+     *   5. Direct navigation to /dashboard must redirect to /login (no
+     *      cached HTML with either user shown).
+     */
+    await loginAsSeedEmployee(page);
+    await expect(page).toHaveURL(/\/my-week/);
+    await expect(
+      page.getByRole("button", { name: "Benutzermenü" }),
+    ).toContainText(testEmployeeCredentials.email);
+
+    await openUserMenuAndSignOut(page);
+    await expect(page).toHaveURL(/\/login/);
+    await expectSessionUnauthenticated(page);
+    await expectNoSessionCookie(page);
+
+    await loginAsSeedAdmin(page);
+    await expect(page).toHaveURL(/\/dashboard/);
+    const trigger = page.getByRole("button", { name: "Benutzermenü" });
+    await expect(trigger).toContainText(testAdminCredentials.email);
+    await expect(trigger).not.toContainText(testEmployeeCredentials.email);
+
+    await openUserMenuAndSignOut(page);
+    await expect(page).toHaveURL(/\/login/);
+    await expectSessionUnauthenticated(page);
+    await expectNoSessionCookie(page);
+
+    await page.goto("/dashboard");
+    await expect(page).toHaveURL(/\/login/);
+    // The cached-HTML failure mode would render a Benutzermenü trigger on
+    // /dashboard; the redirect to /login must happen before any such UI
+    // becomes visible.
+    await expect(
+      page.getByRole("button", { name: "Benutzermenü" }),
+    ).toHaveCount(0);
   });
 
   test("Mitarbeitende:r: Aufruf der Wurzel `/` wird auf „Meine Woche“ geleitet", async ({

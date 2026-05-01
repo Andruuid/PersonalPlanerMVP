@@ -86,13 +86,26 @@ async function clearAuthCookies(request: NextRequest) {
     cookieStore.delete(name);
   }
 
-  const response = NextResponse.redirect(new URL("/login", request.url), {
-    status: 303,
-  });
+  const response = NextResponse.redirect(
+    new URL("/login?loggedOut=1", request.url),
+    {
+      status: 303,
+      headers: {
+        // Clear-Site-Data instructs the browser to drop cookies & web storage
+        // for this origin. This works at a different layer than Set-Cookie,
+        // so it survives the next-auth#12909 ordering bug on Netlify where a
+        // clearing Set-Cookie can be re-emitted before the session-refresh
+        // Set-Cookie and the browser ends up keeping the session.
+        "Clear-Site-Data": '"cookies", "storage"',
+        "Cache-Control": "no-store, must-revalidate",
+      },
+    },
+  );
 
   // Channel 2: write directly on the outgoing response. Belt-and-braces in
   // case the adapter on the host (notably Netlify) doesn't reflect channel 1
-  // mutations onto a manually-constructed NextResponse.
+  // mutations onto a manually-constructed NextResponse, and for browsers
+  // that ignore Clear-Site-Data (older Safari).
   for (const name of cookieNamesToClear) {
     response.cookies.set(name, "", {
       path: "/",
