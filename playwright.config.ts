@@ -69,20 +69,11 @@ export default defineConfig({
   },
   projects,
   webServer: {
-    // CI: serve the production build. Turbopack `next dev` compiles routes
-    // lazily on first request; on 2-vCPU GitHub runners with parallel workers
-    // and multiple browsers, the thundering herd makes those compiles miss the
-    // 30s test budget and every test times out. Building once ahead of time
-    // and serving with `next start` gives deterministic, fast responses.
-    //
-    // Local: keep `next dev` for fast iteration. Spawn node directly on next's
-    // bin script — no `npm` and no `.cmd` shim. On Windows both wrappers leave
-    // cmd.exe as the parent, and when Playwright kills the parent the node
-    // child survives and squats on the port, breaking the next run with
-    // EADDRINUSE.
-    command: process.env.CI
-      ? "node node_modules/next/dist/bin/next start --port 3001"
-      : "node node_modules/next/dist/bin/next dev --port 3001",
+    // Spawn node directly on next's bin script — no `npm` and no `.cmd` shim.
+    // On Windows both wrappers leave cmd.exe as the parent, and when Playwright
+    // kills the parent the node child survives and squats on the port,
+    // breaking the next run with EADDRINUSE.
+    command: "node node_modules/next/dist/bin/next dev --port 3001",
     url: baseURL,
     // Always boot a fresh server for E2E to avoid stale in-memory Prisma
     // client/schema state from long-running local sessions.
