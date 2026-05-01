@@ -115,6 +115,18 @@ function intervalFromTimedEntry(entry: {
   return end > start ? { start, end } : null;
 }
 
+function effectiveWorkMinutesForClose(entry: {
+  kind: string;
+  plannedMinutes: number;
+  correctedActualMinutes: number | null;
+}): number {
+  if (entry.kind !== "SHIFT" && entry.kind !== "ONE_TIME_SHIFT") {
+    return entry.plannedMinutes;
+  }
+  const candidate = entry.correctedActualMinutes ?? entry.plannedMinutes ?? 0;
+  return Math.max(0, candidate);
+}
+
 export async function computeErtFulfilled(
   tx: Tx,
   employeeId: string,
@@ -595,7 +607,11 @@ export async function recalcWeekClose(
       date: isoDateString(e.date),
       kind: e.kind,
       absenceType: e.absenceType ?? null,
-      plannedMinutes: e.plannedMinutes,
+      plannedMinutes: effectiveWorkMinutesForClose({
+        kind: e.kind,
+        plannedMinutes: e.plannedMinutes,
+        correctedActualMinutes: e.correctedActualMinutes,
+      }),
       shiftStartTime:
         e.kind === "SHIFT" && e.serviceTemplate
           ? e.serviceTemplate.startTime
@@ -645,7 +661,11 @@ export async function recalcWeekClose(
       date: isoDateString(e.date),
       kind: e.kind,
       absenceType: e.absenceType ?? null,
-      plannedMinutes: e.plannedMinutes,
+      plannedMinutes: effectiveWorkMinutesForClose({
+        kind: e.kind,
+        plannedMinutes: e.plannedMinutes,
+        correctedActualMinutes: e.correctedActualMinutes,
+      }),
       shiftStartTime:
         e.kind === "SHIFT" && e.serviceTemplate
           ? e.serviceTemplate.startTime

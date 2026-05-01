@@ -94,6 +94,10 @@ interface PlanEntrySnapshot {
   absenceType: string | null;
   weekendWorkClassification: string | null;
   plannedMinutes: number;
+  correctedActualMinutes: number | null;
+  correctedActualComment: string | null;
+  correctedActualAt: string | null;
+  correctedActualByUserId: string | null;
   comment: string | null;
 }
 
@@ -108,6 +112,10 @@ function entrySnapshot(entry: {
   absenceType: string | null;
   weekendWorkClassification: string | null;
   plannedMinutes: number;
+  correctedActualMinutes: number | null;
+  correctedActualComment: string | null;
+  correctedActualAt: Date | null;
+  correctedActualByUserId: string | null;
   comment: string | null;
 }): PlanEntrySnapshot {
   return {
@@ -121,8 +129,78 @@ function entrySnapshot(entry: {
     absenceType: entry.absenceType,
     weekendWorkClassification: entry.weekendWorkClassification,
     plannedMinutes: entry.plannedMinutes,
+    correctedActualMinutes: entry.correctedActualMinutes,
+    correctedActualComment: entry.correctedActualComment,
+    correctedActualAt: entry.correctedActualAt?.toISOString() ?? null,
+    correctedActualByUserId: entry.correctedActualByUserId,
     comment: entry.comment,
   };
+}
+
+export async function correctPlanEntryActualMinutesAction(
+  entryId: string,
+  correctedActualMinutes: number | null,
+  correctionComment?: string | null,
+): Promise<ActionResult> {
+  const admin = await requireAdmin();
+
+  try {
+    const entry = await prisma.planEntry.findUnique({
+      where: { id: entryId },
+      include: {
+        week: { select: { tenantId: true, status: true } },
+      },
+    });
+    if (!entry || entry.deletedAt) {
+      return { ok: false, error: "Eintrag nicht gefunden." };
+    }
+    if (entry.week.tenantId !== admin.tenantId) {
+      return { ok: false, error: "Kein Zugriff auf diesen Eintrag." };
+    }
+    if (entry.week.status === "CLOSED") {
+      return {
+        ok: false,
+        error: "Abgeschlossene Wochen können nicht bearbeitet werden.",
+      };
+    }
+    if (entry.kind !== "SHIFT" && entry.kind !== "ONE_TIME_SHIFT") {
+      return {
+        ok: false,
+        error: "Istzeit-Korrektur ist nur für Dienste möglich.",
+      };
+    }
+
+    const normalizedCorrection =
+      correctedActualMinutes == null ? null : Math.max(0, Math.trunc(correctedActualMinutes));
+    const normalizedComment = correctionComment?.trim() || null;
+
+    const updated = await prisma.planEntry.update({
+      where: { id: entry.id },
+      data: {
+        correctedActualMinutes: normalizedCorrection,
+        correctedActualComment: normalizedComment,
+        correctedActualAt: normalizedCorrection == null ? null : new Date(),
+        correctedActualByUserId: normalizedCorrection == null ? null : admin.id,
+      },
+    });
+
+    await writeAudit({
+      userId: admin.id,
+      action: "ACTUAL_TIME_CORRECTION",
+      entity: "PlanEntry",
+      entityId: updated.id,
+      oldValue: entrySnapshot(entry),
+      newValue: entrySnapshot(updated),
+      comment: normalizedComment,
+    });
+
+    safeRevalidatePath("correctPlanEntryActualMinutesAction", "/planning");
+    safeRevalidatePath("correctPlanEntryActualMinutesAction", "/my-week");
+    return { ok: true };
+  } catch (err) {
+    logServerError("correctPlanEntryActualMinutesAction", err);
+    return { ok: false, error: actionErrorFromDatabase(err) };
+  }
 }
 
 export async function upsertPlanEntryAction(

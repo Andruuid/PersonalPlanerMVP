@@ -404,6 +404,11 @@ model PlanEntry {
   absenceType         AbsenceType?
   weekendWorkClassification WeekendWorkClassification?
   plannedMinutes      Int              @default(0)
+  /// Admin-only Korrektur der effektiven Ist-Minuten (für Wochenabschluss).
+  correctedActualMinutes Int?
+  correctedActualComment String?
+  correctedActualAt   DateTime?
+  correctedActualByUserId String?
   comment             String?
   deletedAt           DateTime?
   archivedUntil       DateTime?

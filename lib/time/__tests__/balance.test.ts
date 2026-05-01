@@ -24,6 +24,26 @@ function asEntries(
 }
 
 describe("computeWeeklyBalance — full pensum, plain Mon-Fri shifts", () => {
+  it("computes 480-minute weekdays as a neutral week for a 40h target", () => {
+    const days = isoWeekDays(YEAR, WEEK);
+    const entries = asEntries(
+      Object.fromEntries(
+        days
+          .slice(0, 5)
+          .map((d) => [d.iso, { kind: "SHIFT", plannedMinutes: 480 }]),
+      ),
+    );
+    const result = computeWeeklyBalance(YEAR, WEEK, entries, noHolidays, {
+      weeklyTargetMinutes: 2400,
+      hazMinutesPerWeek: 2700,
+      standardWorkDays: 5,
+    });
+
+    expect(result.totalSollMinutes).toBe(2400);
+    expect(result.totalIstMinutes).toBe(2400);
+    expect(result.weeklyZeitsaldoDeltaMinutes).toBe(0);
+  });
+
   it("balances to 0 when each weekday is a 504-min shift", () => {
     const days = isoWeekDays(YEAR, WEEK);
     const entries = asEntries(

@@ -39,6 +39,82 @@ beforeEach(async () => {
 });
 
 describe("recalcWeekClose", () => {
+  it("uses planned minutes as effective actual time when no correction exists", async () => {
+    const employee = await seedEmployee(db.prisma, {
+      locationId,
+      weeklyTargetMinutes: 2400,
+      hazMinutesPerWeek: 2700,
+    });
+    for (let i = 0; i < 5; i++) {
+      await seedShiftEntry(db.prisma, {
+        weekId,
+        employeeId: employee.id,
+        isoDate: weekDays[i],
+        plannedMinutes: 480,
+      });
+    }
+
+    await recalcWeekClose(db.prisma, weekId, adminId);
+
+    const zeitsaldo = await db.prisma.booking.findFirst({
+      where: {
+        employeeId: employee.id,
+        accountType: "ZEITSALDO",
+        bookingType: "AUTO_WEEKLY",
+      },
+    });
+    // 5x480 planned/effective against 2400 Soll => neutral close.
+    expect(zeitsaldo).toBeNull();
+  });
+
+  it("prefers corrected actual minutes over planned minutes for week close while preserving plannedMinutes", async () => {
+    const employee = await seedEmployee(db.prisma, {
+      locationId,
+      weeklyTargetMinutes: 2400,
+      hazMinutesPerWeek: 2700,
+    });
+    const mondayEntryId = await seedShiftEntry(db.prisma, {
+      weekId,
+      employeeId: employee.id,
+      isoDate: weekDays[0],
+      plannedMinutes: 480,
+    });
+    for (let i = 1; i < 5; i++) {
+      await seedShiftEntry(db.prisma, {
+        weekId,
+        employeeId: employee.id,
+        isoDate: weekDays[i],
+        plannedMinutes: 480,
+      });
+    }
+    await db.prisma.planEntry.update({
+      where: { id: mondayEntryId },
+      data: {
+        correctedActualMinutes: 450,
+        correctedActualComment: "Admin correction",
+      },
+    });
+
+    await recalcWeekClose(db.prisma, weekId, adminId);
+
+    const zeitsaldo = await db.prisma.booking.findFirst({
+      where: {
+        employeeId: employee.id,
+        accountType: "ZEITSALDO",
+        bookingType: "AUTO_WEEKLY",
+      },
+    });
+    // Effective actual week = 4x480 + 450 = 2370, Soll 2400 => -30.
+    expect(zeitsaldo?.value).toBe(-30);
+
+    const persistedEntry = await db.prisma.planEntry.findUniqueOrThrow({
+      where: { id: mondayEntryId },
+      select: { plannedMinutes: true, correctedActualMinutes: true },
+    });
+    expect(persistedEntry.plannedMinutes).toBe(480);
+    expect(persistedEntry.correctedActualMinutes).toBe(450);
+  });
+
   it("creates a ZEITSALDO booking for an overtime week below the HAZ cap", async () => {
     const employee = await seedEmployee(db.prisma, { locationId });
     for (let i = 0; i < 5; i++) {
