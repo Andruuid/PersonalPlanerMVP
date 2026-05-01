@@ -13,7 +13,6 @@ import {
   type ActionResult,
 } from "./_shared";
 import { applyEmployeeOpeningBalances } from "@/lib/bookings/core";
-import { archiveUntil } from "@/lib/archive";
 import {
   buildExitSnapshot,
   exitDateChangeTriggersSnapshot,
@@ -477,11 +476,11 @@ export async function updateEmployeeAction(
       ? await bcrypt.hash(data.password, 10)
       : undefined;
   const nextExitDate = data.exitDate ?? null;
-  const nextDeletedAt = data.isActive ? null : (before.deletedAt ?? new Date());
-  const nextArchivedUntil = data.isActive
-    ? null
-    : (before.archivedUntil ?? archiveUntil(nextDeletedAt ?? undefined));
-  const nextDeletedById = data.isActive ? null : (before.deletedById ?? admin.id);
+  // Editing active/inactive must not perform archival side effects.
+  // ARCHIVIERT is reserved for explicit soft-delete/archive workflows.
+  const nextDeletedAt = before.deletedAt;
+  const nextArchivedUntil = before.archivedUntil;
+  const nextDeletedById = before.deletedById;
   const nextStatus = resolveEmployeeStatus({
     isActive: data.isActive,
     exitDate: nextExitDate,

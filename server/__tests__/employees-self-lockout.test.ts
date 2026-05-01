@@ -121,6 +121,45 @@ describe("employees self-lockout prevention", () => {
     expect(writeAuditMock).not.toHaveBeenCalled();
   });
 
+  it("setEmployeeActiveAction: deactivates login for non-self employee", async () => {
+    const userUpdate = vi.fn().mockResolvedValue({ id: "user-2" });
+    const employeeUpdate = vi.fn().mockResolvedValue({ id: "emp-2" });
+    prismaMock.employee.findUnique.mockResolvedValue({
+      id: "emp-2",
+      tenantId: "tenant-a",
+      userId: "user-2",
+      isActive: true,
+      exitDate: null,
+      deletedAt: null,
+      user: { id: "user-2", isActive: true },
+    });
+    prismaMock.$transaction.mockImplementation(async (cb) =>
+      cb({
+        user: {
+          update: userUpdate,
+        },
+        employee: {
+          update: employeeUpdate,
+        },
+      }),
+    );
+
+    const result = await setEmployeeActiveAction("emp-2", false);
+
+    expect(result).toEqual({ ok: true });
+    expect(userUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { isActive: false } }),
+    );
+    expect(employeeUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          isActive: false,
+          status: "INAKTIV",
+        }),
+      }),
+    );
+  });
+
   it("updateEmployeeAction: rejects sole active admin demoting or deactivating self", async () => {
     prismaMock.employee.findUnique.mockResolvedValue({
       id: "emp-self",
