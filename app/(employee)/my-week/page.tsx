@@ -119,8 +119,8 @@ export default async function MyWeekPage({ searchParams }: PageProps) {
   return (
     <div className="flex flex-col gap-6 lg:flex-row">
       <div className="min-w-0 flex-1 space-y-6">
-        <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div className="space-y-1">
+        <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-4">
+          <div className="min-w-0 flex-1 space-y-1">
             <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
               Aktuelle veröffentlichte Woche · {employee.location.name}
             </p>
@@ -133,27 +133,29 @@ export default async function MyWeekPage({ searchParams }: PageProps) {
               KW {header.weekNumber} · {header.year}
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <Link
-              href={`/my-week?year=${prevWeek.year}&week=${prevWeek.weekNumber}${previewBase}`}
-              className="inline-flex h-9 items-center gap-1 rounded-md border border-neutral-300 bg-white px-3 text-sm hover:bg-neutral-50"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Vorherige
-            </Link>
-            <Link
-              href={`/my-week?year=${current.year}&week=${current.weekNumber}${previewBase}`}
-              className="inline-flex h-9 items-center rounded-md border border-neutral-300 bg-white px-3 text-sm hover:bg-neutral-50"
-            >
-              Aktuelle
-            </Link>
-            <Link
-              href={`/my-week?year=${nextWeek.year}&week=${nextWeek.weekNumber}${previewBase}`}
-              className="inline-flex h-9 items-center gap-1 rounded-md border border-neutral-300 bg-white px-3 text-sm hover:bg-neutral-50"
-            >
-              Nächste
-              <ChevronRight className="h-4 w-4" />
-            </Link>
+          <div className="flex shrink-0 flex-col items-end gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-3">
+              <Link
+                href={`/my-week?year=${prevWeek.year}&week=${prevWeek.weekNumber}${previewBase}`}
+                className="inline-flex h-9 items-center gap-1 rounded-md border border-neutral-300 bg-white px-3 text-sm hover:bg-neutral-50"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Vorherige
+              </Link>
+              <Link
+                href={`/my-week?year=${current.year}&week=${current.weekNumber}${previewBase}`}
+                className="inline-flex h-9 items-center rounded-md border border-neutral-300 bg-white px-3 text-sm hover:bg-neutral-50"
+              >
+                Aktuelle
+              </Link>
+              <Link
+                href={`/my-week?year=${nextWeek.year}&week=${nextWeek.weekNumber}${previewBase}`}
+                className="inline-flex h-9 items-center gap-1 rounded-md border border-neutral-300 bg-white px-3 text-sm hover:bg-neutral-50"
+              >
+                Nächste
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
             <PublishedBadge
               hasSnapshot={header.hasSnapshot}
               status={header.status}
