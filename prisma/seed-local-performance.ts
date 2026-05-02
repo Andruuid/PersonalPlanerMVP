@@ -47,7 +47,10 @@ const prisma = new PrismaClient({ adapter });
 
 const PASSWORD = "perf123";
 const SHARED_ADMIN_EMAIL = "perf.admin@demo.local";
-const DEFAULT_CHUNK_SIZE = 200;
+const DEFAULT_CHUNK_SIZE = 500;
+const DEFAULT_TENANT_COUNT = 30;
+const DEFAULT_EMPLOYEE_COUNT = 50;
+const DEFAULT_YEAR_COUNT = 3;
 
 const ACCOUNT_TYPES: AccountType[] = [
   "ZEITSALDO",
@@ -97,6 +100,10 @@ interface TenantSpec {
   uezPayoutPolicy: "ALLOWED" | "WITH_NOTICE" | "BLOCKED";
   locations: LocationSpec[];
   employees: EmployeeSpec[];
+}
+
+interface TenantBlueprint extends Omit<TenantSpec, "employees"> {
+  baseEmployees: EmployeeSpec[];
 }
 
 interface ServiceSeed {
@@ -159,7 +166,7 @@ interface BalanceState {
   unit: AccountUnit;
 }
 
-const TENANTS: TenantSpec[] = [
+const BASE_TENANT_BLUEPRINTS: TenantBlueprint[] = [
   {
     key: "alpen",
     slug: "local-perf-alpen",
@@ -180,7 +187,7 @@ const TENANTS: TenantSpec[] = [
         holidayRegionCode: "EVANGELISCH",
       },
     ],
-    employees: [
+    baseEmployees: [
       {
         key: "mara",
         firstName: "Mara",
@@ -253,7 +260,7 @@ const TENANTS: TenantSpec[] = [
         holidayRegionCode: "KATHOLISCH",
       },
     ],
-    employees: [
+    baseEmployees: [
       {
         key: "nina",
         firstName: "Nina",
@@ -307,6 +314,295 @@ const TENANTS: TenantSpec[] = [
     ],
   },
 ];
+
+const GENERATED_TENANT_NAMES = [
+  "Rheinblick",
+  "Seeland",
+  "Saentis",
+  "Jura",
+  "Pilatus",
+  "Aare",
+  "Gotthard",
+  "Moesa",
+  "Rigi",
+  "Bodensee",
+  "Rhone",
+  "Bachtel",
+  "Simplon",
+  "Engadin",
+  "Sihl",
+  "Tamina",
+  "Birseck",
+  "Mendrisiotto",
+  "Thur",
+  "Napf",
+  "Wyna",
+  "Glattal",
+  "Valais",
+  "Gruyere",
+  "La Cote",
+  "Chablais",
+  "Toggenburg",
+  "Sursee",
+];
+
+const GENERATED_CITY_PAIRS: Array<
+  [string, HolidayConfession, string, HolidayConfession]
+> = [
+  ["Aarau", "EVANGELISCH", "Olten", "KATHOLISCH"],
+  ["Winterthur", "EVANGELISCH", "Zug", "KATHOLISCH"],
+  ["St. Gallen", "KATHOLISCH", "Wil", "KATHOLISCH"],
+  ["Biel", "EVANGELISCH", "Solothurn", "KATHOLISCH"],
+  ["Thun", "EVANGELISCH", "Interlaken", "EVANGELISCH"],
+  ["Chur", "KATHOLISCH", "Davos", "EVANGELISCH"],
+  ["Fribourg", "KATHOLISCH", "Murten", "EVANGELISCH"],
+  ["Schaffhausen", "EVANGELISCH", "Frauenfeld", "EVANGELISCH"],
+];
+
+const FIRST_NAMES = [
+  "Lea",
+  "Jonas",
+  "Mia",
+  "Noah",
+  "Lina",
+  "Luis",
+  "Emma",
+  "Leon",
+  "Sara",
+  "Nico",
+  "Laura",
+  "David",
+  "Alina",
+  "Jan",
+  "Elena",
+  "Simon",
+  "Livia",
+  "Fabian",
+  "Melina",
+  "Luca",
+  "Amelie",
+  "Robin",
+  "Nora",
+  "Mauro",
+  "Chiara",
+  "Florian",
+  "Anja",
+  "Patrick",
+  "Selina",
+  "Tobias",
+  "Vanessa",
+  "Kevin",
+  "Carla",
+  "Matteo",
+  "Iris",
+  "Dario",
+  "Monika",
+  "Andrin",
+  "Rahel",
+  "Silvan",
+  "Jasmin",
+  "Pascal",
+  "Tanja",
+  "Dominik",
+  "Aline",
+  "Marco",
+  "Celine",
+  "Philipp",
+  "Tamara",
+  "Ramon",
+  "Bianca",
+  "Sandro",
+  "Helena",
+  "Joel",
+  "Claudia",
+  "Raphael",
+  "Yara",
+  "Martin",
+  "Nadine",
+  "Adrian",
+];
+
+const LAST_NAMES = [
+  "Mueller",
+  "Schmid",
+  "Meier",
+  "Keller",
+  "Weber",
+  "Huber",
+  "Meyer",
+  "Schneider",
+  "Steiner",
+  "Fischer",
+  "Brunner",
+  "Baumann",
+  "Gerber",
+  "Frei",
+  "Moser",
+  "Bucher",
+  "Roth",
+  "Graf",
+  "Widmer",
+  "Suter",
+  "Hofmann",
+  "Buehler",
+  "Schmidlin",
+  "Ammann",
+  "Berger",
+  "Kunz",
+  "Wagner",
+  "Peter",
+  "Haller",
+  "Lehmann",
+  "Fuchs",
+  "Marti",
+  "Kaufmann",
+  "Arnold",
+  "Egli",
+  "Stalder",
+  "Hess",
+  "Vogel",
+  "Zeller",
+  "Hofer",
+  "Rossi",
+  "Bernasconi",
+  "Bianchi",
+  "Gasser",
+  "Imhof",
+  "Lutz",
+  "Rey",
+  "Fankhauser",
+  "Odermatt",
+  "Schaerer",
+  "Portmann",
+  "Studer",
+  "Tanner",
+  "Wyss",
+  "Zimmermann",
+  "Blaser",
+  "Forster",
+  "Hug",
+  "Lanz",
+  "Wenger",
+];
+
+const ROLE_LABELS = [
+  "Teamleitung",
+  "Verkauf",
+  "Backoffice",
+  "Kasse",
+  "Kundendienst",
+  "Lager",
+  "Service",
+  "Administration",
+  "Springer",
+  "Aushilfe",
+];
+
+const LEGACY_EMAIL_KEYS = new Set([
+  "mara",
+  "elias",
+  "sofia",
+  "tim",
+  "nina",
+  "omar",
+  "julia",
+  "ben",
+]);
+
+function generatedEmployee(
+  index: number,
+  tenantIndex: number,
+  locationKeys: string[],
+): EmployeeSpec {
+  const pensumPattern = [100, 90, 80, 70, 60, 50, 40, 30];
+  const pensum = pensumPattern[(tenantIndex + index) % pensumPattern.length]!;
+  const firstName =
+    FIRST_NAMES[(tenantIndex * 11 + index * 3) % FIRST_NAMES.length]!;
+  const lastName =
+    LAST_NAMES[(tenantIndex * 13 + index * 5) % LAST_NAMES.length]!;
+  const standardWorkDays =
+    pensum >= 90 ? 5 : pensum >= 70 ? 4 : pensum >= 40 ? 3 : 2;
+  const dailyQuota = (tenantIndex + index) % 5 !== 0;
+  return {
+    key: `ma${pad2(index + 1)}`,
+    firstName,
+    lastName,
+    roleLabel: ROLE_LABELS[(tenantIndex + index) % ROLE_LABELS.length]!,
+    pensum,
+    vacationDaysPerYear: pensum >= 80 ? 25 : pensum >= 60 ? 22 : 20,
+    standardWorkDays,
+    locationKey: locationKeys[index % locationKeys.length]!,
+    tztModel: dailyQuota ? "DAILY_QUOTA" : "TARGET_REDUCTION",
+    tztPeriodicQuotaDays: dailyQuota ? (pensum >= 80 ? 1 : 0.5) : undefined,
+    tztPeriodMonths: dailyQuota ? (pensum >= 60 ? 3 : 6) : undefined,
+  };
+}
+
+function buildEmployeesForTenant(
+  blueprint: TenantBlueprint,
+  tenantIndex: number,
+  employeeCount: number,
+): EmployeeSpec[] {
+  const employees = blueprint.baseEmployees.slice(0, employeeCount);
+  const locationKeys = blueprint.locations.map((location) => location.key);
+  for (let index = employees.length; index < employeeCount; index += 1) {
+    employees.push(generatedEmployee(index, tenantIndex, locationKeys));
+  }
+  return employees;
+}
+
+function buildGeneratedTenant(index: number): TenantBlueprint {
+  const label =
+    GENERATED_TENANT_NAMES[(index - BASE_TENANT_BLUEPRINTS.length) % GENERATED_TENANT_NAMES.length] ??
+    `Betrieb ${pad2(index + 1)}`;
+  const cityPair = GENERATED_CITY_PAIRS[index % GENERATED_CITY_PAIRS.length]!;
+  const key = `betrieb-${pad2(index + 1)}`;
+  const name = `Local Performance ${label}`;
+  return {
+    key,
+    slug: `local-perf-${key}`,
+    name,
+    defaultStandardWorkDays: 5,
+    defaultWeeklyTargetMinutes: 42 * 60,
+    defaultHazMinutesPerWeek: 45 * 60,
+    uezPayoutPolicy:
+      index % 3 === 0 ? "WITH_NOTICE" : index % 5 === 0 ? "BLOCKED" : "ALLOWED",
+    locations: [
+      {
+        key: "standort-a",
+        name: `${name} ${cityPair[0]}`,
+        holidayRegionCode: cityPair[1],
+      },
+      {
+        key: "standort-b",
+        name: `${name} ${cityPair[2]}`,
+        holidayRegionCode: cityPair[3],
+      },
+    ],
+    baseEmployees: [],
+  };
+}
+
+function buildTenants(tenantCount: number, employeeCount: number): TenantSpec[] {
+  return Array.from({ length: tenantCount }, (_, index) => {
+    const blueprint =
+      BASE_TENANT_BLUEPRINTS[index] ?? buildGeneratedTenant(index);
+    return {
+      ...blueprint,
+      employees: buildEmployeesForTenant(blueprint, index, employeeCount),
+    };
+  });
+}
+
+const TENANT_COUNT = Math.max(
+  1,
+  readNumberEnv("LOCAL_PERF_SEED_TENANTS", DEFAULT_TENANT_COUNT),
+);
+const EMPLOYEE_COUNT = Math.max(
+  1,
+  readNumberEnv("LOCAL_PERF_SEED_EMPLOYEES", DEFAULT_EMPLOYEE_COUNT),
+);
+const TENANTS = buildTenants(TENANT_COUNT, EMPLOYEE_COUNT);
 
 const SERVICES: ServiceSeed[] = [
   {
@@ -412,11 +708,14 @@ function accountBalanceId(
 }
 
 function emailFor(tenant: TenantSpec, employee: EmployeeSpec): string {
-  return `${employee.firstName}.${employee.lastName}`
+  const localPart = `${employee.firstName}.${employee.lastName}`
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, ".")
-    .replace(/^\.+|\.+$/g, "")
-    .concat(`@${tenant.slug}.test`);
+    .replace(/^\.+|\.+$/g, "");
+  const uniqueLocalPart = LEGACY_EMAIL_KEYS.has(employee.key)
+    ? localPart
+    : `${localPart}.${employee.key}`;
+  return `${uniqueLocalPart}@${tenant.slug}.test`;
 }
 
 function serviceByCode(code: string): ServiceSeed {
@@ -567,8 +866,9 @@ function baseSchedule(
   const weekdayService = ["FRUEH", "MITTE", "SPAET"][
     (weekOrdinal + dayIndex + employeeIndex) % 3
   ]!;
+  const pattern = employeeIndex % 8;
 
-  if (employeeIndex === 0) {
+  if (pattern === 0) {
     if (weekNumber % 4 === 0) {
       if (dayIndex === 0 || dayIndex === 6) return vft("Ausgleich / frei");
       if (dayIndex === 5) {
@@ -580,7 +880,7 @@ function baseSchedule(
     return vft();
   }
 
-  if (employeeIndex === 1) {
+  if (pattern === 1) {
     if (weekNumber % 6 === 2) {
       if (dayIndex === 1 || dayIndex === 6) return vft("Ausgleich Samstag");
       if (dayIndex === 5) {
@@ -593,7 +893,7 @@ function baseSchedule(
     return vft();
   }
 
-  if (employeeIndex === 2) {
+  if (pattern === 2) {
     if (weekNumber % 2 === 0) {
       if ([0, 2, 4].includes(dayIndex)) return shift(weekdayService);
       return vft();
@@ -605,22 +905,60 @@ function baseSchedule(
     return vft();
   }
 
-  if (dayIndex === 1) {
+  if (pattern === 3) {
+    if (dayIndex === 1) {
+      return oneTimeShift("Halbtagsdienst Vormittag", "08:00", "13:00", 0);
+    }
+    if (dayIndex === 3) {
+      return oneTimeShift("Halbtagsdienst Nachmittag", "13:00", "18:00", 0);
+    }
+    if (weekNumber % 3 === 0 && dayIndex === 5) {
+      return oneTimeShift(
+        "Samstagsaushilfe",
+        "09:00",
+        "13:00",
+        0,
+        "REGULAR_SHIFTED",
+      );
+    }
+    if (weekNumber % 8 === 0 && dayIndex === 4) return halfDayOff();
+    return vft();
+  }
+
+  if (pattern === 4) {
+    if ([0, 1, 2, 3].includes(dayIndex)) return shift("ADMIN");
+    if (dayIndex === 4) return halfDayOff("Freitagnachmittag frei");
+    return vft();
+  }
+
+  if (pattern === 5) {
+    if ([0, 1, 3, 4].includes(dayIndex)) return shift(weekdayService);
+    if (weekNumber % 5 === 0 && dayIndex === 5) {
+      return shift("SAMSTAG", "ADDITIONAL", "Zusaetzlicher Samstagseinsatz");
+    }
+    return vft();
+  }
+
+  if (pattern === 6) {
+    if ([0, 2].includes(dayIndex)) return shift(weekdayService);
+    if (dayIndex === 4) {
+      return oneTimeShift("Abendverkauf", "16:00", "21:00", 0);
+    }
+    return vft();
+  }
+
+  if (dayIndex === 0) {
+    return oneTimeShift("Springerdienst Morgen", "07:30", "12:30", 0);
+  }
+  if (dayIndex === 2) {
+    return oneTimeShift("Springerdienst Nachmittag", "12:30", "18:00", 30);
+  }
+  if (dayIndex === 4 && weekNumber % 2 === 0) {
+    return oneTimeShift("Freitagsaushilfe", "10:00", "15:00", 0);
+  }
+  if (weekNumber % 6 === 0 && dayIndex === 5) {
     return oneTimeShift("Halbtagsdienst Vormittag", "08:00", "13:00", 0);
   }
-  if (dayIndex === 3) {
-    return oneTimeShift("Halbtagsdienst Nachmittag", "13:00", "18:00", 0);
-  }
-  if (weekNumber % 3 === 0 && dayIndex === 5) {
-    return oneTimeShift(
-      "Samstagsaushilfe",
-      "09:00",
-      "13:00",
-      0,
-      "REGULAR_SHIFTED",
-    );
-  }
-  if (weekNumber % 8 === 0 && dayIndex === 4) return halfDayOff();
   return vft();
 }
 
@@ -631,7 +969,12 @@ function vacationWeek(employeeIndex: number, weekNumber: number): boolean {
     [8, 33],
     [25, 44],
   ];
-  return vacationsByEmployee[employeeIndex]?.includes(weekNumber) ?? false;
+  const fixedWeeks = vacationsByEmployee[employeeIndex];
+  if (fixedWeeks) return fixedWeeks.includes(weekNumber);
+  const summerWeek = 23 + ((employeeIndex * 3) % 11);
+  const autumnWeek = 38 + ((employeeIndex * 5) % 8);
+  const winterWeek = 3 + ((employeeIndex * 7) % 7);
+  return [summerWeek, autumnWeek, winterWeek].includes(weekNumber);
 }
 
 function overrideForBusinessCase(
@@ -781,11 +1124,15 @@ function openingForAccount(
     );
   }
   if (accountType === "ZEITSALDO") return (employee.index - 1) * 90;
-  if (accountType === "UEZ") return employee.index === 0 ? 120 : employee.index * 30;
-  if (accountType === "TZT") {
-    return employee.spec.tztModel === "DAILY_QUOTA" ? 1 + employee.index * 0.5 : 0;
+  if (accountType === "UEZ") {
+    return employee.index === 0 ? 120 : (employee.index % 10) * 30;
   }
-  if (accountType === "PARENTAL_CARE") return employee.index === 3 ? 3 : 0;
+  if (accountType === "TZT") {
+    return employee.spec.tztModel === "DAILY_QUOTA"
+      ? 1 + (employee.index % 6) * 0.5
+      : 0;
+  }
+  if (accountType === "PARENTAL_CARE") return employee.index % 17 === 3 ? 3 : 0;
   return 0;
 }
 
@@ -827,9 +1174,8 @@ async function createManyInChunks<T>(
 }
 
 async function resetPerformanceTenants(): Promise<void> {
-  const slugs = TENANTS.map((tenant) => tenant.slug);
   const existing = await prisma.tenant.findMany({
-    where: { slug: { in: slugs } },
+    where: { slug: { startsWith: "local-perf-" } },
     select: { id: true, slug: true },
   });
   if (existing.length === 0) return;
@@ -937,11 +1283,14 @@ async function missingAuditRows(
 async function main(): Promise<void> {
   const now = new Date();
   const currentWeek = currentIsoWeek(now);
+  const yearCount = Math.max(
+    1,
+    readNumberEnv("LOCAL_PERF_SEED_YEARS", DEFAULT_YEAR_COUNT),
+  );
   const startIsoYear = readNumberEnv(
     "LOCAL_PERF_SEED_START_YEAR",
-    currentWeek.year - 1,
+    currentWeek.year - yearCount + 1,
   );
-  const yearCount = Math.max(1, readNumberEnv("LOCAL_PERF_SEED_YEARS", 2));
   const years = Array.from({ length: yearCount }, (_, i) => startIsoYear + i);
   const passwordHash = await bcrypt.hash(PASSWORD, 10);
 

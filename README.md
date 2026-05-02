@@ -91,7 +91,7 @@ Hinweis zu WebKit:
 | `npm run db:migrate`  | Migration anwenden / erzeugen                      |
 | `npm run db:reset`    | DB zurücksetzen + Seed                             |
 | `npm run db:seed`     | Seed-Daten einspielen                              |
-| `npm run db:seed:local-performance` | Separater lokaler Performance-Seed: 2 `local-perf-*` Tenants, je 4 Mitarbeitende, 2 ISO-Jahre Wochenplanung |
+| `npm run db:seed:local-performance` | Separater lokaler Performance-Seed: standardmäßig 30 `local-perf-*` Tenants, je 50 Mitarbeitende, 3 ISO-Jahre Wochenplanung |
 | `npm run db:studio`   | Prisma Studio                                      |
 | `npm run db:push:libsql` | Migrationen auf eine libSQL/Turso-DB anwenden  |
 | `npm run db:copy:turso`  | Optional: Daten zwischen zwei Turso-DBs kopieren (sonst neu + Seed) |
@@ -105,13 +105,14 @@ Der Performance-Seed ist bewusst vom normalen Demo-Seed getrennt:
 npm run db:seed:local-performance
 ```
 
-Er setzt nur die dedizierten Tenants `local-perf-alpen` und
-`local-perf-limmat` zurück und lässt die normalen Demo-Daten unangetastet.
-Standardmäßig werden zwei ISO-Jahre erzeugt (`LOCAL_PERF_SEED_START_YEAR`
-und `LOCAL_PERF_SEED_YEARS` können optional gesetzt werden). Alle Performance-
-Benutzer verwenden das Passwort `perf123`; Admins sind
-`perf.admin@local-perf-alpen.test`, `perf.admin@local-perf-limmat.test` sowie
-der mandantenübergreifende Login `perf.admin@demo.local`.
+Er setzt nur Tenants mit dem Präfix `local-perf-` zurück und lässt die
+normalen Demo-Daten unangetastet. Standardmäßig werden 30 Tenants mit je
+50 Mitarbeitenden und drei ISO-Jahren erzeugt. Für schnelle lokale Läufe
+können `LOCAL_PERF_SEED_TENANTS`, `LOCAL_PERF_SEED_EMPLOYEES`,
+`LOCAL_PERF_SEED_START_YEAR` und `LOCAL_PERF_SEED_YEARS` gesetzt werden.
+Alle Performance-Benutzer verwenden das Passwort `perf123`; bekannte Admins
+sind `perf.admin@local-perf-alpen.test`, `perf.admin@local-perf-limmat.test`
+sowie der mandantenübergreifende Login `perf.admin@demo.local`.
 
 ### Runbook: Prisma-Migration ohne `db reset`
 
