@@ -23,9 +23,11 @@ test.describe("Admin employee preview", () => {
     await expect(
       page.getByRole("heading", { name: /Woche von Anna Keller/i }),
     ).toBeVisible();
-    await expect(page.getByText("Vorschau", { exact: true })).toBeVisible();
+    // «Vorschau»-Badge sitzt in der Topbar nur ab `md` (`hidden md:flex`); auf Mobile
+    // genügen URL mit ?employee= + Wochenüberschrift.
 
-    await page.getByRole("link", { name: "Anträge", exact: true }).click();
+    // Sidebar-„Anträge“ steckt im Burger-Menü (Sheet); der Kurzlink im Seiteninhalt ist überall klickbar.
+    await page.getByRole("link", { name: /Alle Anträge ansehen/ }).click();
     await expect(page).toHaveURL(/\/my-requests\?employee=/);
     await expect(
       page.getByRole("heading", { name: /Anträge von Anna Keller/i }),

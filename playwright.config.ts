@@ -4,6 +4,8 @@ const baseURL =
   process.env.PLAYWRIGHT_TEST_BASE_URL ?? "http://localhost:3001";
 
 const isWindows = process.platform === "win32";
+// WebKit is off by default on Windows (Playwright bundle weight / fewer Safari users).
+// CI (Linux) runs webkit + mobile-safari — use PLAYWRIGHT_INCLUDE_WEBKIT=1 locally to match.
 const shouldRunWebKit =
   process.env.PLAYWRIGHT_INCLUDE_WEBKIT === "1" ||
   process.env.PLAYWRIGHT_INCLUDE_WEBKIT === "true" ||
@@ -77,7 +79,9 @@ export default defineConfig({
     url: baseURL,
     // Always boot a fresh server for E2E to avoid stale in-memory Prisma
     // client/schema state from long-running local sessions.
-    reuseExistingServer: false,
+    // Local: if something already serves `baseURL` (e.g. `npm run dev`), reuse it so
+    // E2E does not fail with "port already in use". CI always starts a fresh server.
+    reuseExistingServer: process.env.CI ? false : true,
     gracefulShutdown: { signal: "SIGTERM", timeout: 10_000 },
     timeout: 180_000,
     stdout: "pipe",

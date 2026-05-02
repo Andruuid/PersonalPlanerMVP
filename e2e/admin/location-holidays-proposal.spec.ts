@@ -33,9 +33,14 @@ test.describe("Admin Feiertage: CH-Vorschlag + lokales Override", () => {
     await page.getByRole("button", { name: "Speichern" }).click();
     await expect(page.getByText(/Feiertage gespeichert:/)).toBeVisible();
 
-    await page.goto("/settings?locationId=loc-zuerich&year=2026");
-    await expect(page.getByRole("heading", { name: "Einstellungen" })).toBeVisible();
-    await expect(page.getByRole("table").first()).toContainText("Sechseläuten");
+    // SQLite + parallele Worker: kurz warten bis der Eintrag in Einstellungen lesbar ist.
+    await expect(async () => {
+      await page.goto("/settings?locationId=loc-zuerich&year=2026");
+      await expect(page.getByRole("heading", { name: "Einstellungen" })).toBeVisible();
+      await expect(page.getByRole("cell", { name: "Sechseläuten" })).toBeVisible({
+        timeout: 5_000,
+      });
+    }).toPass({ timeout: 30_000 });
   });
 
   test("Konfession wechseln aendert nur Vorschlaege, persistierte Feiertage erst nach Speichern", async ({
