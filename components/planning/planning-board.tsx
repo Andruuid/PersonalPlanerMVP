@@ -165,10 +165,7 @@ export function PlanningBoard({
     : null;
   const dialogDay = dialog.open ? dayMap.get(dialog.isoDate) ?? null : null;
 
-  const openRequestCount = useMemo(
-    () => requests.filter((r) => r.status === "OPEN").length,
-    [requests],
-  );
+  const openRequestCount = kpi.openRequests;
 
   return (
     <DndContext
@@ -235,7 +232,7 @@ export function PlanningBoard({
 
         <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,16rem)_1fr] xl:grid-cols-[minmax(0,18rem)_1fr]">
           <div className="hidden md:block">
-            <RequestsPanel requests={requests} />
+            <RequestsPanel requests={requests} openCount={openRequestCount} />
           </div>
           <DetailPanel
             weekId={week.id}
@@ -285,7 +282,11 @@ export function PlanningBoard({
             <SheetTitle>Anträge</SheetTitle>
           </SheetHeader>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 pb-2">
-            <RequestsPanel requests={requests} embedded />
+            <RequestsPanel
+              requests={requests}
+              openCount={openRequestCount}
+              embedded
+            />
           </div>
         </SheetContent>
       </Sheet>

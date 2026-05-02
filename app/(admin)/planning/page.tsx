@@ -271,7 +271,7 @@ export default async function PlanningPage({ searchParams }: PageProps) {
   const startDate = startOfIsoWeek(year, weekNumber);
   const endDate = days[6].date;
 
-  const [employees, services, planEntries, openRequests, locations] =
+  const [employees, services, planEntries, openRequests, openRequestsCount, locations] =
     await Promise.all([
       prisma.employee.findMany({
         where: { tenantId: admin.tenantId, isActive: true, deletedAt: null },
@@ -314,21 +314,19 @@ export default async function PlanningPage({ searchParams }: PageProps) {
         where: {
           tenantId: admin.tenantId,
           deletedAt: null,
-          OR: [
-            { status: "OPEN" },
-            {
-              AND: [
-                { status: { in: ["APPROVED", "REJECTED"] } },
-                { startDate: { lte: endDate } },
-                { endDate: { gte: startDate } },
-              ],
-            },
-          ],
+          status: "OPEN",
         },
         orderBy: { createdAt: "desc" },
         take: 20,
         include: {
           employee: { select: { firstName: true, lastName: true } },
+        },
+      }),
+      prisma.absenceRequest.count({
+        where: {
+          tenantId: admin.tenantId,
+          deletedAt: null,
+          status: "OPEN",
         },
       }),
       prisma.location.findMany({
@@ -514,7 +512,7 @@ export default async function PlanningPage({ searchParams }: PageProps) {
   }
 
   const kpi: KpiSummary = {
-    openRequests: openRequests.filter((r) => r.status === "OPEN").length,
+    openRequests: openRequestsCount,
     unassignedCells,
     activeEmployees: employees.length,
     understaffedSlots,

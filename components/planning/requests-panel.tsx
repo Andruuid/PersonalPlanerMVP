@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +22,8 @@ import type { RequestView } from "./types";
 
 interface RequestsPanelProps {
   requests: RequestView[];
+  /** Echte Gesamtzahl offener Anträge (unabhängig vom Listen-Limit). */
+  openCount?: number;
   /** Listeninhalt ohne äusseren Karten-Rahmen (z. B. Bottom Sheet) */
   embedded?: boolean;
 }
@@ -54,9 +57,11 @@ const STATUS_LABEL: Record<RequestView["status"], string> = {
 
 export function RequestsPanel({
   requests,
+  openCount,
   embedded = false,
 }: RequestsPanelProps) {
-  const openCount = requests.filter((r) => r.status === "OPEN").length;
+  const displayOpenCount =
+    openCount ?? requests.filter((r) => r.status === "OPEN").length;
   const sorted = [...requests].sort((a, b) => {
     if (a.status === "OPEN" && b.status !== "OPEN") return -1;
     if (a.status !== "OPEN" && b.status === "OPEN") return 1;
@@ -70,7 +75,7 @@ export function RequestsPanel({
           <h2 className="app-label-caps text-sm font-semibold text-neutral-700">
             Offene Anträge
           </h2>
-          <span className="text-xs text-neutral-500">{openCount}</span>
+          <span className="text-xs text-neutral-500">{displayOpenCount}</span>
         </header>
       ) : null}
 
@@ -100,6 +105,7 @@ export function RequestsPanel({
 }
 
 function RequestItem({ request }: { request: RequestView }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
@@ -107,7 +113,10 @@ function RequestItem({ request }: { request: RequestView }) {
   function approve() {
     startTransition(async () => {
       const result = await approveRequestAction(request.id);
-      if (result.ok) toast.success("Antrag genehmigt.");
+      if (result.ok) {
+        toast.success("Antrag genehmigt.");
+        router.refresh();
+      }
       else toast.error(result.error);
     });
   }
@@ -119,6 +128,7 @@ function RequestItem({ request }: { request: RequestView }) {
         toast.success("Antrag abgelehnt.");
         setRejectOpen(false);
         setRejectReason("");
+        router.refresh();
       } else toast.error(result.error);
     });
   }
