@@ -16,6 +16,7 @@
     "db:migrate": "prisma migrate dev",
     "db:reset": "prisma migrate reset --force",
     "db:seed": "tsx prisma/seed.ts",
+    "db:seed:local-performance": "tsx prisma/seed-local-performance.ts",
     "db:studio": "prisma studio",
     "db:push:libsql": "tsx scripts/db-push-libsql.mts",
     "db:copy:turso": "tsx scripts/turso-copy-data.mts",
