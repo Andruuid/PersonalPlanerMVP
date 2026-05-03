@@ -31,8 +31,14 @@ export default async function MyRequestsPage({ searchParams }: PageProps) {
   const tenantId = session.user.tenantId;
 
   const params = await searchParams;
-  const isAdminPreview =
-    session.user.role === "ADMIN" && Boolean(params.employee);
+  // Narrow params.employee into a string so the Prisma `where` cannot receive
+  // `undefined` (which Prisma silently treats as "no filter" — a cross-employee
+  // leak surface). After this, isAdminPreview ≡ previewEmployeeId !== null.
+  const previewEmployeeId: string | null =
+    session.user.role === "ADMIN" && params.employee
+      ? params.employee
+      : null;
+  const isAdminPreview = previewEmployeeId !== null;
 
   if (session.user.role === "ADMIN" && !params.employee) {
     const employees = await loadEmployeesForPreviewPicker(tenantId);
@@ -46,33 +52,32 @@ export default async function MyRequestsPage({ searchParams }: PageProps) {
     );
   }
 
-  const employee = isAdminPreview
-    ? await prisma.employee.findFirst({
-        where: {
-          id: params.employee,
-          tenantId,
-          deletedAt: null,
-        },
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          tztModel: true,
-        },
-      })
-    : await prisma.employee.findFirst({
-        where: {
-          id: session.user.employeeId ?? "",
-          tenantId,
-          deletedAt: null,
-        },
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          tztModel: true,
-        },
-      });
+  const employee =
+    previewEmployeeId !== null
+      ? await prisma.employee.findFirst({
+          where: { id: previewEmployeeId, tenantId, deletedAt: null },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            tztModel: true,
+          },
+        })
+      : session.user.employeeId
+        ? await prisma.employee.findFirst({
+            where: {
+              id: session.user.employeeId,
+              tenantId,
+              deletedAt: null,
+            },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              tztModel: true,
+            },
+          })
+        : null;
 
   if (!employee) {
     if (isAdminPreview) {

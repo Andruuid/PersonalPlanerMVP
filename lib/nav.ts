@@ -14,9 +14,10 @@ import {
   Wallet,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import type { Route } from "next";
 
 export interface NavItem {
-  href: string;
+  href: Route;
   label: string;
   icon: LucideIcon;
 }

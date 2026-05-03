@@ -25,6 +25,15 @@ declare module "next-auth" {
   }
 }
 
+declare module "next-auth/jwt" {
+  interface JWT {
+    role: Role;
+    tenantId: string | null;
+    pendingTenantSelection: boolean;
+    employeeId: string | null;
+  }
+}
+
 const credentialsSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
@@ -124,13 +133,12 @@ export const {
   callbacks: {
     async jwt({ token, user, trigger, session }) {
       if (user) {
-        (token as Record<string, unknown>).role = user.role;
-        (token as Record<string, unknown>).tenantId =
+        token.role = user.role;
+        token.tenantId =
           user.role === "SYSTEM_ADMIN" ? null : user.tenantId;
-        (token as Record<string, unknown>).pendingTenantSelection =
-          user.pendingTenantSelection;
-        (token as Record<string, unknown>).employeeId = user.employeeId ?? null;
-        token.sub = user.id as string;
+        token.pendingTenantSelection = user.pendingTenantSelection;
+        token.employeeId = user.employeeId ?? null;
+        token.sub = user.id;
       }
       if (trigger === "update" && session) {
         // unstable_update may receive either the v5 Session shape
@@ -142,20 +150,19 @@ export const {
             ? (raw.user as Record<string, unknown>)
             : raw;
         if (typeof userPart.role === "string") {
-          (token as Record<string, unknown>).role = userPart.role;
+          token.role = userPart.role as Role;
         }
         if (typeof userPart.tenantId === "string" || userPart.tenantId === null) {
-          (token as Record<string, unknown>).tenantId = userPart.tenantId;
+          token.tenantId = userPart.tenantId as string | null;
         }
         if (typeof userPart.pendingTenantSelection === "boolean") {
-          (token as Record<string, unknown>).pendingTenantSelection =
-            userPart.pendingTenantSelection;
+          token.pendingTenantSelection = userPart.pendingTenantSelection;
         }
         if (
           typeof userPart.employeeId === "string" ||
           userPart.employeeId === null
         ) {
-          (token as Record<string, unknown>).employeeId = userPart.employeeId;
+          token.employeeId = userPart.employeeId as string | null;
         }
         if (typeof userPart.id === "string") {
           token.sub = userPart.id;
@@ -165,13 +172,11 @@ export const {
     },
     async session({ session, token }) {
       if (token && session.user) {
-        const t = token as Record<string, unknown>;
-        session.user.id = (token.sub as string) ?? "";
-        session.user.role = t.role as Role;
-        session.user.tenantId =
-          typeof t.tenantId === "string" ? t.tenantId : null;
-        session.user.pendingTenantSelection = Boolean(t.pendingTenantSelection);
-        session.user.employeeId = (t.employeeId as string | null | undefined) ?? null;
+        session.user.id = token.sub ?? "";
+        session.user.role = token.role;
+        session.user.tenantId = token.tenantId;
+        session.user.pendingTenantSelection = token.pendingTenantSelection;
+        session.user.employeeId = token.employeeId;
       }
       return session;
     },

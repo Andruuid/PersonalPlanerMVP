@@ -72,8 +72,8 @@ async function proxyImpl(req: NextRequest): Promise<NextResponse> {
 
   const token = await readSessionToken(req);
   const isAuthenticated = Boolean(token);
-  const role = ((token?.role as Role | undefined) ?? "ANON") as Role | "ANON";
-  const tenantId = (token?.tenantId as string | null | undefined) ?? null;
+  const role: Role | "ANON" = token?.role ?? "ANON";
+  const tenantId = token?.tenantId ?? null;
   const pendingTenantSelection = Boolean(token?.pendingTenantSelection);
   const hasStaleSessionClaims =
     isAuthenticated &&

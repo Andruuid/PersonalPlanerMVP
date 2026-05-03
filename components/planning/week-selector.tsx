@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { Route } from "next";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { shiftWeek } from "@/lib/time/week";
@@ -10,8 +11,8 @@ interface WeekSelectorProps {
   weekNumber: number;
 }
 
-function buildHref(year: number, weekNumber: number): string {
-  return `/planning?year=${year}&week=${weekNumber}`;
+function buildHref(year: number, weekNumber: number): Route {
+  return `/planning?year=${year}&week=${weekNumber}` as Route;
 }
 
 export function WeekSelector({ year, weekNumber }: WeekSelectorProps) {

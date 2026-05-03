@@ -1,5 +1,6 @@
 "use client";
 
+import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { buildAbsenceFilterSearchParams } from "./filter-query";
@@ -64,7 +65,7 @@ export function AbsencesFilter({
 
   function update(key: string, value: string) {
     const params = buildAbsenceFilterSearchParams(searchParams, key, value);
-    router.push(`${pathname}?${params.toString()}`);
+    router.push(`${pathname}?${params.toString()}` as Route);
   }
 
   return (

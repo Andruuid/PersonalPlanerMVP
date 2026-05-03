@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Route } from "next";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -21,12 +22,12 @@ export function AuditPagination({
   const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const end = Math.min(page * pageSize, total);
 
-  function href(p: number): string {
+  function href(p: number): Route {
     const params = new URLSearchParams(baseQuery);
     if (p === 1) params.delete("page");
     else params.set("page", String(p));
     const qs = params.toString();
-    return qs ? `?${qs}` : "?";
+    return (qs ? `?${qs}` : "?") as Route;
   }
 
   const prevDisabled = page <= 1;
@@ -68,7 +69,7 @@ function PageButton({
   ariaLabel,
   children,
 }: {
-  href: string;
+  href: Route;
   disabled: boolean;
   ariaLabel: string;
   children: React.ReactNode;

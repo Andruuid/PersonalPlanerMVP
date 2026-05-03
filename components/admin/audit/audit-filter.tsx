@@ -1,5 +1,6 @@
 "use client";
 
+import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 
@@ -42,11 +43,11 @@ export function AuditFilter({
     }
     // Reset to first page on any filter change (page is irrelevant after).
     params.delete("page");
-    router.push(`${pathname}?${params.toString()}`);
+    router.push(`${pathname}?${params.toString()}` as Route);
   }
 
   function reset(): void {
-    router.push(pathname);
+    router.push(pathname as Route);
   }
 
   const hasFilter =

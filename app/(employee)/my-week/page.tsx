@@ -49,8 +49,14 @@ export default async function MyWeekPage({ searchParams }: PageProps) {
 
   const params = await searchParams;
   const pickedEarly = pickWeek(params);
-  const isAdminPreview =
-    session.user.role === "ADMIN" && Boolean(params.employee);
+  // Narrow params.employee into a string so the Prisma `where` cannot receive
+  // `undefined` (which Prisma silently treats as "no filter" — a cross-employee
+  // leak surface). After this, isAdminPreview ≡ previewEmployeeId !== null.
+  const previewEmployeeId: string | null =
+    session.user.role === "ADMIN" && params.employee
+      ? params.employee
+      : null;
+  const isAdminPreview = previewEmployeeId !== null;
 
   if (session.user.role === "ADMIN" && !params.employee) {
     const employees = await loadEmployeesForPreviewPicker(tenantId);
@@ -69,9 +75,10 @@ export default async function MyWeekPage({ searchParams }: PageProps) {
   }
 
   const employee = await prisma.employee.findFirst({
-    where: isAdminPreview
-      ? { id: params.employee, tenantId, deletedAt: null }
-      : { userId: session.user.id, tenantId, deletedAt: null },
+    where:
+      previewEmployeeId !== null
+        ? { id: previewEmployeeId, tenantId, deletedAt: null }
+        : { userId: session.user.id, tenantId, deletedAt: null },
     include: {
       location: { select: { id: true, name: true } },
     },

@@ -1,11 +1,12 @@
 import Link from "next/link";
+import type { Route } from "next";
 import type { LucideIcon } from "lucide-react";
 import { ArrowUpRight } from "lucide-react";
 
 interface KpiCardProps {
   label: string;
   value: string;
-  href: string;
+  href: Route;
   icon: LucideIcon;
   hint?: string;
 }

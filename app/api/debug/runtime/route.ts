@@ -39,6 +39,7 @@ export async function GET() {
   }
 
   try {
+    // eslint-disable-next-line tenant/require-prisma-where
     const userCount = await prisma.user.count();
     diagnostics.userCount = userCount;
   } catch (err) {

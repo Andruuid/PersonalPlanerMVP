@@ -4,6 +4,9 @@ import type { NextAuthConfig } from "next-auth";
 // Does NOT include the Credentials provider (which uses Prisma + bcrypt and
 // is therefore not edge-compatible). The middleware only needs the JWT to be
 // readable, so this minimal config is enough.
+//
+// JWT/Session/User types are augmented in `lib/auth.ts` (project-global module
+// augmentation), so no inline casts are needed here.
 export const authConfig: NextAuthConfig = {
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
@@ -12,18 +15,11 @@ export const authConfig: NextAuthConfig = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        const authUser = user as {
-          id?: string;
-          role?: "SYSTEM_ADMIN" | "ADMIN" | "EMPLOYEE";
-          tenantId?: string | null;
-          pendingTenantSelection?: boolean;
-          employeeId?: string | null;
-        };
-        token.role = authUser.role;
-        token.tenantId = authUser.tenantId;
-        token.pendingTenantSelection = authUser.pendingTenantSelection ?? false;
-        token.employeeId = authUser.employeeId ?? null;
-        token.sub = authUser.id ?? token.sub;
+        token.role = user.role;
+        token.tenantId = user.tenantId;
+        token.pendingTenantSelection = user.pendingTenantSelection ?? false;
+        token.employeeId = user.employeeId ?? null;
+        token.sub = user.id ?? token.sub;
       }
       if (typeof token.pendingTenantSelection !== "boolean") {
         token.pendingTenantSelection = false;
@@ -32,13 +28,11 @@ export const authConfig: NextAuthConfig = {
     },
     async session({ session, token }) {
       if (token && session.user) {
-        session.user.id = token.sub as string;
-        session.user.role = token.role as "SYSTEM_ADMIN" | "ADMIN" | "EMPLOYEE";
-        session.user.tenantId =
-          typeof token.tenantId === "string" ? token.tenantId : null;
-        session.user.pendingTenantSelection = Boolean(token.pendingTenantSelection);
-        session.user.employeeId =
-          (token.employeeId as string | null | undefined) ?? null;
+        session.user.id = token.sub ?? "";
+        session.user.role = token.role;
+        session.user.tenantId = token.tenantId;
+        session.user.pendingTenantSelection = token.pendingTenantSelection;
+        session.user.employeeId = token.employeeId;
       }
       return session;
     },

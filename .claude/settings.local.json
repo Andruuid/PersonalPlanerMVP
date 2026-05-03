@@ -17,7 +17,17 @@
       "PowerShell(gh run list --workflow=e2e.yml --limit=5 2>&1)",
       "Bash(npx next *)",
       "Bash(echo \"BUILD-EXIT=$?\")",
-      "Bash(env)"
+      "Bash(env)",
+      "Bash(git pull *)",
+      "Bash(xargs -I {} bash -c 'head -30 \"{}\" | grep -E \"\\(interface|type\\) \\\\w+Props\"')",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
+      "Bash(xargs wc *)",
+      "Bash(npx tsc *)",
+      "Bash(npx eslint *)",
+      "Bash(awk '/^C:.*\\\\.tsx?$/ { file=$0; next } /tenant\\\\/require-prisma-where/ { print file }' /tmp/lint-output.txt)",
+      "Bash(grep -E \"^C:\\\\\\\\\\\\\\\\|error.*require-prisma-where\")",
+      "Bash(grep -E \"\\(PersonalPlanerMVP\\\\\\\\\\\\\\\\|error.*require-prisma\\)\")",
+      "Bash(grep -E \"\\(\\\\.ts$|\\\\.tsx$|error\\)\")"
     ]
   }
 }

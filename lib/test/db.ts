@@ -50,7 +50,8 @@ export function makeTestDb(): TestDb {
         'DROP TRIGGER IF EXISTS auditlog_no_delete;',
       );
       invalidateAuditLogAppendOnlyCache(prisma);
-      // FK-safe order: leaves first.
+      // FK-safe order: leaves first. Intentional full-table wipes — test harness.
+      /* eslint-disable tenant/require-prisma-where */
       await prisma.auditLog.deleteMany();
       await prisma.ertCase.deleteMany();
       await prisma.compensationCase.deleteMany();
@@ -67,6 +68,7 @@ export function makeTestDb(): TestDb {
       await prisma.location.deleteMany();
       await prisma.user.deleteMany();
       await prisma.tenant.deleteMany();
+      /* eslint-enable tenant/require-prisma-where */
       await prisma.tenant.create({
         data: { id: "default", name: "Default Tenant", slug: "default" },
       });

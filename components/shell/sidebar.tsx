@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { Route } from "next";
 import { Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -20,9 +21,9 @@ interface SidebarProps {
   className?: string;
 }
 
-function employeeNavHref(href: string, employeeId: string | null): string {
+function employeeNavHref(href: Route, employeeId: string | null): Route {
   if (!employeeId || !href.startsWith("/my-")) return href;
-  return `${href}?employee=${encodeURIComponent(employeeId)}`;
+  return `${href}?employee=${encodeURIComponent(employeeId)}` as Route;
 }
 
 function employeeNavLabel(label: string, isAdminPreview: boolean): string {
