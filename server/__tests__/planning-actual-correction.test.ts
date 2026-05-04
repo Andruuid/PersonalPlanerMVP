@@ -10,6 +10,7 @@ const {
   prismaMock: {
     planEntry: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       update: vi.fn(),
     },
   },
@@ -51,7 +52,7 @@ describe("correctPlanEntryActualMinutesAction", () => {
   });
 
   it("writes an audit log for admin correction", async () => {
-    prismaMock.planEntry.findUnique.mockResolvedValue({
+    prismaMock.planEntry.findFirst.mockResolvedValue({
       id: "entry-1",
       weekId: "week-1",
       week: { tenantId: "tenant-1", status: "DRAFT" },

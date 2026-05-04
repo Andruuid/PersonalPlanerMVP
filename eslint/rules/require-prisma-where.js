@@ -52,6 +52,11 @@ const TENANT_SCOPED_METHODS = new Set([
 
 const RECEIVER_NAMES = new Set(["prisma", "tx"]);
 
+// Models without a `tenantId` column. The presence check (require-prisma-where)
+// still applies — `prisma.tenant.findMany()` with no `where` is still a bug —
+// but the tenant-scope check (require-tenant-scope) is skipped.
+const TENANTLESS_MODELS = new Set(["tenant"]);
+
 function isPrismaModelMethodCall(node) {
   const callee = node.callee;
   if (callee.type !== "MemberExpression" || callee.computed) return null;
@@ -69,7 +74,12 @@ function isPrismaModelMethodCall(node) {
   ) {
     return null;
   }
-  return method;
+  const model =
+    modelAccess.property.type === "Identifier"
+      ? modelAccess.property.name
+      : null;
+  if (!model) return null;
+  return { method, model };
 }
 
 function getPropertyKeyName(prop) {
@@ -117,8 +127,9 @@ export const requirePrismaWhereRule = {
   create(context) {
     return {
       CallExpression(node) {
-        const method = isPrismaModelMethodCall(node);
-        if (!method) return;
+        const call = isPrismaModelMethodCall(node);
+        if (!call) return;
+        const { method } = call;
 
         const firstArg = node.arguments[0];
         if (!firstArg || firstArg.type !== "ObjectExpression") {
@@ -149,8 +160,10 @@ export const requireTenantScopeRule = {
   create(context) {
     return {
       CallExpression(node) {
-        const method = isPrismaModelMethodCall(node);
-        if (!method) return;
+        const call = isPrismaModelMethodCall(node);
+        if (!call) return;
+        const { method, model } = call;
+        if (TENANTLESS_MODELS.has(model)) return;
 
         const firstArg = node.arguments[0];
         if (!firstArg || firstArg.type !== "ObjectExpression") return;
@@ -159,8 +172,11 @@ export const requireTenantScopeRule = {
         if (!where) return;
 
         if (!whereContainsTenantScope(where.value)) {
+          // Report on the CallExpression (not the where Property) so that
+          // `// eslint-disable-next-line` comments above the prisma call work
+          // as users expect.
           context.report({
-            node: where,
+            node,
             messageId: "missingTenantScope",
             data: { method },
           });

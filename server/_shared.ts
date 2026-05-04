@@ -40,7 +40,7 @@ export async function requireAdmin(): Promise<SessionUser> {
   };
 }
 
-export async function requireEmployee(): Promise<SessionUser> {
+export async function requireEmployee(): Promise<SessionUser & { employeeId: string }> {
   const session = await auth();
   if (!session?.user) {
     throw new Error("NotAuthenticated: not signed in");

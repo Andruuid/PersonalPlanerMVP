@@ -1,3 +1,7 @@
+/* eslint-disable tenant/require-tenant-scope --
+ * Internal helper: callers in server/employees pre-resolve tenant scope and
+ * pass cuid-globally-unique employeeId. Defense-in-depth deferred.
+ */
 import type { PrismaClient, Prisma } from "@/lib/generated/prisma/client";
 
 export const EXIT_SNAPSHOT_VERSION = 1 as const;

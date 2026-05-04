@@ -12,6 +12,7 @@ const {
   prismaMock: {
     serviceTemplate: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       update: vi.fn(),
     },
     planEntry: {
@@ -61,7 +62,7 @@ describe("service template soft delete", () => {
   };
 
   it("softDeleteServiceTemplateAction refuses when template is used in an open week", async () => {
-    prismaMock.serviceTemplate.findUnique.mockResolvedValue(activeTemplate);
+    prismaMock.serviceTemplate.findFirst.mockResolvedValue(activeTemplate);
     prismaMock.planEntry.findFirst.mockResolvedValue({ id: "pe-1" });
 
     const result = await softDeleteServiceTemplateAction("svc-1");
@@ -76,7 +77,7 @@ describe("service template soft delete", () => {
   });
 
   it("softDeleteServiceTemplateAction archives template when safe", async () => {
-    prismaMock.serviceTemplate.findUnique.mockResolvedValue(activeTemplate);
+    prismaMock.serviceTemplate.findFirst.mockResolvedValue(activeTemplate);
     prismaMock.planEntry.findFirst.mockResolvedValue(null);
     prismaMock.serviceTemplate.update.mockResolvedValue({
       ...activeTemplate,
@@ -109,7 +110,7 @@ describe("service template soft delete", () => {
   });
 
   it("softDeleteServiceTemplateAction rejects already archived templates", async () => {
-    prismaMock.serviceTemplate.findUnique.mockResolvedValue({
+    prismaMock.serviceTemplate.findFirst.mockResolvedValue({
       ...activeTemplate,
       deletedAt: new Date(),
       archivedUntil: new Date(),
@@ -125,7 +126,7 @@ describe("service template soft delete", () => {
   });
 
   it("setServiceActiveAction rejects archived templates", async () => {
-    prismaMock.serviceTemplate.findUnique.mockResolvedValue({
+    prismaMock.serviceTemplate.findFirst.mockResolvedValue({
       ...activeTemplate,
       deletedAt: new Date(),
     });

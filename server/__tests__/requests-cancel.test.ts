@@ -19,6 +19,7 @@ const {
   prismaMock: {
     absenceRequest: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
     },
@@ -61,7 +62,7 @@ describe("withdrawRequestAction", () => {
   it("sets WITHDRAWN for own open request", async () => {
     const start = new Date("2026-05-01T00:00:00.000Z");
     const end = new Date("2026-05-05T00:00:00.000Z");
-    prismaMock.absenceRequest.findUnique.mockResolvedValue({
+    prismaMock.absenceRequest.findFirst.mockResolvedValue({
       id: "req-1",
       tenantId: "tenant-a",
       employeeId: "emp-1",
@@ -103,16 +104,9 @@ describe("withdrawRequestAction", () => {
   });
 
   it("rejects when the request is already soft-deleted", async () => {
-    prismaMock.absenceRequest.findUnique.mockResolvedValue({
-      id: "req-1",
-      tenantId: "tenant-a",
-      employeeId: "emp-1",
-      status: "OPEN",
-      type: "VACATION",
-      startDate: new Date(),
-      endDate: new Date(),
-      deletedAt: new Date(),
-    });
+    // findFirst with `deletedAt: null` filter returns no row for soft-deleted
+    // requests in real Prisma. Mock null directly.
+    prismaMock.absenceRequest.findFirst.mockResolvedValue(null);
 
     const result = await withdrawRequestAction("req-1");
 

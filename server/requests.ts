@@ -120,13 +120,10 @@ export async function approveRequestAction(
     return { ok: false, error: parsedComment.error };
   }
 
-  const request = await prisma.absenceRequest.findUnique({
-    where: { id: requestId },
+  const request = await prisma.absenceRequest.findFirst({
+    where: { id: requestId, tenantId: admin.tenantId, deletedAt: null },
   });
-  if (!request || request.tenantId !== admin.tenantId) {
-    return { ok: false, error: "Antrag nicht gefunden." };
-  }
-  if (request.deletedAt) {
+  if (!request) {
     return { ok: false, error: "Antrag nicht gefunden." };
   }
   if (request.status !== "OPEN") {
@@ -177,7 +174,9 @@ export async function approveRequestAction(
       });
       const week = weekRow
         ? weekRow.deletedAt
-          ? await tx.week.update({
+          ? // Tenant scope verified via week.findUnique by composite (tenantId, year, weekNumber) above.
+            // eslint-disable-next-line tenant/require-tenant-scope
+            await tx.week.update({
               where: { id: weekRow.id },
               data: { deletedAt: null, archivedUntil: null, deletedById: null },
             })
@@ -194,6 +193,9 @@ export async function approveRequestAction(
         throw new Error("CLOSED_WEEK_RACE");
       }
 
+      // PlanEntry has no tenantId; weekId came from the tenant-scoped
+      // week.findUnique by composite (tenantId, year, weekNumber) above.
+      // eslint-disable-next-line tenant/require-tenant-scope
       const existing = await tx.planEntry.findFirst({
         where: {
           weekId: week.id,
@@ -217,6 +219,7 @@ export async function approveRequestAction(
             previousAbsenceType: existing.absenceType ?? null,
           });
         }
+        // eslint-disable-next-line tenant/require-tenant-scope
         await tx.planEntry.update({
           where: { id: existing.id },
           data: softDeleteFields(admin.id),
@@ -235,6 +238,8 @@ export async function approveRequestAction(
       });
     }
 
+    // Tenant scope verified via the preceding absenceRequest.findFirst above.
+    // eslint-disable-next-line tenant/require-tenant-scope
     await tx.absenceRequest.update({
       where: { id: requestId },
       data: {
@@ -284,13 +289,10 @@ export async function rejectRequestAction(
     return { ok: false, error: parsedReason.error };
   }
 
-  const request = await prisma.absenceRequest.findUnique({
-    where: { id: requestId },
+  const request = await prisma.absenceRequest.findFirst({
+    where: { id: requestId, tenantId: admin.tenantId, deletedAt: null },
   });
-  if (!request || request.tenantId !== admin.tenantId) {
-    return { ok: false, error: "Antrag nicht gefunden." };
-  }
-  if (request.deletedAt) {
+  if (!request) {
     return { ok: false, error: "Antrag nicht gefunden." };
   }
   if (request.status !== "OPEN") {
@@ -307,6 +309,8 @@ export async function rejectRequestAction(
   );
   const touchedClosedWeek = weeksTouched.some((w) => w.status === "CLOSED");
 
+  // Tenant scope verified via the preceding absenceRequest.findFirst above.
+  // eslint-disable-next-line tenant/require-tenant-scope
   await prisma.absenceRequest.update({
     where: { id: requestId },
     data: {
@@ -546,17 +550,16 @@ export async function withdrawRequestAction(
 ): Promise<ActionResult> {
   const employee = await requireEmployee();
 
-  const request = await prisma.absenceRequest.findUnique({
-    where: { id: requestId },
+  const request = await prisma.absenceRequest.findFirst({
+    where: {
+      id: requestId,
+      tenantId: employee.tenantId,
+      employeeId: employee.employeeId,
+      deletedAt: null,
+    },
   });
-  if (!request || request.tenantId !== employee.tenantId) {
+  if (!request) {
     return { ok: false, error: "Antrag nicht gefunden." };
-  }
-  if (request.deletedAt) {
-    return { ok: false, error: "Antrag nicht gefunden." };
-  }
-  if (request.employeeId !== employee.employeeId) {
-    return { ok: false, error: "Kein Zugriff auf diesen Antrag." };
   }
   if (request.status !== "OPEN") {
     return {
@@ -566,6 +569,8 @@ export async function withdrawRequestAction(
   }
 
   const now = new Date();
+  // Tenant scope verified via the preceding absenceRequest.findFirst above.
+  // eslint-disable-next-line tenant/require-tenant-scope
   await prisma.absenceRequest.update({
     where: { id: requestId },
     data: {
@@ -606,13 +611,10 @@ export async function reopenRequestAction(
 ): Promise<ActionResult> {
   const admin = await requireAdmin();
 
-  const request = await prisma.absenceRequest.findUnique({
-    where: { id: requestId },
+  const request = await prisma.absenceRequest.findFirst({
+    where: { id: requestId, tenantId: admin.tenantId, deletedAt: null },
   });
-  if (!request || request.tenantId !== admin.tenantId) {
-    return { ok: false, error: "Antrag nicht gefunden." };
-  }
-  if (request.deletedAt) {
+  if (!request) {
     return { ok: false, error: "Antrag nicht gefunden." };
   }
   if (request.status === "WITHDRAWN" || request.status === "CANCELLED") {
@@ -622,6 +624,8 @@ export async function reopenRequestAction(
     };
   }
 
+  // Tenant scope verified via the preceding absenceRequest.findFirst above.
+  // eslint-disable-next-line tenant/require-tenant-scope
   await prisma.absenceRequest.update({
     where: { id: requestId },
     data: {

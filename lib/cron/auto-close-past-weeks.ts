@@ -1,3 +1,7 @@
+/* eslint-disable tenant/require-tenant-scope --
+ * Cron helper: caller passes tenantId explicitly. Internal queries chain off
+ * tenant-scoped weekId (cuid-globally-unique). Defense-in-depth deferred.
+ */
 import type { PrismaClient } from "@/lib/generated/prisma/client";
 import { writeAuditCore } from "@/lib/audit/core";
 import { recalcWeekClose } from "@/lib/bookings/core";

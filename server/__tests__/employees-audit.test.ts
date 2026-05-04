@@ -23,9 +23,11 @@ const {
     },
     employee: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
     },
     location: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
     },
     $transaction: vi.fn(),
   },
@@ -136,7 +138,7 @@ describe("employees audit coverage", () => {
     bcryptHashMock.mockResolvedValue("hashed");
     writeAuditMock.mockResolvedValue(undefined);
     applyEmployeeOpeningBalancesMock.mockResolvedValue(1);
-    prismaMock.location.findUnique.mockResolvedValue({ tenantId: "tenant-a" });
+    prismaMock.location.findFirst.mockResolvedValue({ id: "loc-1" });
     prismaMock.tenant.findUnique.mockResolvedValue({
       defaultWeeklyTargetMinutes: 2520,
       defaultHazMinutesPerWeek: 2700,
@@ -231,7 +233,7 @@ describe("employees audit coverage", () => {
   });
 
   it("writes ROLE_CHANGE audit when user role is normalized on update", async () => {
-    prismaMock.employee.findUnique.mockResolvedValue({
+    prismaMock.employee.findFirst.mockResolvedValue({
       id: "emp-1",
       tenantId: "tenant-a",
       userId: "user-1",
@@ -306,7 +308,7 @@ describe("employees audit coverage", () => {
       isActive: false,
       status: "INAKTIV",
     });
-    prismaMock.employee.findUnique.mockResolvedValue({
+    prismaMock.employee.findFirst.mockResolvedValue({
       id: "emp-1",
       tenantId: "tenant-a",
       userId: "user-1",
@@ -386,7 +388,7 @@ describe("employees audit coverage", () => {
       isActive: false,
       status: "AUSGETRETEN",
     });
-    prismaMock.employee.findUnique.mockResolvedValue({
+    prismaMock.employee.findFirst.mockResolvedValue({
       id: "emp-1",
       tenantId: "tenant-a",
       userId: "user-1",
@@ -470,7 +472,7 @@ describe("employees audit coverage", () => {
       isActive: true,
       status: "ARCHIVIERT",
     });
-    prismaMock.employee.findUnique.mockResolvedValue({
+    prismaMock.employee.findFirst.mockResolvedValue({
       id: "emp-1",
       tenantId: "tenant-a",
       userId: "user-1",

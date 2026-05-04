@@ -33,6 +33,8 @@ export default async function SelectTenantPage({ searchParams }: PageProps) {
 
   const [params, memberships] = await Promise.all([
     searchParams,
+    // Cross-tenant by design: lists all tenant memberships for one email.
+    // eslint-disable-next-line tenant/require-tenant-scope
     prisma.user.findMany({
       where: { email, isActive: true },
       select: {

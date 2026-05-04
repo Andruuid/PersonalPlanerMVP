@@ -152,17 +152,20 @@ export async function correctPlanEntryActualMinutesAction(
   const admin = await requireAdmin();
 
   try {
-    const entry = await prisma.planEntry.findUnique({
-      where: { id: entryId },
+    // PlanEntry has no tenantId column; scope via the week relation.
+    // eslint-disable-next-line tenant/require-tenant-scope
+    const entry = await prisma.planEntry.findFirst({
+      where: {
+        id: entryId,
+        deletedAt: null,
+        week: { tenantId: admin.tenantId },
+      },
       include: {
-        week: { select: { tenantId: true, status: true } },
+        week: { select: { status: true } },
       },
     });
-    if (!entry || entry.deletedAt) {
+    if (!entry) {
       return { ok: false, error: "Eintrag nicht gefunden." };
-    }
-    if (entry.week.tenantId !== admin.tenantId) {
-      return { ok: false, error: "Kein Zugriff auf diesen Eintrag." };
     }
     if (entry.week.status === "CLOSED") {
       return {
@@ -181,6 +184,8 @@ export async function correctPlanEntryActualMinutesAction(
       correctedActualMinutes == null ? null : Math.max(0, Math.trunc(correctedActualMinutes));
     const normalizedComment = correctionComment?.trim() || null;
 
+    // Tenant scope verified by the preceding findFirst.
+    // eslint-disable-next-line tenant/require-tenant-scope
     const updated = await prisma.planEntry.update({
       where: { id: entry.id },
       data: {
@@ -239,17 +244,16 @@ export async function upsertPlanEntryAction(
     const date = parseIsoDate(data.date);
     if (!date) return { ok: false, error: "Datum ungültig." };
 
-    const employee = await prisma.employee.findUnique({
-      where: { id: data.employeeId },
+    const employee = await prisma.employee.findFirst({
+      where: { id: data.employeeId, tenantId: admin.tenantId },
       select: {
         id: true,
-        tenantId: true,
         status: true,
         locationId: true,
         tztModel: true,
       },
     });
-    if (!employee || employee.tenantId !== admin.tenantId) {
+    if (!employee) {
       return { ok: false, error: "Mitarbeitende:r nicht gefunden." };
     }
     if (employee.status === "ARCHIVIERT") {
@@ -279,15 +283,15 @@ export async function upsertPlanEntryAction(
     let weekendWorkClassification: WeekendWorkClassification | null = null;
 
     if (data.kind === "SHIFT") {
-      const tpl = await prisma.serviceTemplate.findUnique({
-        where: { id: data.serviceTemplateId },
+      const tpl = await prisma.serviceTemplate.findFirst({
+        where: {
+          id: data.serviceTemplateId,
+          tenantId: admin.tenantId,
+          deletedAt: null,
+          isActive: true,
+        },
       });
-      if (
-        !tpl ||
-        tpl.deletedAt ||
-        !tpl.isActive ||
-        tpl.tenantId !== admin.tenantId
-      ) {
+      if (!tpl) {
         return {
           ok: false,
           error: "Dienstvorlage nicht gefunden oder inaktiv.",
@@ -326,6 +330,8 @@ export async function upsertPlanEntryAction(
     let autoRepublished = false;
 
     const result = await prisma.$transaction(async (tx) => {
+      // PlanEntry has no tenantId; weekId scope verified by ensureWeekEditable above.
+      // eslint-disable-next-line tenant/require-tenant-scope
       const existing = await tx.planEntry.findFirst({
         where: {
           weekId: data.weekId,
@@ -336,7 +342,8 @@ export async function upsertPlanEntryAction(
       });
 
       const created = existing
-        ? await tx.planEntry.update({
+        ? // eslint-disable-next-line tenant/require-tenant-scope
+          await tx.planEntry.update({
             where: { id: existing.id },
             data: {
               kind: data.kind,
@@ -485,11 +492,14 @@ export async function deletePlanEntryAction(
     const date = parseIsoDate(isoDate);
     if (!date) return { ok: false, error: "Datum ungültig." };
 
+    // PlanEntry has no tenantId; weekId scope verified by ensureWeekEditable above.
+    // eslint-disable-next-line tenant/require-tenant-scope
     const existing = await prisma.planEntry.findFirst({
       where: { weekId, employeeId, date, deletedAt: null },
     });
     if (!existing) return { ok: true };
 
+    // eslint-disable-next-line tenant/require-tenant-scope
     await prisma.planEntry.update({
       where: { id: existing.id },
       data: {
@@ -604,11 +614,12 @@ export async function movePlanEntryAction(
       return { ok: false, error: "Ungültige Verschiebung." };
     }
 
-    const entry = await prisma.planEntry.findUnique({
-      where: { id: entryId },
-      include: { week: { select: { tenantId: true } } },
+    // PlanEntry has no tenantId column; scope via the week relation.
+    // eslint-disable-next-line tenant/require-tenant-scope
+    const entry = await prisma.planEntry.findFirst({
+      where: { id: entryId, week: { tenantId: admin.tenantId } },
     });
-    if (!entry || entry.week.tenantId !== admin.tenantId) {
+    if (!entry) {
       return { ok: false, error: "Eintrag nicht gefunden." };
     }
     if (entry.deletedAt) return { ok: false, error: "Eintrag ist archiviert." };
@@ -619,15 +630,11 @@ export async function movePlanEntryAction(
     const newDate = parseIsoDate(toIsoDate);
     if (!newDate) return { ok: false, error: "Datum ungültig." };
 
-    const targetEmployee = await prisma.employee.findUnique({
-      where: { id: toEmployeeId },
-      select: { tenantId: true, status: true },
+    const targetEmployee = await prisma.employee.findFirst({
+      where: { id: toEmployeeId, tenantId: admin.tenantId },
+      select: { status: true },
     });
-    if (
-      !targetEmployee ||
-      targetEmployee.tenantId !== admin.tenantId ||
-      targetEmployee.status === "ARCHIVIERT"
-    ) {
+    if (!targetEmployee || targetEmployee.status === "ARCHIVIERT") {
       return { ok: false, error: "Mitarbeitende:r nicht gefunden." };
     }
 
@@ -637,6 +644,8 @@ export async function movePlanEntryAction(
     if (sameSlot) return { ok: true };
 
     const result = await prisma.$transaction(async (tx) => {
+      // PlanEntry: weekId scope already verified above.
+      // eslint-disable-next-line tenant/require-tenant-scope
       const target = await tx.planEntry.findFirst({
         where: {
           weekId: entry.weekId,
@@ -646,6 +655,7 @@ export async function movePlanEntryAction(
         },
       });
       if (target) {
+        // eslint-disable-next-line tenant/require-tenant-scope
         await tx.planEntry.update({
           where: { id: target.id },
           data: {
@@ -653,6 +663,7 @@ export async function movePlanEntryAction(
           },
         });
       }
+      // eslint-disable-next-line tenant/require-tenant-scope
       const moved = await tx.planEntry.update({
         where: { id: entryId },
         data: { employeeId: toEmployeeId, date: newDate },

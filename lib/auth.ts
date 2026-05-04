@@ -68,6 +68,9 @@ export const {
           const emailLower = email.toLowerCase();
           logDebug("auth:authorize", "Authorize attempt", { email: emailLower });
 
+          // Cross-tenant by design: a single email may have memberships in
+          // multiple tenants. Tenant is selected later via the picker.
+          // eslint-disable-next-line tenant/require-tenant-scope
           const users = await prisma.user.findMany({
             where: { email: emailLower },
             include: {

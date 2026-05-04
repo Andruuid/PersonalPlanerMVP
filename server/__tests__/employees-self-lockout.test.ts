@@ -12,14 +12,17 @@ const {
   prismaMock: {
     user: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       update: vi.fn(),
       count: vi.fn(),
     },
     employee: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
     },
     location: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
     },
     $transaction: vi.fn(),
   },
@@ -76,11 +79,11 @@ describe("employees self-lockout prevention", () => {
       employeeId: "emp-self",
     });
     writeAuditMock.mockResolvedValue(undefined);
-    prismaMock.location.findUnique.mockResolvedValue({ tenantId: "tenant-a" });
+    prismaMock.location.findFirst.mockResolvedValue({ id: "loc-1" });
   });
 
   it("setUserLockAction: rejects locking own user before DB update", async () => {
-    prismaMock.employee.findUnique.mockResolvedValue({
+    prismaMock.employee.findFirst.mockResolvedValue({
       id: "emp-self",
       tenantId: "tenant-a",
       userId: "user-admin-self",
@@ -103,7 +106,7 @@ describe("employees self-lockout prevention", () => {
   });
 
   it("setEmployeeActiveAction: rejects self-deactivation before DB update", async () => {
-    prismaMock.employee.findUnique.mockResolvedValue({
+    prismaMock.employee.findFirst.mockResolvedValue({
       id: "emp-self",
       tenantId: "tenant-a",
       userId: "user-admin-self",
@@ -124,7 +127,7 @@ describe("employees self-lockout prevention", () => {
   it("setEmployeeActiveAction: deactivates login for non-self employee", async () => {
     const userUpdate = vi.fn().mockResolvedValue({ id: "user-2" });
     const employeeUpdate = vi.fn().mockResolvedValue({ id: "emp-2" });
-    prismaMock.employee.findUnique.mockResolvedValue({
+    prismaMock.employee.findFirst.mockResolvedValue({
       id: "emp-2",
       tenantId: "tenant-a",
       userId: "user-2",
@@ -161,7 +164,7 @@ describe("employees self-lockout prevention", () => {
   });
 
   it("updateEmployeeAction: rejects sole active admin demoting or deactivating self", async () => {
-    prismaMock.employee.findUnique.mockResolvedValue({
+    prismaMock.employee.findFirst.mockResolvedValue({
       id: "emp-self",
       tenantId: "tenant-a",
       userId: "user-admin-self",

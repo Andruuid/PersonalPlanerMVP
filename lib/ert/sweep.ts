@@ -1,3 +1,7 @@
+/* eslint-disable tenant/require-tenant-scope --
+ * Cron helper: invoked per-tenant; queries chain off cuid-globally-unique
+ * employeeId. Defense-in-depth deferred.
+ */
 import { addDays } from "date-fns";
 import type { PrismaClient } from "@/lib/generated/prisma/client";
 import { upsertAndAdvanceErtCases } from "@/lib/bookings/core";

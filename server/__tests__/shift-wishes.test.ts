@@ -10,6 +10,7 @@ const {
   prismaMock: {
     shiftWish: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       update: vi.fn(),
     },
     employee: {
@@ -67,7 +68,7 @@ describe("approveShiftWishAction CLOSED week protection", () => {
   });
 
   it("aborts without transaction or audit when week is CLOSED", async () => {
-    prismaMock.shiftWish.findUnique.mockResolvedValue({
+    prismaMock.shiftWish.findFirst.mockResolvedValue({
       id: "wish-1",
       tenantId: "tenant-a",
       employeeId: "emp-1",
@@ -110,7 +111,7 @@ describe("rejectShiftWishAction", () => {
   });
 
   it("rejects when request week is CLOSED (no block)", async () => {
-    prismaMock.shiftWish.findUnique.mockResolvedValue({
+    prismaMock.shiftWish.findFirst.mockResolvedValue({
       id: "wish-2",
       tenantId: "tenant-a",
       employeeId: "emp-1",
@@ -144,7 +145,7 @@ describe("withdrawShiftWishAction", () => {
   });
 
   it("withdraws own open wish with WITHDRAW audit action", async () => {
-    prismaMock.shiftWish.findUnique.mockResolvedValue({
+    prismaMock.shiftWish.findFirst.mockResolvedValue({
       id: "wish-3",
       tenantId: "tenant-a",
       employeeId: "emp-1",

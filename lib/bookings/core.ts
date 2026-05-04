@@ -9,6 +9,11 @@
  * Server-side wrappers in `server/bookings.ts` add auth, Zod validation,
  * audit-log writes, and `revalidatePath` calls on top of this layer.
  */
+/* eslint-disable tenant/require-tenant-scope --
+ * Internal helper module: callers in server/* resolve tenant scope before
+ * passing the cuid-globally-unique employeeId / weekId / bookingId into
+ * these helpers. Defense-in-depth tenant scoping deferred to post-MVP.
+ */
 
 import { addDays, addMonths } from "date-fns";
 import type { PrismaClient } from "@/lib/generated/prisma/client";

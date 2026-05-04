@@ -35,6 +35,9 @@ export async function decidePrivacyRequest(
   });
   if (!existing) return null;
 
+  // Tenant scope verified by the preceding findFirst. PrivacyRequest has no
+  // compound (tenantId, id) unique key, so update() must use the bare id.
+  // eslint-disable-next-line tenant/require-tenant-scope
   const updated = await prisma.privacyRequest.update({
     where: { id: input.requestId },
     data: {

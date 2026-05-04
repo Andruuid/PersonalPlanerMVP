@@ -19,6 +19,9 @@ export async function selectTenantAction(formData: FormData): Promise<void> {
     redirect("/login");
   }
 
+  // Cross-tenant by design: tenant picker resolves a user row across all
+  // memberships matching the authenticated email.
+  // eslint-disable-next-line tenant/require-tenant-scope
   const user = await prisma.user.findFirst({
     where: {
       id: selectedUserId,

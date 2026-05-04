@@ -9,6 +9,7 @@ const {
   prismaMock: {
     absenceRequest: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
     },
     employee: {
       findFirst: vi.fn(),
@@ -53,7 +54,7 @@ describe("approveRequestAction CLOSED week protection", () => {
   });
 
   it("aborts approval without audit or planEntry creation when the request touches a CLOSED week", async () => {
-    prismaMock.absenceRequest.findUnique.mockResolvedValue({
+    prismaMock.absenceRequest.findFirst.mockResolvedValue({
       id: "req-1",
       tenantId: "tenant-a",
       employeeId: "emp-1",

@@ -12,6 +12,7 @@ const {
   prismaMock: {
     serviceTemplate: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
     },
@@ -143,7 +144,7 @@ describe("service template defaultDays/requiredCount", () => {
     fd.set("defaultDay4", "on"); // Fr
     fd.set("requiredCount", "3");
 
-    prismaMock.serviceTemplate.findUnique.mockResolvedValueOnce({
+    prismaMock.serviceTemplate.findFirst.mockResolvedValueOnce({
       id: "svc-1",
       tenantId: "tenant-a",
       name: "Frühdienst",

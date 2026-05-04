@@ -243,13 +243,10 @@ export async function approveShiftWishAction(
     return { ok: false, error: parsedComment.error };
   }
 
-  const wish = await prisma.shiftWish.findUnique({
-    where: { id: wishId },
+  const wish = await prisma.shiftWish.findFirst({
+    where: { id: wishId, tenantId: admin.tenantId, deletedAt: null },
   });
-  if (!wish || wish.tenantId !== admin.tenantId) {
-    return { ok: false, error: "Wunsch nicht gefunden." };
-  }
-  if (wish.deletedAt) {
+  if (!wish) {
     return { ok: false, error: "Wunsch nicht gefunden." };
   }
   if (wish.status !== "OPEN") {
@@ -351,7 +348,9 @@ export async function approveShiftWishAction(
     });
     const week = weekRow
       ? weekRow.deletedAt
-        ? await tx.week.update({
+        ? // Tenant scope verified by week.findUnique by composite (tenantId, year, weekNumber) above.
+          // eslint-disable-next-line tenant/require-tenant-scope
+          await tx.week.update({
             where: { id: weekRow.id },
             data: { deletedAt: null, archivedUntil: null, deletedById: null },
           })
@@ -364,6 +363,8 @@ export async function approveShiftWishAction(
       throw new Error("CLOSED_WEEK_RACE");
     }
 
+    // PlanEntry has no tenantId; weekId tenant-scoped above.
+    // eslint-disable-next-line tenant/require-tenant-scope
     const existing = await tx.planEntry.findFirst({
       where: {
         weekId: week.id,
@@ -385,6 +386,7 @@ export async function approveShiftWishAction(
         previousKind: existing.kind,
         previousAbsenceType: existing.absenceType ?? null,
       });
+      // eslint-disable-next-line tenant/require-tenant-scope
       await tx.planEntry.update({
         where: { id: existing.id },
         data: softDeleteFields(admin.id),
@@ -430,6 +432,8 @@ export async function approveShiftWishAction(
       });
     }
 
+    // Tenant scope verified via the preceding shiftWish.findFirst above.
+    // eslint-disable-next-line tenant/require-tenant-scope
     await tx.shiftWish.update({
       where: { id: wishId },
       data: {
@@ -494,13 +498,10 @@ export async function rejectShiftWishAction(
     return { ok: false, error: parsedReason.error };
   }
 
-  const wish = await prisma.shiftWish.findUnique({
-    where: { id: wishId },
+  const wish = await prisma.shiftWish.findFirst({
+    where: { id: wishId, tenantId: admin.tenantId, deletedAt: null },
   });
-  if (!wish || wish.tenantId !== admin.tenantId) {
-    return { ok: false, error: "Wunsch nicht gefunden." };
-  }
-  if (wish.deletedAt) {
+  if (!wish) {
     return { ok: false, error: "Wunsch nicht gefunden." };
   }
   if (wish.status !== "OPEN") {
@@ -515,6 +516,8 @@ export async function rejectShiftWishAction(
   ];
   const touchedClosedWeek = status === "CLOSED";
 
+  // Tenant scope verified via the preceding shiftWish.findFirst above.
+  // eslint-disable-next-line tenant/require-tenant-scope
   await prisma.shiftWish.update({
     where: { id: wishId },
     data: {
@@ -555,22 +558,23 @@ export async function withdrawShiftWishAction(
     return { ok: false, error: "Kein Mitarbeitenden-Profil verknüpft." };
   }
 
-  const wish = await prisma.shiftWish.findUnique({
-    where: { id: wishId },
+  const wish = await prisma.shiftWish.findFirst({
+    where: {
+      id: wishId,
+      tenantId: employee.tenantId,
+      employeeId,
+      deletedAt: null,
+    },
   });
-  if (!wish || wish.tenantId !== employee.tenantId) {
+  if (!wish) {
     return { ok: false, error: "Wunsch nicht gefunden." };
-  }
-  if (wish.deletedAt) {
-    return { ok: false, error: "Wunsch nicht gefunden." };
-  }
-  if (wish.employeeId !== employeeId) {
-    return { ok: false, error: "Kein Zugriff auf diesen Wunsch." };
   }
   if (wish.status !== "OPEN") {
     return { ok: false, error: "Nur offene Wünsche können zurückgezogen werden." };
   }
 
+  // Tenant scope verified via the preceding shiftWish.findFirst above.
+  // eslint-disable-next-line tenant/require-tenant-scope
   await prisma.shiftWish.update({
     where: { id: wishId },
     data: {

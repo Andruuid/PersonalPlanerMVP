@@ -12,6 +12,7 @@ const {
   prismaMock: {
     location: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
     },
     holiday: {
       findMany: vi.fn(),
@@ -52,10 +53,7 @@ describe("holiday proposal + accept flow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     requireAdminMock.mockResolvedValue({ id: "admin-1", tenantId: "tenant-a" });
-    prismaMock.location.findUnique.mockResolvedValue({
-      tenantId: "tenant-a",
-      deletedAt: null,
-    });
+    prismaMock.location.findFirst.mockResolvedValue({ id: "loc-1" });
     writeAuditMock.mockResolvedValue(undefined);
   });
 

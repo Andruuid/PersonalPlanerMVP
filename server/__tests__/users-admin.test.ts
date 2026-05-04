@@ -14,6 +14,7 @@ const {
   prismaMock: {
     user: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       update: vi.fn(),
     },
     auditLog: {
@@ -69,7 +70,7 @@ describe("users-admin actions", () => {
   });
 
   it("locks/unlocks user and writes audit", async () => {
-    prismaMock.user.findUnique.mockResolvedValue({
+    prismaMock.user.findFirst.mockResolvedValue({
       id: "user-2",
       tenantId: "tenant-a",
       isActive: true,
@@ -93,7 +94,7 @@ describe("users-admin actions", () => {
   });
 
   it("changes role for another user and writes ROLE_CHANGE", async () => {
-    prismaMock.user.findUnique.mockResolvedValue({
+    prismaMock.user.findFirst.mockResolvedValue({
       id: "user-3",
       tenantId: "tenant-a",
       role: "EMPLOYEE",
@@ -117,7 +118,7 @@ describe("users-admin actions", () => {
   });
 
   it("allows ADMIN to demote another ADMIN to EMPLOYEE", async () => {
-    prismaMock.user.findUnique.mockResolvedValue({
+    prismaMock.user.findFirst.mockResolvedValue({
       id: "user-5",
       tenantId: "tenant-a",
       role: "ADMIN",
@@ -153,7 +154,7 @@ describe("users-admin actions", () => {
   });
 
   it("rejects editing users with SYSTEM_ADMIN role", async () => {
-    prismaMock.user.findUnique.mockResolvedValue({
+    prismaMock.user.findFirst.mockResolvedValue({
       id: "user-7",
       tenantId: "tenant-a",
       role: "SYSTEM_ADMIN",
@@ -170,7 +171,7 @@ describe("users-admin actions", () => {
   });
 
   it("resets password and audits passwordReset flag only", async () => {
-    prismaMock.user.findUnique.mockResolvedValue({
+    prismaMock.user.findFirst.mockResolvedValue({
       id: "user-4",
       tenantId: "tenant-a",
     });

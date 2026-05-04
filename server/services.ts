@@ -179,14 +179,11 @@ export async function updateServiceAction(
   }
   const data = parsed.data;
 
-  const before = await prisma.serviceTemplate.findUnique({
-    where: { id: data.id },
+  const before = await prisma.serviceTemplate.findFirst({
+    where: { id: data.id, tenantId: admin.tenantId },
   });
   if (!before) {
     return { ok: false, error: "Dienstvorlage nicht gefunden." };
-  }
-  if (before.tenantId !== admin.tenantId) {
-    return { ok: false, error: "Kein Zugriff auf diese Dienstvorlage." };
   }
 
   if (before.deletedAt) {
@@ -206,6 +203,8 @@ export async function updateServiceAction(
     }
   }
 
+  // Tenant scope verified via the preceding serviceTemplate.findFirst above.
+  // eslint-disable-next-line tenant/require-tenant-scope
   const updated = await prisma.serviceTemplate.update({
     where: { id: data.id },
     data: {
@@ -264,19 +263,18 @@ export async function setServiceActiveAction(
 ): Promise<ActionResult> {
   const admin = await requireAdmin();
 
-  const before = await prisma.serviceTemplate.findUnique({
-    where: { id: serviceId },
+  const before = await prisma.serviceTemplate.findFirst({
+    where: { id: serviceId, tenantId: admin.tenantId },
   });
   if (!before) {
     return { ok: false, error: "Dienstvorlage nicht gefunden." };
-  }
-  if (before.tenantId !== admin.tenantId) {
-    return { ok: false, error: "Kein Zugriff auf diese Dienstvorlage." };
   }
   if (before.deletedAt) {
     return { ok: false, error: "Dienstvorlage ist archiviert." };
   }
 
+  // Tenant scope verified via the preceding serviceTemplate.findFirst above.
+  // eslint-disable-next-line tenant/require-tenant-scope
   const updated = await prisma.serviceTemplate.update({
     where: { id: serviceId },
     data: { isActive },
@@ -301,19 +299,18 @@ export async function softDeleteServiceTemplateAction(
 ): Promise<ActionResult> {
   const admin = await requireAdmin();
 
-  const before = await prisma.serviceTemplate.findUnique({
-    where: { id: serviceId },
+  const before = await prisma.serviceTemplate.findFirst({
+    where: { id: serviceId, tenantId: admin.tenantId },
   });
   if (!before) {
     return { ok: false, error: "Dienstvorlage nicht gefunden." };
-  }
-  if (before.tenantId !== admin.tenantId) {
-    return { ok: false, error: "Kein Zugriff auf diese Dienstvorlage." };
   }
   if (before.deletedAt) {
     return { ok: false, error: "Dienstvorlage ist bereits archiviert." };
   }
 
+  // PlanEntry has no tenantId column; scoped via week.tenantId relational filter.
+  // eslint-disable-next-line tenant/require-tenant-scope
   const inActiveWeek = await prisma.planEntry.findFirst({
     where: {
       serviceTemplateId: serviceId,
@@ -335,6 +332,8 @@ export async function softDeleteServiceTemplateAction(
   }
 
   const archivedAt = new Date();
+  // Tenant scope verified via the preceding serviceTemplate.findFirst above.
+  // eslint-disable-next-line tenant/require-tenant-scope
   const updated = await prisma.serviceTemplate.update({
     where: { id: serviceId },
     data: {

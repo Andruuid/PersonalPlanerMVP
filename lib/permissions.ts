@@ -45,6 +45,8 @@ export function assertAuthenticated(
 export async function hasMultipleTenants(userEmail: string): Promise<boolean> {
   const email = userEmail.trim().toLowerCase();
   if (!email) return false;
+  // Cross-tenant by design: counts memberships of one email across all tenants.
+  // eslint-disable-next-line tenant/require-tenant-scope
   const count = await prisma.user.count({
     where: { email, isActive: true },
   });

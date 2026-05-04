@@ -35,17 +35,15 @@ export default async function LocationHolidaysPage({ params }: PageProps) {
   const admin = await requireAdmin();
   const { id } = await params;
 
-  const location = await prisma.location.findUnique({
-    where: { id },
+  const location = await prisma.location.findFirst({
+    where: { id, tenantId: admin.tenantId, deletedAt: null },
     select: {
       id: true,
       name: true,
-      tenantId: true,
-      deletedAt: true,
       holidayRegionCode: true,
     },
   });
-  if (!location || location.deletedAt || location.tenantId !== admin.tenantId) {
+  if (!location) {
     notFound();
   }
 

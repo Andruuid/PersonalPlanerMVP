@@ -81,15 +81,17 @@ export async function setAdminUserLockAction(
     return { ok: false, error: "Du kannst dich hier nicht selbst bearbeiten." };
   }
 
-  const before = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, tenantId: true, isActive: true },
+  const before = await prisma.user.findFirst({
+    where: { id: userId, tenantId: admin.tenantId },
+    select: { id: true, isActive: true },
   });
-  if (!before || before.tenantId !== admin.tenantId) {
+  if (!before) {
     return { ok: false, error: "Benutzer:in nicht gefunden." };
   }
 
   const nextIsActive = !locked;
+  // Tenant scope verified via the preceding user.findFirst above.
+  // eslint-disable-next-line tenant/require-tenant-scope
   await prisma.user.update({
     where: { id: userId },
     data: { isActive: nextIsActive },
@@ -121,11 +123,11 @@ export async function changeAdminUserRoleAction(
     return { ok: false, error: "Du kannst dich hier nicht selbst bearbeiten." };
   }
 
-  const before = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, tenantId: true, role: true },
+  const before = await prisma.user.findFirst({
+    where: { id: userId, tenantId: admin.tenantId },
+    select: { id: true, role: true },
   });
-  if (!before || before.tenantId !== admin.tenantId) {
+  if (!before) {
     return { ok: false, error: "Benutzer:in nicht gefunden." };
   }
   if (!TENANT_MANAGEABLE_ROLES.has(before.role)) {
@@ -135,6 +137,8 @@ export async function changeAdminUserRoleAction(
     return { ok: true };
   }
 
+  // Tenant scope verified via the preceding user.findFirst above.
+  // eslint-disable-next-line tenant/require-tenant-scope
   await prisma.user.update({
     where: { id: userId },
     data: { role },
@@ -167,17 +171,19 @@ export async function resetAdminUserPasswordAction(
     return { ok: false, error: "Du kannst dich hier nicht selbst bearbeiten." };
   }
 
-  const before = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, tenantId: true },
+  const before = await prisma.user.findFirst({
+    where: { id: userId, tenantId: admin.tenantId },
+    select: { id: true },
   });
-  if (!before || before.tenantId !== admin.tenantId) {
+  if (!before) {
     return { ok: false, error: "Benutzer:in nicht gefunden." };
   }
 
   const temporaryPassword = generateTemporaryPassword();
   const passwordHash = await bcrypt.hash(temporaryPassword, 10);
 
+  // Tenant scope verified via the preceding user.findFirst above.
+  // eslint-disable-next-line tenant/require-tenant-scope
   await prisma.user.update({
     where: { id: userId },
     data: { passwordHash },

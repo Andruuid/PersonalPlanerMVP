@@ -10,9 +10,11 @@ const {
     prismaMock: {
       employee: {
         findUnique: vi.fn(),
+        findFirst: vi.fn(),
       },
       planEntry: {
         findUnique: vi.fn(),
+        findFirst: vi.fn(),
       },
       week: {
         findFirst: vi.fn(),
@@ -57,7 +59,7 @@ describe("planning tenant isolation", () => {
   });
 
   it("rejects moving a plan entry to an employee from another tenant", async () => {
-    prismaMock.planEntry.findUnique.mockResolvedValue({
+    prismaMock.planEntry.findFirst.mockResolvedValue({
       id: "entry-a",
       weekId: "week-a",
       employeeId: "employee-a",
@@ -72,12 +74,10 @@ describe("planning tenant isolation", () => {
       absenceType: null,
       plannedMinutes: 480,
       comment: null,
-      week: { tenantId: "tenant-a" },
     });
-    prismaMock.employee.findUnique.mockResolvedValue({
-      tenantId: "tenant-b",
-      deletedAt: null,
-    });
+    // Employee in another tenant: findFirst with where: { tenantId: "tenant-a" }
+    // returns null because the employee is in tenant-b.
+    prismaMock.employee.findFirst.mockResolvedValue(null);
     prismaMock.week.findFirst.mockResolvedValue({
       id: "week-a",
       tenantId: "tenant-a",

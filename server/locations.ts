@@ -87,14 +87,15 @@ export async function updateLocationAction(
   }
   const data = parsed.data;
 
-  const before = await prisma.location.findUnique({ where: { id: data.id } });
-  if (!before || before.deletedAt) {
+  const before = await prisma.location.findFirst({
+    where: { id: data.id, tenantId: admin.tenantId, deletedAt: null },
+  });
+  if (!before) {
     return { ok: false, error: "Standort nicht gefunden." };
   }
-  if (before.tenantId !== admin.tenantId) {
-    return { ok: false, error: "Kein Zugriff auf diesen Standort." };
-  }
 
+  // Tenant scope verified via the preceding location.findFirst above.
+  // eslint-disable-next-line tenant/require-tenant-scope
   const updated = await prisma.location.update({
     where: { id: data.id },
     data: {

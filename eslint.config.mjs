@@ -31,10 +31,12 @@ const eslintConfig = defineConfig([
     rules: {
       // Hard requirement: every Prisma read/write must pass a `where` clause.
       "tenant/require-prisma-where": "error",
-      // Stronger requirement: the `where` clause must include `tenantId` (or
-      // a `tenantId_*` composite-unique key). Currently `warn` because there
-      // is a backlog of legacy call sites; flip to `error` once H5 lands.
-      "tenant/require-tenant-scope": "warn",
+      // Hard requirement: the `where` clause must include `tenantId` (or a
+      // `tenantId_*` composite-unique key). Legitimate cross-tenant queries
+      // (auth lookup, tenant picker, system-admin, internal helpers where
+      // upstream verified scope) are exempted via `eslint-disable-next-line`
+      // with an inline justification comment.
+      "tenant/require-tenant-scope": "error",
     },
   },
 ]);

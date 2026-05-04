@@ -1,3 +1,7 @@
+/* eslint-disable tenant/require-tenant-scope --
+ * Maintenance helper. Either operates per-tenant (tenantId already in scope
+ * via the option) or explicitly opts in to all-tenants via `allTenants: true`.
+ */
 import type { PrismaClient } from "@/lib/generated/prisma/client";
 
 export interface PurgeArchivedOptions {

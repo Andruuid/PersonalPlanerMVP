@@ -163,6 +163,8 @@ async function loadPublishMandatoryViolations(
   const weekStart = startOfIsoWeek(year, weekNumber);
 
   const [planEntries, streakPrefetchPlanEntries] = await Promise.all([
+    // PlanEntry has no tenantId column; scoped via employee relation.
+    // eslint-disable-next-line tenant/require-tenant-scope
     prisma.planEntry.findMany({
       where: {
         weekId,
@@ -175,6 +177,7 @@ async function loadPublishMandatoryViolations(
         },
       },
     }),
+    // eslint-disable-next-line tenant/require-tenant-scope
     prisma.planEntry.findMany({
       where: {
         deletedAt: null,
@@ -303,6 +306,8 @@ export async function buildWeekSnapshot(
         locationId: true,
       },
     }),
+    // PlanEntry has no tenantId column; scoped via employee relation.
+    // eslint-disable-next-line tenant/require-tenant-scope
     prisma.planEntry.findMany({
       where: { weekId, deletedAt: null, employee: { tenantId } },
       include: {
@@ -394,11 +399,10 @@ export async function publishWeekAction(
 ): Promise<ActionResult> {
   const admin = await requireAdmin();
 
-  const week = await prisma.week.findUnique({ where: { id: weekId } });
-  if (!week || week.deletedAt) return { ok: false, error: "Woche nicht gefunden." };
-  if (week.tenantId !== admin.tenantId) {
-    return { ok: false, error: "Kein Zugriff auf diese Woche." };
-  }
+  const week = await prisma.week.findFirst({
+    where: { id: weekId, tenantId: admin.tenantId, deletedAt: null },
+  });
+  if (!week) return { ok: false, error: "Woche nicht gefunden." };
   if (week.status === "CLOSED") {
     return {
       ok: false,
@@ -437,6 +441,8 @@ export async function publishWeekAction(
         publishedAt,
       },
     });
+    // Tenant scope verified via the preceding week.findFirst above.
+    // eslint-disable-next-line tenant/require-tenant-scope
     await tx.week.update({
       where: { id: weekId },
       data: { status: "PUBLISHED", publishedAt },
@@ -478,15 +484,16 @@ export async function resetWeekToDraftAction(
 ): Promise<ActionResult> {
   const admin = await requireAdmin();
 
-  const week = await prisma.week.findUnique({ where: { id: weekId } });
-  if (!week || week.deletedAt) return { ok: false, error: "Woche nicht gefunden." };
-  if (week.tenantId !== admin.tenantId) {
-    return { ok: false, error: "Kein Zugriff auf diese Woche." };
-  }
+  const week = await prisma.week.findFirst({
+    where: { id: weekId, tenantId: admin.tenantId, deletedAt: null },
+  });
+  if (!week) return { ok: false, error: "Woche nicht gefunden." };
   if (week.status !== "PUBLISHED") {
     return { ok: false, error: "Nur veröffentlichte Wochen können zurückgesetzt werden." };
   }
 
+  // Tenant scope verified via the preceding week.findFirst above.
+  // eslint-disable-next-line tenant/require-tenant-scope
   await prisma.week.update({
     where: { id: weekId },
     data: { status: "DRAFT" },
@@ -508,11 +515,10 @@ export async function resetWeekToDraftAction(
 export async function closeWeekAction(weekId: string): Promise<ActionResult> {
   const admin = await requireAdmin();
 
-  const week = await prisma.week.findUnique({ where: { id: weekId } });
-  if (!week || week.deletedAt) return { ok: false, error: "Woche nicht gefunden." };
-  if (week.tenantId !== admin.tenantId) {
-    return { ok: false, error: "Kein Zugriff auf diese Woche." };
-  }
+  const week = await prisma.week.findFirst({
+    where: { id: weekId, tenantId: admin.tenantId, deletedAt: null },
+  });
+  if (!week) return { ok: false, error: "Woche nicht gefunden." };
   if (week.status !== "PUBLISHED" && week.status !== "REOPENED") {
     return {
       ok: false,
@@ -528,6 +534,8 @@ export async function closeWeekAction(weekId: string): Promise<ActionResult> {
 
   const closedAt = new Date();
   try {
+    // Tenant scope verified via the preceding week.findFirst above.
+    // eslint-disable-next-line tenant/require-tenant-scope
     await prisma.week.update({
       where: { id: weekId },
       data: { status: "CLOSED", closedAt },
@@ -558,11 +566,10 @@ export async function reopenWeekAction(
 ): Promise<ActionResult> {
   const admin = await requireAdmin();
 
-  const week = await prisma.week.findUnique({ where: { id: weekId } });
-  if (!week || week.deletedAt) return { ok: false, error: "Woche nicht gefunden." };
-  if (week.tenantId !== admin.tenantId) {
-    return { ok: false, error: "Kein Zugriff auf diese Woche." };
-  }
+  const week = await prisma.week.findFirst({
+    where: { id: weekId, tenantId: admin.tenantId, deletedAt: null },
+  });
+  if (!week) return { ok: false, error: "Woche nicht gefunden." };
   if (week.status !== "CLOSED") {
     return {
       ok: false,
@@ -577,6 +584,8 @@ export async function reopenWeekAction(
   }
 
   try {
+    // Tenant scope verified via the preceding week.findFirst above.
+    // eslint-disable-next-line tenant/require-tenant-scope
     await prisma.week.update({
       where: { id: weekId },
       data: { status: "REOPENED", closedAt: null },

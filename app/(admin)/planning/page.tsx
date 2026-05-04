@@ -289,6 +289,8 @@ export default async function PlanningPage({ searchParams }: PageProps) {
         },
         orderBy: { name: "asc" },
       }),
+      // PlanEntry has no tenantId column; scoped via employee relation.
+      // eslint-disable-next-line tenant/require-tenant-scope
       prisma.planEntry.findMany({
         where: {
           weekId: week.id,
@@ -336,6 +338,8 @@ export default async function PlanningPage({ searchParams }: PageProps) {
       }),
     ]);
 
+  // PlanEntry has no tenantId column; scoped via employee relation.
+  // eslint-disable-next-line tenant/require-tenant-scope
   const streakPrefetchPlanEntries = await prisma.planEntry.findMany({
     where: {
       deletedAt: null,

@@ -96,11 +96,11 @@ export async function addHolidayAction(
     ),
   );
 
-  const location = await prisma.location.findUnique({
-    where: { id: data.locationId },
-    select: { tenantId: true, deletedAt: true },
+  const location = await prisma.location.findFirst({
+    where: { id: data.locationId, tenantId: admin.tenantId, deletedAt: null },
+    select: { id: true },
   });
-  if (!location || location.tenantId !== admin.tenantId || location.deletedAt) {
+  if (!location) {
     return {
       ok: false,
       error: "Standort nicht gefunden.",
@@ -146,14 +146,15 @@ export async function deleteHolidayAction(
 ): Promise<ActionResult> {
   const admin = await requireAdmin();
 
-  const before = await prisma.holiday.findUnique({ where: { id: holidayId } });
+  const before = await prisma.holiday.findFirst({
+    where: { id: holidayId, tenantId: admin.tenantId },
+  });
   if (!before) {
     return { ok: false, error: "Feiertag nicht gefunden." };
   }
-  if (before.tenantId !== admin.tenantId) {
-    return { ok: false, error: "Kein Zugriff auf diesen Feiertag." };
-  }
 
+  // Tenant scope verified via the preceding holiday.findFirst above.
+  // eslint-disable-next-line tenant/require-tenant-scope
   await prisma.holiday.delete({ where: { id: holidayId } });
 
   await writeAudit({
@@ -191,14 +192,11 @@ export async function generateRegionHolidaysAction(
   }
   const { locationId, year } = parsed.data;
 
-  const location = await prisma.location.findUnique({
-    where: { id: locationId },
+  const location = await prisma.location.findFirst({
+    where: { id: locationId, tenantId: admin.tenantId, deletedAt: null },
   });
-  if (!location || location.deletedAt) {
+  if (!location) {
     return { ok: false, error: "Standort nicht gefunden." };
-  }
-  if (location.tenantId !== admin.tenantId) {
-    return { ok: false, error: "Kein Zugriff auf diesen Standort." };
   }
 
   const defs = holidaysForRegion(location.holidayRegionCode, year);
@@ -262,15 +260,12 @@ export async function proposeHolidaysForLocationAction(
   }
   const data = parsed.data;
 
-  const location = await prisma.location.findUnique({
-    where: { id: data.locationId },
-    select: { tenantId: true, deletedAt: true },
+  const location = await prisma.location.findFirst({
+    where: { id: data.locationId, tenantId: admin.tenantId, deletedAt: null },
+    select: { id: true },
   });
-  if (!location || location.deletedAt) {
+  if (!location) {
     return { ok: false, error: "Standort nicht gefunden." };
-  }
-  if (location.tenantId !== admin.tenantId) {
-    return { ok: false, error: "Kein Zugriff auf diesen Standort." };
   }
 
   const defs =
@@ -303,15 +298,12 @@ export async function acceptProposedHolidaysAction(
   const data = parsed.data;
   const { start: yearStart, end: yearEnd } = yearBoundsUtc(data.year);
 
-  const location = await prisma.location.findUnique({
-    where: { id: data.locationId },
-    select: { tenantId: true, deletedAt: true },
+  const location = await prisma.location.findFirst({
+    where: { id: data.locationId, tenantId: admin.tenantId, deletedAt: null },
+    select: { id: true },
   });
-  if (!location || location.deletedAt) {
+  if (!location) {
     return { ok: false, error: "Standort nicht gefunden." };
-  }
-  if (location.tenantId !== admin.tenantId) {
-    return { ok: false, error: "Kein Zugriff auf diesen Standort." };
   }
 
   const uniqueByDate = new Map<string, string>();
@@ -363,14 +355,17 @@ export async function acceptProposedHolidaysAction(
     }
   }
 
+  // Tenant scope verified above: `current` filtered by tenantId, locationId tenant-scoped.
   await prisma.$transaction(async (tx) => {
     for (const row of current) {
       const iso = isoDateString(row.date);
       if (!desiredDateSet.has(iso)) {
+        // eslint-disable-next-line tenant/require-tenant-scope
         await tx.holiday.delete({ where: { id: row.id } });
       }
     }
     for (const item of desired) {
+      // eslint-disable-next-line tenant/require-tenant-scope
       await tx.holiday.upsert({
         where: {
           locationId_date: {

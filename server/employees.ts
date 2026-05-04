@@ -248,11 +248,11 @@ export async function createEmployeeAction(
     };
   }
 
-  const location = await prisma.location.findUnique({
-    where: { id: data.locationId },
-    select: { tenantId: true, deletedAt: true },
+  const location = await prisma.location.findFirst({
+    where: { id: data.locationId, tenantId: admin.tenantId, deletedAt: null },
+    select: { id: true },
   });
-  if (!location || location.tenantId !== admin.tenantId || location.deletedAt) {
+  if (!location) {
     return {
       ok: false,
       error: "Standort nicht gefunden.",
@@ -419,17 +419,14 @@ export async function updateEmployeeAction(
   const data = parsed.data;
   const emailLower = data.email.toLowerCase();
 
-  const before = await prisma.employee.findUnique({
-    where: { id: data.id },
+  const before = await prisma.employee.findFirst({
+    where: { id: data.id, tenantId: admin.tenantId },
     include: {
       user: { select: { id: true, email: true, isActive: true, role: true } },
     },
   });
   if (!before) {
     return { ok: false, error: "Mitarbeitende:r nicht gefunden." };
-  }
-  if (before.tenantId !== admin.tenantId) {
-    return { ok: false, error: "Kein Zugriff auf diese:n Mitarbeitende:n." };
   }
 
   if (emailLower !== before.user.email) {
@@ -445,11 +442,11 @@ export async function updateEmployeeAction(
     }
   }
 
-  const location = await prisma.location.findUnique({
-    where: { id: data.locationId },
-    select: { tenantId: true, deletedAt: true },
+  const location = await prisma.location.findFirst({
+    where: { id: data.locationId, tenantId: admin.tenantId, deletedAt: null },
+    select: { id: true },
   });
-  if (!location || location.tenantId !== admin.tenantId || location.deletedAt) {
+  if (!location) {
     return {
       ok: false,
       error: "Standort nicht gefunden.",
@@ -499,6 +496,8 @@ export async function updateEmployeeAction(
   const periodicUpdate = resolvePeriodicTztFields(data, before.tztLastGrantedAt);
 
   const { updated, exitSnapshotId } = await prisma.$transaction(async (tx) => {
+    // Tenant scope verified via the preceding employee.findFirst above.
+    // eslint-disable-next-line tenant/require-tenant-scope
     await tx.user.update({
       where: { id: before.userId },
       data: {
@@ -509,6 +508,7 @@ export async function updateEmployeeAction(
       },
     });
 
+    // eslint-disable-next-line tenant/require-tenant-scope
     const updatedEmployee = await tx.employee.update({
       where: { id: data.id },
       data: {
@@ -534,6 +534,9 @@ export async function updateEmployeeAction(
     });
 
     const nextExit = nextExitDate;
+    // employeeExitSnapshot is keyed by a unique employeeId; the employee row
+    // was already tenant-verified above.
+    // eslint-disable-next-line tenant/require-tenant-scope
     const existingSnap = await tx.employeeExitSnapshot.findUnique({
       where: { employeeId: data.id },
       select: { id: true },
@@ -639,15 +642,12 @@ export async function setEmployeeActiveAction(
 ): Promise<ActionResult> {
   const admin = await requireAdmin();
 
-  const before = await prisma.employee.findUnique({
-    where: { id: employeeId },
+  const before = await prisma.employee.findFirst({
+    where: { id: employeeId, tenantId: admin.tenantId },
     include: { user: { select: { id: true, isActive: true } } },
   });
   if (!before) {
     return { ok: false, error: "Mitarbeitende:r nicht gefunden." };
-  }
-  if (before.tenantId !== admin.tenantId) {
-    return { ok: false, error: "Kein Zugriff auf diese:n Mitarbeitende:n." };
   }
 
   if (!isActive && before.user.id === admin.id) {
@@ -657,11 +657,14 @@ export async function setEmployeeActiveAction(
     };
   }
 
+  // Tenant scope verified via the preceding employee.findFirst above.
   await prisma.$transaction(async (tx) => {
+    // eslint-disable-next-line tenant/require-tenant-scope
     await tx.user.update({
       where: { id: before.userId },
       data: { isActive },
     });
+    // eslint-disable-next-line tenant/require-tenant-scope
     await tx.employee.update({
       where: { id: employeeId },
       data: {
@@ -703,8 +706,8 @@ export async function setUserLockAction(
 ): Promise<ActionResult> {
   const admin = await requireAdmin();
 
-  const before = await prisma.employee.findUnique({
-    where: { id: employeeId },
+  const before = await prisma.employee.findFirst({
+    where: { id: employeeId, tenantId: admin.tenantId },
     include: {
       user: {
         select: { id: true, isActive: true },
@@ -713,9 +716,6 @@ export async function setUserLockAction(
   });
   if (!before) {
     return { ok: false, error: "Mitarbeitende:r nicht gefunden." };
-  }
-  if (before.tenantId !== admin.tenantId) {
-    return { ok: false, error: "Kein Zugriff auf diese:n Mitarbeitende:n." };
   }
 
   if (locked && before.userId === admin.id) {
@@ -731,6 +731,8 @@ export async function setUserLockAction(
   }
 
   const userIsActive = !locked;
+  // Tenant scope verified via the preceding employee.findFirst above.
+  // eslint-disable-next-line tenant/require-tenant-scope
   await prisma.user.update({
     where: { id: before.userId },
     data: { isActive: userIsActive },

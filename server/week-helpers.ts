@@ -25,6 +25,8 @@ export async function getOrCreateWeekForTenant(
   });
   if (existing && !existing.deletedAt) return existing as WeekIdentity;
   if (existing && existing.deletedAt) {
+    // Tenant scope verified via the preceding week.findUnique by composite (tenantId, year, weekNumber).
+    // eslint-disable-next-line tenant/require-tenant-scope
     const revived = await prisma.week.update({
       where: { id: existing.id },
       data: { deletedAt: null, archivedUntil: null, deletedById: null },
